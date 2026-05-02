@@ -1,6 +1,6 @@
 {
   "name": "@brna/runtime",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "In-app runtime: fiber walker, a11y reader, action dispatcher, snapshot serialiser",
   "repository": {
     "type": "git",
@@ -21,7 +21,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@brna/schema": "^0.0.5"
+    "@brna/schema": "^0.0.6"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

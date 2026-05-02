@@ -1,6 +1,6 @@
 {
   "name": "@brna/cli",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "brna CLI — agent-friendly snapshot and action surface for React Native apps",
   "repository": {
     "type": "git",
@@ -27,8 +27,8 @@
     "start": "bun run ./src/cli.ts"
   },
   "dependencies": {
-    "@brna/schema": "^0.0.5",
-    "@brna/core": "^0.0.5",
-    "@brna/mcp": "^0.0.5"
+    "@brna/schema": "^0.0.6",
+    "@brna/core": "^0.0.6",
+    "@brna/mcp": "^0.0.6"
   }
 }

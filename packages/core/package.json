@@ -1,6 +1,6 @@
 {
   "name": "@brna/core",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Selector engine, diff, and md/json/yaml serialisers (Node, no RN)",
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@brna/schema": "^0.0.5",
+    "@brna/schema": "^0.0.6",
     "yaml": "^2.5.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@brna/mcp",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "MCP stdio server bridging Claude/MCP clients to a brna runtime via Metro",
   "repository": {
     "type": "git",
@@ -27,8 +27,8 @@
     "start": "bun run ./src/server.ts"
   },
   "dependencies": {
-    "@brna/core": "^0.0.5",
-    "@brna/schema": "^0.0.5",
+    "@brna/core": "^0.0.6",
+    "@brna/schema": "^0.0.6",
     "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }

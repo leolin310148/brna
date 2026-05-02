@@ -147,6 +147,47 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      # Build schema dist up front so downstream packages' prepack scripts can
+      # resolve `@brna/schema/dist/brna-1.schema.json` during `npm publish`.
+      - name: Pre-build schema
+        run: bun run --cwd packages/schema build:schema
+
       # Auth happens via GitHub OIDC + npm Trusted Publishers (no NPM_TOKEN needed).
+      # Publishes per-workspace so we can skip versions that are already on the
+      # registry — important when a previous run partially published.
       - name: Publish to npm
-        run: npm publish --workspaces --access public --provenance
+        run: |
+          set -euo pipefail
+          mapfile -t entries < <(node -e "
+            const fs=require('fs');
+            const path=require('path');
+            const root=require('./package.json');
+            const globs=root.workspaces||[];
+            const dirs=new Set();
+            for(const g of globs){
+              if(g.endsWith('/*')){
+                const base=g.slice(0,-2);
+                for(const d of fs.readdirSync(base)){
+                  const full=path.join(base,d);
+                  if(fs.statSync(full).isDirectory()&&fs.existsSync(path.join(full,'package.json'))) dirs.add(full);
+                }
+              } else { dirs.add(g); }
+            }
+            for(const d of [...dirs].sort()){
+              const pkg=JSON.parse(fs.readFileSync(path.join(d,'package.json'),'utf8'));
+              if(pkg.private) continue;
+              process.stdout.write(d+'\t'+pkg.name+'\t'+pkg.version+'\n');
+            }
+          ")
+          for entry in "${entries[@]}"; do
+            dir="${entry%%$'\t'*}"
+            rest="${entry#*$'\t'}"
+            name="${rest%%$'\t'*}"
+            version="${rest##*$'\t'}"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "Skipping $name@$version — already published"
+              continue
+            fi
+            echo "Publishing $name@$version from $dir"
+            npm publish --workspace "$dir" --access public --provenance
+          done

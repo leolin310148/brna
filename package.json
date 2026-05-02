@@ -1,7 +1,7 @@
 {
   "name": "brna-monorepo",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Bring React Native Agent-friendly — monorepo root",
   "repository": {
     "type": "git",
