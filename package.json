@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.4",
   "description": "Bring React Native Agent-friendly — monorepo root",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolin310148/brna"
+  },
   "workspaces": [
     "packages/*"
   ],

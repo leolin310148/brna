@@ -2,6 +2,10 @@
   "name": "@brna/cli",
   "version": "0.0.4",
   "description": "brna CLI — agent-friendly snapshot and action surface for React Native apps",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolin310148/brna"
+  },
   "type": "module",
   "bin": {
     "brna": "./src/cli.ts"

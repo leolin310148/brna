@@ -2,6 +2,10 @@
   "name": "@brna/mcp",
   "version": "0.0.4",
   "description": "MCP stdio server bridging Claude/MCP clients to a brna runtime via Metro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolin310148/brna"
+  },
   "type": "module",
   "bin": {
     "brna-mcp": "./src/server.ts"

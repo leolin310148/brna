@@ -2,6 +2,10 @@
   "name": "@brna/babel-plugin",
   "version": "0.0.4",
   "description": "Babel plugin: inject brna runtime, annotate JSX with source location, strip in production",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolin310148/brna"
+  },
   "main": "./index.js",
   "scripts": {
     "test": "bun test"

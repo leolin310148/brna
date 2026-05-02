@@ -2,6 +2,10 @@
   "name": "@brna/docs",
   "version": "0.0.4",
   "description": "Astro documentation site for brna",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leolin310148/brna"
+  },
   "type": "module",
   "private": true,
   "scripts": {
