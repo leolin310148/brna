@@ -1,4 +1,12 @@
-import { DEFAULT_METRO_URL, DEFAULT_TIMEOUT_MS, fail, failWith, parseMetro, parseTimeout } from "./options.js";
+import {
+  DEFAULT_METRO_URL,
+  DEFAULT_TIMEOUT_MS,
+  diagnoseMetroResponse,
+  fail,
+  failWith,
+  parseMetro,
+  parseTimeout,
+} from "./options.js";
 
 interface DeviceInfo {
   id: string;
@@ -63,14 +71,26 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
   clearTimeout(timer);
 
   if (!response.ok) {
-    failWith(3, `unexpected HTTP ${response.status} from Metro`, stderr, exit);
+    const diagnosis = await diagnoseMetroResponse(response, "devices endpoint");
+    failWith(
+      3,
+      diagnosis ?? `unexpected HTTP ${response.status} from Metro`,
+      stderr,
+      exit,
+    );
   }
 
+  const diagnosis = await diagnoseMetroResponse(response, "devices endpoint");
   let payload: DevicesPayload;
   try {
     payload = (await response.json()) as DevicesPayload;
   } catch (err) {
-    failWith(3, `malformed devices response: ${(err as Error).message}`, stderr, exit);
+    failWith(
+      3,
+      diagnosis ?? `malformed devices response: ${(err as Error).message}`,
+      stderr,
+      exit,
+    );
   }
   const devices = Array.isArray(payload.devices) ? payload.devices : [];
 

@@ -54,3 +54,41 @@ export function failWith(
   stderr.write(`brna: ${reason}\n`);
   exit(code);
 }
+
+export async function diagnoseMetroResponse(
+  response: Response,
+  endpoint: string,
+): Promise<string | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = await response.clone().text().catch(() => "");
+  const trimmed = body.trimStart();
+  const isHtml =
+    contentType.toLowerCase().includes("text/html") ||
+    trimmed.startsWith("<!DOCTYPE html") ||
+    trimmed.startsWith("<html");
+
+  if (isHtml) {
+    return `${endpoint} returned HTML instead of brna JSON; brna Metro middleware is not mounted. Wrap metro.config.js with withBrna() and restart Metro.`;
+  }
+
+  if (!response.ok && body.length > 0) {
+    const line = firstUsefulDiagnosticLine(body);
+    if (line.length > 0) {
+      return `${endpoint} returned HTTP ${response.status}: ${line}`;
+    }
+  }
+
+  return null;
+}
+
+function firstUsefulDiagnosticLine(body: string): string {
+  const lines = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return (
+    lines.find((line) => /ENOENT|Cannot find module|Unable to resolve|Error:/i.test(line)) ??
+    lines[0] ??
+    ""
+  ).slice(0, 240);
+}

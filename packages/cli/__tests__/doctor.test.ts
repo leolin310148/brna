@@ -90,6 +90,43 @@ describe("brna doctor", () => {
     expect(res.stdout).toContain("no runtime connected");
   });
 
+  test("HTML devices endpoint diagnoses missing Metro middleware", async () => {
+    const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) {
+        return new Response("<!DOCTYPE html><html></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        });
+      }
+      if (url.includes("/index.bundle")) return new Response("__brnaSource", { status: 200 });
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("brna Metro middleware is not mounted");
+    expect(res.stdout).toContain("withBrna()");
+  });
+
+  test("bundle HTTP 500 includes useful Metro error body line", async () => {
+    const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) return new Response(JSON.stringify({ devices: [{ id: "dev-a" }] }), { status: 200 });
+      if (url.includes("/index.bundle")) {
+        return new Response("Error: ENOENT: no such file or directory, open '@brna/runtime'", { status: 500 });
+      }
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("bundle returned HTTP 500");
+    expect(res.stdout).toContain("ENOENT");
+  });
+
   test("missing babel fingerprint exits 1", async () => {
     const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
     const fetchImpl: typeof fetch = async (input) => {

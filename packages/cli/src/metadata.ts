@@ -67,6 +67,18 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     ],
   },
   {
+    name: "verify",
+    description: "Validate a snapshot file against the brna schema.",
+    usage: "brna verify <snapshot.json|snapshot.yaml> [--format json|yaml]",
+    options: [
+      { name: "--format", description: "Input format. Defaults to the file extension when possible." },
+    ],
+    examples: [
+      "brna verify snapshot.json",
+      "brna verify snapshot.yaml --format yaml",
+    ],
+  },
+  {
     name: "devices",
     description: "List brna runtimes connected through the Metro bridge.",
     usage: "brna devices [--json] [--metro <url>] [--timeout <ms>]",
@@ -87,4 +99,68 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     ],
     examples: ["brna mcp", "brna mcp --device ios-sim"],
   },
+  {
+    name: "config",
+    description: "Manage local brna CLI configuration such as redaction rules.",
+    usage: "brna config <init|show|path>",
+    options: [],
+    examples: [
+      "brna config init",
+      "brna config show",
+      "brna config path",
+    ],
+  },
+  {
+    name: "trace",
+    description: "Record snapshot and action events for an agent session.",
+    usage: "brna trace <start|stop|status|path>",
+    options: [],
+    examples: [
+      "brna trace start",
+      "brna trace status",
+      "brna trace stop",
+    ],
+  },
 ];
+
+export function commandByName(name: string): CliCommandMetadata | undefined {
+  return CLI_COMMANDS.find((command) => command.name === name || command.aliases?.includes(name));
+}
+
+export function formatGlobalHelp(): string {
+  const commands = CLI_COMMANDS.map((command) => {
+    const aliases = command.aliases?.length ? ` (${command.aliases.join(", ")})` : "";
+    return `  ${command.name}${aliases.padEnd(Math.max(0, 13 - command.name.length))} ${command.description}`;
+  }).join("\n");
+  return [
+    "brna - agent-friendly snapshot and action surface for React Native apps",
+    "",
+    "Usage:",
+    "  brna <command> [args]",
+    "",
+    "Commands:",
+    commands,
+    "",
+    "Run 'brna <command> --help' for command-specific examples.",
+    `Docs: ${DOCS_URL}`,
+  ].join("\n") + "\n";
+}
+
+export function formatCommandHelp(command: CliCommandMetadata): string {
+  const aliases = command.aliases?.length ? `\nAliases:\n  ${command.aliases.join(", ")}` : "";
+  const options = command.options.length
+    ? `\nOptions:\n${command.options.map((option) => `  ${option.name.padEnd(12)} ${option.description}`).join("\n")}`
+    : "";
+  const examples = command.examples.length
+    ? `\nExamples:\n${command.examples.map((example) => `  ${example}`).join("\n")}`
+    : "";
+  return [
+    command.description,
+    "",
+    "Usage:",
+    `  ${command.usage}`,
+    aliases,
+    options,
+    examples,
+  ].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}

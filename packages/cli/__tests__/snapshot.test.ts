@@ -35,6 +35,7 @@ async function runSnapshotInMemory(
     fresh?: Snapshot;
     baseline?: Snapshot | null;
     fetchReject?: Error;
+    fetchResponse?: Response;
     writeWarning?: string | null;
   } = {},
 ): Promise<{ code: number; stdout: string; stderr: string; writes: Snapshot[] }> {
@@ -46,6 +47,7 @@ async function runSnapshotInMemory(
     await runSnapshot(rest, {
       fetch: async () => {
         if (options.fetchReject) throw options.fetchReject;
+        if (options.fetchResponse) return options.fetchResponse;
         return new Response(JSON.stringify(fresh), { status: 200 });
       },
       readSnapshotCache: async () => options.baseline ?? null,
@@ -192,6 +194,19 @@ describe("snapshot --diff", () => {
     const result = await runSnapshotInMemory(["--diff"], { baseline: makeSnapshot(), fetchReject: new Error("offline") });
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("could not connect to Metro");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("HTML snapshot response diagnoses missing Metro middleware", async () => {
+    const result = await runSnapshotInMemory([], {
+      fetchResponse: new Response("<!DOCTYPE html><html></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("brna Metro middleware is not mounted");
+    expect(result.stderr).toContain("withBrna()");
     expect(result.writes).toEqual([]);
   });
 

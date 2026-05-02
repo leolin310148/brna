@@ -1,6 +1,6 @@
 {
   "name": "@brna/schema",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "brna snapshot schema: JSON Schema, TypeScript types, version constants",
   "repository": {
     "type": "git",
@@ -21,6 +21,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:schema": "ts-json-schema-generator --path src/types.ts --type Snapshot --tsconfig tsconfig.json --out dist/brna-1.schema.json --no-type-check",
+    "prepack": "bun run build:schema",
     "test": "bun test"
   },
   "dependencies": {

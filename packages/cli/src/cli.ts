@@ -7,7 +7,7 @@ import { runVerify } from "./verify.js";
 import { runMcp } from "./mcp.js";
 import { runConfig } from "./config.js";
 import { runTrace } from "./trace.js";
-import { DOCS_URL } from "./metadata.js";
+import { DOCS_URL, commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
 
 const argv = process.argv.slice(2);
 if (argv.length === 0) {
@@ -17,7 +17,34 @@ if (argv.length === 0) {
   process.exit(4);
 }
 
-const [subcommand, ...rest] = argv;
+const subcommand = argv[0]!;
+const rest = argv.slice(1);
+if (subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
+  const commandName = rest[0];
+  if (commandName === undefined) {
+    process.stdout.write(formatGlobalHelp());
+    process.exit(0);
+  }
+  const command = commandByName(commandName);
+  if (!command) {
+    process.stderr.write(`brna: unknown subcommand '${commandName}'\n`);
+    process.exit(4);
+  }
+  process.stdout.write(formatCommandHelp(command));
+  process.exit(0);
+}
+
+const commandHelp = rest.includes("--help") || rest.includes("-h");
+const command = commandByName(subcommand);
+if (commandHelp) {
+  if (!command) {
+    process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
+    process.exit(4);
+  }
+  process.stdout.write(formatCommandHelp(command));
+  process.exit(0);
+}
+
 if (subcommand === "snapshot" || subcommand === "snap") {
   void runSnapshot(rest);
 } else if (subcommand === "act") {

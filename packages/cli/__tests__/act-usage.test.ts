@@ -13,6 +13,30 @@ function run(args: string[]) {
 }
 
 describe("act usage errors (no Metro contact)", () => {
+  test("global --help exits 0", () => {
+    const r = run(["--help"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("Usage:");
+    expect(r.stdout).toContain("snapshot");
+    expect(r.stderr).toBe("");
+  });
+
+  test("subcommand --help exits 0", () => {
+    const r = run(["snapshot", "--help"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("brna snapshot");
+    expect(r.stdout).toContain("--diff");
+    expect(r.stderr).toBe("");
+  });
+
+  test("help subcommand alias exits 0", () => {
+    const r = run(["help", "act"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("brna act");
+    expect(r.stdout).toContain("brna act type");
+    expect(r.stderr).toBe("");
+  });
+
   test("unknown subcommand exits 4", () => {
     const r = run(["wat"]);
     expect(r.status).toBe(4);

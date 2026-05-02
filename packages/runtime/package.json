@@ -1,6 +1,6 @@
 {
   "name": "@brna/runtime",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "In-app runtime: fiber walker, a11y reader, action dispatcher, snapshot serialiser",
   "repository": {
     "type": "git",
@@ -17,10 +17,11 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "bun build src/index.ts src/auto.ts --outdir dist --target browser --format esm --external react --external react-native"
+    "build": "bun build src/index.ts src/auto.ts --outdir dist --target browser --format esm --external react --external react-native",
+    "prepack": "bun run build"
   },
   "dependencies": {
-    "@brna/schema": "workspace:*"
+    "@brna/schema": "^0.0.5"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

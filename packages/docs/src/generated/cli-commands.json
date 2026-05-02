@@ -95,6 +95,21 @@
     ]
   },
   {
+    "name": "verify",
+    "description": "Validate a snapshot file against the brna schema.",
+    "usage": "brna verify <snapshot.json|snapshot.yaml> [--format json|yaml]",
+    "options": [
+      {
+        "name": "--format",
+        "description": "Input format. Defaults to the file extension when possible."
+      }
+    ],
+    "examples": [
+      "brna verify snapshot.json",
+      "brna verify snapshot.yaml --format yaml"
+    ]
+  },
+  {
     "name": "devices",
     "description": "List brna runtimes connected through the Metro bridge.",
     "usage": "brna devices [--json] [--metro <url>] [--timeout <ms>]",
@@ -134,6 +149,28 @@
     "examples": [
       "brna mcp",
       "brna mcp --device ios-sim"
+    ]
+  },
+  {
+    "name": "config",
+    "description": "Manage local brna CLI configuration such as redaction rules.",
+    "usage": "brna config <init|show|path>",
+    "options": [],
+    "examples": [
+      "brna config init",
+      "brna config show",
+      "brna config path"
+    ]
+  },
+  {
+    "name": "trace",
+    "description": "Record snapshot and action events for an agent session.",
+    "usage": "brna trace <start|stop|status|path>",
+    "options": [],
+    "examples": [
+      "brna trace start",
+      "brna trace status",
+      "brna trace stop"
     ]
   }
 ]

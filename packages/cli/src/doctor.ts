@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { DEFAULT_METRO_URL, DEFAULT_TIMEOUT_MS, fail, parseMetro, parseTimeout } from "./options.js";
+import {
+  DEFAULT_METRO_URL,
+  DEFAULT_TIMEOUT_MS,
+  diagnoseMetroResponse,
+  fail,
+  parseMetro,
+  parseTimeout,
+} from "./options.js";
 
 export interface CompatRange {
   min: string;
@@ -149,9 +156,25 @@ async function checkRuntimeConnected(
     const res = await fetchImpl(`${metro}/brna/devices`, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) {
-      return { name: "runtime", status: "fail", message: `devices endpoint returned HTTP ${res.status}` };
+      const diagnosis = await diagnoseMetroResponse(res, "devices endpoint");
+      return {
+        name: "runtime",
+        status: "fail",
+        message: diagnosis ?? `devices endpoint returned HTTP ${res.status}`,
+      };
     }
-    const body = (await res.json()) as { devices?: unknown[] };
+    const diagnosis = await diagnoseMetroResponse(res, "devices endpoint");
+    let body: { devices?: unknown[] };
+    try {
+      body = (await res.json()) as { devices?: unknown[] };
+    } catch (err) {
+      return {
+        name: "runtime",
+        status: "fail",
+        message:
+          diagnosis ?? `could not parse devices endpoint JSON: ${(err as Error).message}`,
+      };
+    }
     const count = Array.isArray(body.devices) ? body.devices.length : 0;
     if (count === 0) {
       return {
@@ -184,7 +207,11 @@ async function checkBabelFingerprint(
     });
     clearTimeout(timer);
     if (!res.ok) {
-      return { name: "babel-plugin", status: "fail", message: `bundle returned HTTP ${res.status}` };
+      return {
+        name: "babel-plugin",
+        status: "fail",
+        message: (await diagnoseMetroResponse(res, "bundle")) ?? `bundle returned HTTP ${res.status}`,
+      };
     }
     const text = await res.text();
     if (text.includes(BABEL_FINGERPRINT)) {

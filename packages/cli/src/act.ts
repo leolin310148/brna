@@ -11,6 +11,7 @@ import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
   DEVICE_HEADER,
+  diagnoseMetroResponse,
   fail,
   parseDevice,
   parseMetro,
@@ -277,13 +278,23 @@ async function fetchSnapshot(shared: SharedFlags): Promise<Snapshot> {
   if (response.status === 504) fail(6, "runtime timed out fetching pre-action snapshot");
   if (response.status === 502) fail(6, "runtime error fetching pre-action snapshot");
   if (response.status === 429) fail(6, "another request is in flight");
-  if (!response.ok) fail(6, `unexpected HTTP ${response.status} fetching pre-action snapshot`);
+  if (!response.ok) {
+    const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
+    fail(
+      6,
+      diagnosis ?? `unexpected HTTP ${response.status} fetching pre-action snapshot`,
+    );
+  }
 
+  const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
   let snapshot: Snapshot;
   try {
     snapshot = (await response.json()) as Snapshot;
   } catch (err) {
-    fail(6, `malformed pre-action snapshot: ${(err as Error).message}`);
+    fail(
+      6,
+      diagnosis ?? `malformed pre-action snapshot: ${(err as Error).message}`,
+    );
   }
   try {
     validateSnapshot(snapshot);
@@ -350,5 +361,6 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
     }
     fail(5, `action refused: ${body.code ?? "unknown"}`);
   }
-  fail(6, `unexpected HTTP ${response.status} from Metro`);
+  const diagnosis = await diagnoseMetroResponse(response, "action endpoint");
+  fail(6, diagnosis ?? `unexpected HTTP ${response.status} from Metro`);
 }

@@ -7,6 +7,7 @@ import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
   DEVICE_HEADER,
+  diagnoseMetroResponse,
   fail,
   parseDevice,
   parseMetro,
@@ -135,14 +136,26 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     failWith(3, "another snapshot request is already in flight", stderr, exit);
   }
   if (!response.ok) {
-    failWith(3, `unexpected HTTP ${response.status} from Metro`, stderr, exit);
+    const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
+    failWith(
+      3,
+      diagnosis ?? `unexpected HTTP ${response.status} from Metro`,
+      stderr,
+      exit,
+    );
   }
 
+  const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
   let snapshot: Snapshot;
   try {
     snapshot = (await response.json()) as Snapshot;
   } catch (err) {
-    failWith(3, `malformed JSON in snapshot response: ${(err as Error).message}`, stderr, exit);
+    failWith(
+      3,
+      diagnosis ?? `malformed JSON in snapshot response: ${(err as Error).message}`,
+      stderr,
+      exit,
+    );
   }
 
   try {

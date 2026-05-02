@@ -1,6 +1,6 @@
 {
   "name": "@brna/expo-plugin",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Expo Config Plugin: zero-config integration of @brna/babel-plugin and @brna/metro-plugin",
   "repository": {
     "type": "git",
@@ -22,7 +22,8 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build src/index.ts --outfile dist/index.cjs --target node --format cjs --external expo --external @expo/config-plugins --external @brna/metro-plugin --external @brna/babel-plugin"
+    "build": "bun build src/index.ts --outfile dist/index.cjs --target node --format cjs --external expo --external @expo/config-plugins --external @brna/metro-plugin --external @brna/babel-plugin",
+    "prepack": "bun run build"
   },
   "peerDependencies": {
     "expo": "*"

@@ -1,6 +1,6 @@
 {
   "name": "@brna/mcp",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "MCP stdio server bridging Claude/MCP clients to a brna runtime via Metro",
   "repository": {
     "type": "git",
@@ -8,8 +8,12 @@
   },
   "type": "module",
   "bin": {
-    "brna-mcp": "./src/server.ts"
+    "brna-mcp": "./dist/brna-mcp"
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -18,11 +22,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "build": "bun build ./src/server.ts --compile --outfile dist/brna-mcp",
+    "prepack": "bun run build",
     "start": "bun run ./src/server.ts"
   },
   "dependencies": {
-    "@brna/core": "workspace:*",
-    "@brna/schema": "workspace:*",
+    "@brna/core": "^0.0.5",
+    "@brna/schema": "^0.0.5",
     "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }
