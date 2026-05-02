@@ -1,0 +1,10 @@
+events:
+  - id: sign-in-btn
+    node:
+      actions:
+        - tap
+      id: sign-in-btn
+      kind: button
+      name: Sign In
+    parent_id: screen-home
+    type: added

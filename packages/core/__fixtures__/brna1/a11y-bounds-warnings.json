@@ -1,0 +1,132 @@
+{
+  "meta": {
+    "app": {
+      "bundle_id": "com.example.app",
+      "rn_version": "0.76.0",
+      "version": "1.0.0 (1)"
+    },
+    "captured_at": "2026-05-01T12:00:00.000Z",
+    "device": {
+      "locale": "en-US",
+      "model": "iPhone 15 Pro",
+      "os_version": "17.4",
+      "platform": "ios",
+      "viewport": {
+        "h": 852,
+        "scale": 3,
+        "w": 393
+      }
+    },
+    "schema_version": "brna/1",
+    "session_id": "00000000-0000-0000-0000-000000000001",
+    "snapshot_id": "00000000-0000-0000-0000-000000000002",
+    "warnings": [
+      {
+        "code": "bounds_unavailable",
+        "node": "ghost-view"
+      }
+    ]
+  },
+  "screen": {
+    "modal_stack": [],
+    "route": "/a11y-demo",
+    "title": "A11y Demo"
+  },
+  "tree": {
+    "bounds": {
+      "h": 852,
+      "w": 393,
+      "x": 0,
+      "y": 0
+    },
+    "children": [
+      {
+        "accessibility_hint": "Adds the item to your cart",
+        "accessibility_label": "Add to cart",
+        "bounds": {
+          "h": 48,
+          "w": 361,
+          "x": 16,
+          "y": 60
+        },
+        "id": "add-btn",
+        "kind": "button",
+        "name": "Add to cart",
+        "role": "button"
+      },
+      {
+        "bounds": {
+          "h": 32,
+          "w": 200,
+          "x": 16,
+          "y": 120
+        },
+        "id": "page-heading",
+        "kind": "heading",
+        "name": "Settings",
+        "role": "header"
+      },
+      {
+        "accessibility_label": "Notifications",
+        "bounds": {
+          "h": 44,
+          "w": 361,
+          "x": 16,
+          "y": 168
+        },
+        "id": "notifications-toggle",
+        "kind": "toggle",
+        "name": "Notifications",
+        "role": "switch",
+        "state": [
+          "checked"
+        ]
+      },
+      {
+        "accessibility_label": "Volume",
+        "bounds": {
+          "h": 32,
+          "w": 361,
+          "x": 16,
+          "y": 224
+        },
+        "id": "volume-slider",
+        "kind": "slider",
+        "name": "Volume",
+        "range": {
+          "max": 100,
+          "min": 0,
+          "now": 70
+        },
+        "role": "slider"
+      },
+      {
+        "accessibility_label": "Refreshing",
+        "bounds": {
+          "h": 24,
+          "w": 361,
+          "x": 16,
+          "y": 272
+        },
+        "id": "loading-banner",
+        "kind": "group",
+        "name": "Refreshing",
+        "state": [
+          "loading"
+        ]
+      },
+      {
+        "bounds": {
+          "h": 0,
+          "w": 0,
+          "x": 0,
+          "y": 0
+        },
+        "id": "ghost-view",
+        "kind": "group"
+      }
+    ],
+    "id": "screen-a11y",
+    "kind": "screen"
+  }
+}

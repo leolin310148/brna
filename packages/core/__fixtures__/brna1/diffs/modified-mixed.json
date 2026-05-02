@@ -1,0 +1,39 @@
+{
+  "events": [
+    {
+      "changes": [
+        {
+          "after": "leo@",
+          "before": "",
+          "field": "value"
+        },
+        {
+          "after": "Email",
+          "before": "Email address",
+          "field": "name"
+        },
+        {
+          "after": [
+            "focused"
+          ],
+          "before": [
+            "loading",
+            "selected"
+          ],
+          "field": "state"
+        }
+      ],
+      "id": "email",
+      "node": {
+        "id": "email",
+        "kind": "input",
+        "name": "Email",
+        "state": [
+          "focused"
+        ],
+        "value": "leo@"
+      },
+      "type": "modified"
+    }
+  ]
+}

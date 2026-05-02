@@ -1,0 +1,22 @@
+{
+  "name": "brna-monorepo",
+  "private": true,
+  "version": "0.0.3",
+  "description": "Bring React Native Agent-friendly — monorepo root",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:schema": "bun --filter '@brna/schema' build:schema",
+    "e2e:expo-sample": "bun test e2e/expo-sample.test.ts",
+    "typecheck": "bun --filter '*' typecheck",
+    "test": "bun --filter '@brna/schema' test && bun --filter '@brna/core' test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/bun": "latest"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}

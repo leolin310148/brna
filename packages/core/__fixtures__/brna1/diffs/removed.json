@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "id": "toast_42",
+      "node": {
+        "id": "toast_42",
+        "kind": "toast",
+        "name": "Saved"
+      },
+      "parent_id": "screen-home",
+      "type": "removed"
+    }
+  ]
+}

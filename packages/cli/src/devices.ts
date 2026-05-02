@@ -1,0 +1,106 @@
+import { DEFAULT_METRO_URL, DEFAULT_TIMEOUT_MS, fail, failWith, parseMetro, parseTimeout } from "./options.js";
+
+interface DeviceInfo {
+  id: string;
+  platform?: string;
+  os_version?: string;
+  app_version?: string;
+  registered_at?: number;
+}
+
+interface DevicesPayload {
+  devices: DeviceInfo[];
+}
+
+interface DevicesRuntime {
+  fetch?: typeof fetch;
+  stdout?: Pick<typeof process.stdout, "write">;
+  stderr?: Pick<typeof process.stderr, "write">;
+  exit?: (code: number) => never;
+}
+
+interface ParsedArgs {
+  metro: string;
+  timeoutMs: number;
+  json: boolean;
+}
+
+function parseArgs(rest: string[]): ParsedArgs {
+  let metro = DEFAULT_METRO_URL;
+  let timeoutMs = DEFAULT_TIMEOUT_MS;
+  let json = false;
+  for (let i = 0; i < rest.length; i++) {
+    const token = rest[i]!;
+    if (token === "--metro") metro = parseMetro(rest[++i]);
+    else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
+    else if (token === "--json") json = true;
+    else fail(4, `unknown flag '${token}'`);
+  }
+  return { metro, timeoutMs, json };
+}
+
+export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): Promise<void> {
+  const { metro, timeoutMs, json } = parseArgs(rest);
+  const fetchImpl = runtime.fetch ?? fetch;
+  const stdout = runtime.stdout ?? process.stdout;
+  const stderr = runtime.stderr ?? process.stderr;
+  const exit = runtime.exit ?? process.exit;
+
+  const url = `${metro}/brna/devices`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetchImpl(url, { signal: controller.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    const e = err as { name?: string };
+    if (e?.name === "AbortError") {
+      failWith(2, `devices request timed out after ${timeoutMs}ms`, stderr, exit);
+    }
+    failWith(1, `could not connect to Metro at ${metro}`, stderr, exit);
+  }
+  clearTimeout(timer);
+
+  if (!response.ok) {
+    failWith(3, `unexpected HTTP ${response.status} from Metro`, stderr, exit);
+  }
+
+  let payload: DevicesPayload;
+  try {
+    payload = (await response.json()) as DevicesPayload;
+  } catch (err) {
+    failWith(3, `malformed devices response: ${(err as Error).message}`, stderr, exit);
+  }
+  const devices = Array.isArray(payload.devices) ? payload.devices : [];
+
+  if (json) {
+    stdout.write(JSON.stringify({ devices }, null, 2));
+    stdout.write("\n");
+    exit(0);
+  }
+
+  if (devices.length === 0) {
+    stdout.write("No devices connected.\n");
+    exit(0);
+  }
+
+  stdout.write(formatDevicesTable(devices));
+  exit(0);
+}
+
+export function formatDevicesTable(devices: DeviceInfo[]): string {
+  const headers: string[] = ["ID", "PLATFORM", "OS", "APP"];
+  const rows: string[][] = devices.map((d) => [
+    d.id,
+    d.platform ?? "?",
+    d.os_version ?? "?",
+    d.app_version ?? "?",
+  ]);
+  const widths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)),
+  );
+  const fmt = (cells: string[]): string =>
+    cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
+  return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}

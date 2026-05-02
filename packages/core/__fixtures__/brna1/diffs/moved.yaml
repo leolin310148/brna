@@ -1,0 +1,9 @@
+events:
+  - from_parent: ""
+    id: nav
+    node:
+      id: nav
+      kind: region
+      name: Navigation
+    to_parent: main
+    type: moved

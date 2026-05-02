@@ -1,0 +1,37 @@
+---
+import Base from "../layouts/Base.astro";
+import commands from "../generated/cli-commands.json";
+---
+<Base title="Docs">
+  <h1>brna documentation</h1>
+  <p class="muted">CLI reference and agent integration guidance for React Native dev sessions.</p>
+
+  <input class="search" type="search" placeholder="Search commands and guides" data-search />
+
+  <section class="grid" data-results>
+    {commands.map((command) => (
+      <article class="card" data-index={`${command.name} ${command.description} ${command.examples.join(" ")}`}>
+        <h3>{command.name}</h3>
+        <p>{command.description}</p>
+        <a href="/cli">CLI reference</a>
+      </article>
+    ))}
+    <article class="card" data-index="mcp agents integration tools snapshot action selector">
+      <h3>Agent integration</h3>
+      <p>Connect MCP clients to a running brna runtime and dispatch actions from selectors.</p>
+      <a href="/agents">Agent guide</a>
+    </article>
+  </section>
+
+  <script>
+    const input = document.querySelector("[data-search]");
+    const cards = Array.from(document.querySelectorAll("[data-index]"));
+    input?.addEventListener("input", () => {
+      const q = input.value.toLowerCase();
+      for (const card of cards) {
+        const hit = card.getAttribute("data-index")?.toLowerCase().includes(q);
+        card.toggleAttribute("hidden", q.length > 0 && !hit);
+      }
+    });
+  </script>
+</Base>

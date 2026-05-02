@@ -1,0 +1,25 @@
+---
+import Base from "../layouts/Base.astro";
+import commands from "../generated/cli-commands.json";
+---
+<Base title="CLI Reference">
+  <h1>CLI reference</h1>
+  <p class="muted">Generated from the brna CLI metadata source.</p>
+
+  {commands.map((command) => (
+    <section class="card">
+      <h2>{command.name}</h2>
+      <p>{command.description}</p>
+      <pre>{command.usage}</pre>
+      {command.options.length > 0 && (
+        <ul>
+          {command.options.map((option) => (
+            <li><code>{option.name}</code> - {option.description}</li>
+          ))}
+        </ul>
+      )}
+      <h3>Examples</h3>
+      <pre>{command.examples.join("\n")}</pre>
+    </section>
+  ))}
+</Base>

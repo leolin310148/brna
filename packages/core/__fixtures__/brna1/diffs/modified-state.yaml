@@ -1,0 +1,16 @@
+events:
+  - changes:
+      - after:
+          - focused
+        before:
+          - idle
+        field: state
+    id: email
+    node:
+      id: email
+      kind: input
+      name: Email
+      state:
+        - focused
+      value: leo@
+    type: modified

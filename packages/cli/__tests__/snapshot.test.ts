@@ -1,0 +1,204 @@
+import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import { SCHEMA_VERSION, validateSnapshot, type Snapshot } from "@brna/schema";
+import { diff, fromDiffJSON, fromDiffYAML, fromJSON, fromYAML } from "@brna/core";
+import { projectDiff, projectSnapshot, runSnapshot } from "../src/snapshot.js";
+
+const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
+
+function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
+  return {
+    meta: {
+      schema_version: SCHEMA_VERSION,
+      captured_at: "2026-05-01T12:00:00.000Z",
+      app: { bundle_id: "x", version: "1.0.0" },
+      device: {
+        platform: "ios",
+        os_version: "17.4",
+        model: "iPhone",
+        viewport: { w: 393, h: 852, scale: 3 },
+        locale: "en-US",
+      },
+      session_id: "s",
+      snapshot_id: "n",
+    },
+    screen: { modal_stack: [] },
+    tree: { id: "root", kind: "screen" },
+    ...over,
+  };
+}
+
+async function runSnapshotInMemory(
+  rest: string[],
+  options: {
+    fresh?: Snapshot;
+    baseline?: Snapshot | null;
+    fetchReject?: Error;
+    writeWarning?: string | null;
+  } = {},
+): Promise<{ code: number; stdout: string; stderr: string; writes: Snapshot[] }> {
+  let stdout = "";
+  let stderr = "";
+  const writes: Snapshot[] = [];
+  const fresh = options.fresh ?? makeSnapshot();
+  try {
+    await runSnapshot(rest, {
+      fetch: async () => {
+        if (options.fetchReject) throw options.fetchReject;
+        return new Response(JSON.stringify(fresh), { status: 200 });
+      },
+      readSnapshotCache: async () => options.baseline ?? null,
+      writeSnapshotCache: async (snapshot) => {
+        writes.push(snapshot);
+        return options.writeWarning ?? null;
+      },
+      stdout: { write: (chunk: string | Uint8Array) => ((stdout += String(chunk)), true) },
+      stderr: { write: (chunk: string | Uint8Array) => ((stderr += String(chunk)), true) },
+      exit: (code) => {
+        throw Object.assign(new Error("exit"), { code });
+      },
+    });
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "number") return { code, stdout, stderr, writes };
+    throw err;
+  }
+  throw new Error("expected runSnapshot to exit");
+}
+
+describe("CLI --format flag (subprocess, never reaches Metro)", () => {
+  test("--format xml exits 4 with the expected stderr", () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", "xml"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("unknown --format value 'xml'");
+    expect(result.stderr).toContain("expected md|json|yaml");
+  });
+
+  test('--format "" exits 4', () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", ""], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("unknown --format value");
+  });
+
+  test("--format markdown alias is rejected", () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", "markdown"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+  });
+
+  test("--format JSON (case-different) is rejected", () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", "JSON"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+  });
+});
+
+describe("projectSnapshot", () => {
+  test("md output equals toMarkdown default", () => {
+    const snap = makeSnapshot();
+    const a = projectSnapshot(snap, "md");
+    const b = projectSnapshot(snap, "md");
+    expect(a).toBe(b);
+    expect(a).toContain("# Snapshot");
+  });
+
+  test("json output passes validateSnapshot after parse", () => {
+    const snap = makeSnapshot();
+    const text = projectSnapshot(snap, "json");
+    const parsed = fromJSON(text);
+    expect(() => validateSnapshot(parsed)).not.toThrow();
+  });
+
+  test("yaml output round-trips through fromYAML and validates", () => {
+    const snap = makeSnapshot();
+    const text = projectSnapshot(snap, "yaml");
+    const parsed = fromYAML(text);
+    expect(() => validateSnapshot(parsed)).not.toThrow();
+  });
+});
+
+describe("projectDiff", () => {
+  test("projects markdown/json/yaml diffs", () => {
+    const d = diff(makeSnapshot(), makeSnapshot({ tree: { id: "root", kind: "screen", name: "Home" } }));
+    expect(projectDiff(d, "md")).toContain("~ screen#root");
+    expect(fromDiffJSON(projectDiff(d, "json"))).toEqual(d);
+    expect(fromDiffYAML(projectDiff(d, "yaml"))).toEqual(d);
+  });
+});
+
+describe("snapshot --diff", () => {
+  test("plain snapshot refreshes the baseline", async () => {
+    const fresh = makeSnapshot({ tree: { id: "root", kind: "screen", name: "Home" } });
+    const result = await runSnapshotInMemory([], { fresh });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("# Snapshot");
+    expect(result.stderr).toBe("");
+    expect(result.writes).toEqual([fresh]);
+  });
+
+  test("markdown --diff emits diff and refreshes rolling baseline", async () => {
+    const baseline = makeSnapshot();
+    const fresh = makeSnapshot({ tree: { id: "root", kind: "screen", children: [{ id: "x", kind: "button", name: "X" }] } });
+    const result = await runSnapshotInMemory(["--diff"], { baseline, fresh });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe('+ button#x "X"\n');
+    expect(result.stderr).toBe("");
+    expect(result.writes).toEqual([fresh]);
+  });
+
+  test("json and yaml --diff honour format", async () => {
+    const baseline = makeSnapshot();
+    const fresh = makeSnapshot({ tree: { id: "root", kind: "screen", name: "Home" } });
+    const expected = diff(baseline, fresh);
+    const json = await runSnapshotInMemory(["--diff", "--format", "json"], { baseline, fresh });
+    const yaml = await runSnapshotInMemory(["--diff", "--format", "yaml"], { baseline, fresh });
+    expect(fromDiffJSON(json.stdout)).toEqual(expected);
+    expect(fromDiffYAML(yaml.stdout)).toEqual(expected);
+  });
+
+  test("identical markdown --diff emits zero stdout bytes", async () => {
+    const snapshot = makeSnapshot();
+    const result = await runSnapshotInMemory(["--diff"], { baseline: snapshot, fresh: snapshot });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+    expect(result.writes).toEqual([snapshot]);
+  });
+
+  test("no baseline exits 6 and does not refresh cache", async () => {
+    const result = await runSnapshotInMemory(["--diff"], { baseline: null });
+    expect(result.code).toBe(6);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("brna: no baseline snapshot in this session — run brna snapshot first\n");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("fetch failure keeps existing connection-error code and does not touch cache", async () => {
+    const result = await runSnapshotInMemory(["--diff"], { baseline: makeSnapshot(), fetchReject: new Error("offline") });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("could not connect to Metro");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("cache write warning does not fail successful snapshot", async () => {
+    const result = await runSnapshotInMemory([], { writeWarning: "ENOSPC" });
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe("brna: warning: snapshot cache write failed: ENOSPC\n");
+    expect(result.writes).toHaveLength(1);
+  });
+});

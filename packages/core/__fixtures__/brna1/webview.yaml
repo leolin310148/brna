@@ -1,0 +1,35 @@
+meta:
+  app:
+    bundle_id: com.example.app
+    rn_version: 0.76.0
+    version: 1.0.0 (1)
+  captured_at: 2026-05-01T12:00:00.000Z
+  device:
+    locale: en-US
+    model: iPhone 15 Pro
+    os_version: "17.4"
+    platform: ios
+    viewport:
+      h: 852
+      scale: 3
+      w: 393
+  schema_version: brna/1
+  session_id: 00000000-0000-0000-0000-000000000001
+  snapshot_id: 00000000-0000-0000-0000-000000000002
+screen:
+  modal_stack: []
+  route: /legal/tos
+  title: Terms of Service
+tree:
+  children:
+    - actions:
+        - tap
+      id: back-btn
+      kind: button
+      name: Back
+    - id: tos-webview
+      kind: webview
+      name: Terms of Service
+      url: https://example.com/legal/tos
+  id: screen-tos
+  kind: screen

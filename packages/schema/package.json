@@ -1,0 +1,28 @@
+{
+  "name": "@brna/schema",
+  "version": "0.0.3",
+  "description": "brna snapshot schema: JSON Schema, TypeScript types, version constants",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./validate": "./src/validate.ts",
+    "./identity": "./src/identity.ts",
+    "./errors": "./src/errors.ts",
+    "./types": "./src/types.ts",
+    "./actions": "./src/actions.ts",
+    "./schema-json": "./dist/brna-1.schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:schema": "ts-json-schema-generator --path src/types.ts --type Snapshot --tsconfig tsconfig.json --out dist/brna-1.schema.json --no-type-check",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ajv": "^8.17.0"
+  },
+  "devDependencies": {
+    "ts-json-schema-generator": "^2.3.0"
+  }
+}

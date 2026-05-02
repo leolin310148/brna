@@ -1,0 +1,16 @@
+{
+  "name": "@brna/babel-plugin",
+  "version": "0.0.3",
+  "description": "Babel plugin: inject brna runtime, annotate JSX with source location, strip in production",
+  "main": "./index.js",
+  "scripts": {
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@babel/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.0.0",
+    "@babel/plugin-syntax-jsx": "^7.0.0"
+  }
+}

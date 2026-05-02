@@ -1,0 +1,19 @@
+{
+  "name": "@brna/docs",
+  "version": "0.0.3",
+  "description": "Astro documentation site for brna",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "extract:cli": "bun run ./scripts/extract-cli-metadata.ts",
+    "build": "bun run extract:cli && ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev"
+  },
+  "dependencies": {
+    "astro": "^5.7.0",
+    "@brna/cli": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

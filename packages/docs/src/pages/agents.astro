@@ -1,0 +1,18 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Agent Integration">
+  <h1>Agent integration</h1>
+  <p class="muted">Use the MCP server when an agent needs snapshots and actions through one protocol.</p>
+
+  <section class="card">
+    <h2>MCP setup</h2>
+    <pre>brna mcp --metro http://localhost:8081</pre>
+    <p>The server exposes the current snapshot as <code>brna://current/snapshot</code> and action tools for <code>tap</code>, <code>type</code>, <code>scroll</code>, <code>swipe</code>, <code>long_press</code>, and <code>key</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>Selector flow</h2>
+    <p>Read the snapshot, choose a selector such as <code>#save</code> or <code>button:Submit</code>, then call the matching action tool. The MCP server resolves selectors with the same engine as the CLI before posting to Metro.</p>
+  </section>
+</Base>

@@ -1,0 +1,53 @@
+meta:
+  app:
+    bundle_id: com.example.app
+    rn_version: 0.76.0
+    version: 1.0.0 (1)
+  captured_at: 2026-05-01T12:00:00.000Z
+  device:
+    locale: en-US
+    model: iPhone 15 Pro
+    os_version: "17.4"
+    platform: ios
+    viewport:
+      h: 852
+      scale: 3
+      w: 393
+  schema_version: brna/1
+  session_id: 00000000-0000-0000-0000-000000000001
+  snapshot_id: 00000000-0000-0000-0000-000000000002
+screen:
+  modal_stack: []
+  route: /feed
+  title: Feed
+tree:
+  children:
+    - children:
+        - id: item-0
+          kind: list_item
+          name: Item 1
+          text: Item 1
+        - id: item-1
+          kind: list_item
+          name: Item 2
+          text: Item 2
+        - id: item-2
+          kind: list_item
+          name: Item 3
+          text: Item 3
+        - id: item-3
+          kind: list_item
+          name: Item 4
+          text: Item 4
+        - id: item-4
+          kind: list_item
+          name: Item 5
+          text: Item 5
+      id: feed-list
+      kind: list
+      total_count: 1000
+      visible_range:
+        end: 4
+        start: 0
+  id: screen-feed
+  kind: screen

@@ -1,0 +1,22 @@
+{
+  "name": "@brna/core",
+  "version": "0.0.3",
+  "description": "Selector engine, diff, and md/json/yaml serialisers (Node, no RN)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./serialise": "./src/serialise/index.ts",
+    "./diff": "./src/diff/index.ts",
+    "./selector": "./src/selector/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@brna/schema": "workspace:*",
+    "yaml": "^2.5.0"
+  }
+}

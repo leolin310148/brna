@@ -1,0 +1,33 @@
+{
+  "name": "@brna/metro-plugin",
+  "version": "0.0.3",
+  "description": "Expo config plugin + Metro middleware: HTTP/WebSocket surface inside Metro process",
+  "main": "./dist/index.cjs",
+  "types": "./src/index.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build src/index.ts --outfile dist/index.cjs --target node --format cjs --external ws"
+  },
+  "dependencies": {
+    "@brna/schema": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.12"
+  },
+  "peerDependencies": {
+    "metro": "*",
+    "expo": "*"
+  }
+}
