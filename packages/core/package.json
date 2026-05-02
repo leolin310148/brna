@@ -1,6 +1,6 @@
 {
   "name": "@brna/core",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Selector engine, diff, and md/json/yaml serialisers (Node, no RN)",
   "type": "module",
   "main": "./src/index.ts",

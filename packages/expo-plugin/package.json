@@ -1,6 +1,6 @@
 {
   "name": "@brna/expo-plugin",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Expo Config Plugin: zero-config integration of @brna/babel-plugin and @brna/metro-plugin",
   "main": "./dist/index.cjs",
   "types": "./src/index.ts",

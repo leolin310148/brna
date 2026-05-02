@@ -1,6 +1,6 @@
 {
   "name": "@brna/cli",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "brna CLI — agent-friendly snapshot and action surface for React Native apps",
   "type": "module",
   "bin": {

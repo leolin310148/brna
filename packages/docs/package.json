@@ -1,6 +1,6 @@
 {
   "name": "@brna/docs",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Astro documentation site for brna",
   "type": "module",
   "private": true,

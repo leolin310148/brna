@@ -3,10 +3,82 @@ name: Publish to npm
 on:
   release:
     types: [published]
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 0.0.4
+        required: true
+        type: string
 
 jobs:
+  create-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version
+        run: |
+          version="${{ inputs.version }}"
+          version="${version#v}"
+          tag="v${version}"
+
+          node - "$version" <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const { join } = require("node:path");
+
+          const version = process.argv[2];
+          const packages = [
+            "package.json",
+            "packages/babel-plugin/package.json",
+            "packages/cli/package.json",
+            "packages/core/package.json",
+            "packages/docs/package.json",
+            "packages/expo-plugin/package.json",
+            "packages/mcp/package.json",
+            "packages/metro-plugin/package.json",
+            "packages/runtime/package.json",
+            "packages/schema/package.json",
+          ];
+
+          for (const file of packages) {
+            const pkg = JSON.parse(readFileSync(join(process.cwd(), file), "utf8"));
+            if (pkg.version !== version) {
+              throw new Error(`${file} is ${pkg.version}, expected ${version}`);
+            }
+          }
+          NODE
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists locally"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ inputs.version }}"
+          version="${version#v}"
+          tag="v${version}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "$tag"
+          git push origin "$tag"
+          gh release create "$tag" --title "$tag" --notes "Release $tag"
+
   publish:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -14,6 +86,39 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate release tag
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version#v}"
+
+          node - "$version" <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const { join } = require("node:path");
+
+          const version = process.argv[2];
+          const packages = [
+            "package.json",
+            "packages/babel-plugin/package.json",
+            "packages/cli/package.json",
+            "packages/core/package.json",
+            "packages/docs/package.json",
+            "packages/expo-plugin/package.json",
+            "packages/mcp/package.json",
+            "packages/metro-plugin/package.json",
+            "packages/runtime/package.json",
+            "packages/schema/package.json",
+          ];
+
+          for (const file of packages) {
+            const pkg = JSON.parse(readFileSync(join(process.cwd(), file), "utf8"));
+            if (pkg.version !== version) {
+              throw new Error(`${file} is ${pkg.version}, expected ${version}`);
+            }
+          }
+          NODE
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1

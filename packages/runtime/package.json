@@ -1,6 +1,6 @@
 {
   "name": "@brna/runtime",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "In-app runtime: fiber walker, a11y reader, action dispatcher, snapshot serialiser",
   "type": "module",
   "main": "./index.js",

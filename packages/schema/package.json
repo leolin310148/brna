@@ -1,6 +1,6 @@
 {
   "name": "@brna/schema",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "brna snapshot schema: JSON Schema, TypeScript types, version constants",
   "type": "module",
   "main": "./src/index.ts",
