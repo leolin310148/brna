@@ -11,22 +11,35 @@ on:
         type: string
 
 jobs:
-  create-release:
-    if: github.event_name == 'workflow_dispatch'
+  prepare-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${{ github.event.release.tag_name }}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          version="${version#v}"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
       - name: Validate version
         run: |
-          version="${{ inputs.version }}"
-          version="${version#v}"
-          tag="v${version}"
+          version="${{ steps.version.outputs.version }}"
 
           node - "$version" <<'NODE'
           const { readFileSync } = require("node:fs");
@@ -54,31 +67,32 @@ jobs:
           }
           NODE
 
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists locally"
-            exit 1
-          fi
-          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists on origin"
-            exit 1
-          fi
-
       - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${{ inputs.version }}"
-          version="${version#v}"
-          tag="v${version}"
+          tag="${{ steps.version.outputs.tag }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" -m "$tag"
-          git push origin "$tag"
-          gh release create "$tag" --title "$tag" --notes "Release $tag"
+
+          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin"
+          else
+            git tag -a "$tag" -m "$tag"
+            git push origin "$tag"
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "GitHub Release $tag already exists"
+          else
+            gh release create "$tag" --title "$tag" --notes "Release $tag"
+          fi
 
   publish:
-    if: github.event_name == 'release'
+    needs: prepare-release
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,12 +101,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ needs.prepare-release.outputs.tag }}
 
       - name: Validate release tag
         run: |
-          version="${{ github.event.release.tag_name }}"
-          version="${version#v}"
+          version="${{ needs.prepare-release.outputs.version }}"
 
           node - "$version" <<'NODE'
           const { readFileSync } = require("node:fs");
