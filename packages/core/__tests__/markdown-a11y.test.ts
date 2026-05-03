@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Node } from "@brna/schema";
-import { toMarkdown } from "../src/serialise/index.js";
+import { toActiveLayerMarkdown, toMarkdown } from "../src/serialise/index.js";
 import { makeSnapshot } from "../__fixtures__/brna1/_helpers.js";
 
 function snapshotWith(tree: Node) {
@@ -45,6 +45,62 @@ describe("markdown projection — accessibility fields", () => {
     expect(md).toContain('"Close"');
     // No separate accessibility_label token
     expect(md).not.toContain("accessibility_label");
+  });
+});
+
+describe("markdown projection — screen and active layer", () => {
+  test("header falls back to visible screen id when route metadata is missing", () => {
+    const md = toMarkdown(
+      makeSnapshot({
+        screen: { modal_stack: [] },
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [{ id: "screen:checkout", kind: "list", name: "Checkout" }],
+        },
+      }),
+    );
+    expect(md).toContain("# Snapshot · screen:checkout · iPhone 15 Pro");
+    expect(md).toContain("inferred_screen: screen:checkout");
+  });
+
+  test("header inference prefers page screen over root container", () => {
+    const md = toMarkdown(
+      makeSnapshot({
+        screen: { modal_stack: [] },
+        tree: {
+          id: "screen:root",
+          kind: "screen",
+          children: [
+            { id: "nav", kind: "group" },
+            { id: "screen:checkout", kind: "list", name: "Checkout" },
+          ],
+        },
+      }),
+    );
+    expect(md).toContain("# Snapshot · screen:checkout · iPhone 15 Pro");
+    expect(md).toContain("inferred_screen: screen:checkout");
+  });
+
+  test("active layer markdown focuses modal-like nodes", () => {
+    const md = toActiveLayerMarkdown(
+      snapshotWith({
+        id: "root",
+        kind: "screen",
+        children: [
+          { id: "background", kind: "button", name: "Background" },
+          {
+            id: "checkout-review-modal",
+            kind: "group",
+            children: [{ id: "checkout-place-order", kind: "button", name: "Place order" }],
+          },
+        ],
+      }),
+    );
+    expect(md).toContain("## active layer");
+    expect(md).toContain("group#checkout-review-modal");
+    expect(md).toContain("button#checkout-place-order");
+    expect(md).not.toContain("Background");
   });
 });
 

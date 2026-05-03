@@ -88,6 +88,7 @@ describe("brna doctor", () => {
     const res = await run([], { fs, fetchImpl });
     expect(res.code).toBe(1);
     expect(res.stdout).toContain("no runtime connected");
+    expect(res.stdout).toContain("does not support Expo web runtimes");
   });
 
   test("missing runtime reports last-seen disconnected device when Metro has history", async () => {

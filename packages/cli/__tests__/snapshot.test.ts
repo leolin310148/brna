@@ -36,6 +36,7 @@ async function runSnapshotInMemory(
     baseline?: Snapshot | null;
     fetchReject?: Error;
     fetchResponse?: Response;
+    fetchResponses?: Response[];
     writeWarning?: string | null;
   } = {},
 ): Promise<{ code: number; stdout: string; stderr: string; writes: Snapshot[] }> {
@@ -47,6 +48,7 @@ async function runSnapshotInMemory(
     await runSnapshot(rest, {
       fetch: async () => {
         if (options.fetchReject) throw options.fetchReject;
+        if (options.fetchResponses && options.fetchResponses.length > 0) return options.fetchResponses.shift()!;
         if (options.fetchResponse) return options.fetchResponse;
         return new Response(JSON.stringify(fresh), { status: 200 });
       },
@@ -215,6 +217,57 @@ describe("snapshot --diff", () => {
     expect(result.code).toBe(0);
     expect(result.stderr).toBe("brna: warning: snapshot cache write failed: ENOSPC\n");
     expect(result.writes).toHaveLength(1);
+  });
+
+  test("retries an in-flight snapshot before succeeding", async () => {
+    const fresh = makeSnapshot({ tree: { id: "root", kind: "screen", name: "Home" } });
+    const result = await runSnapshotInMemory([], {
+      fresh,
+      fetchResponses: [
+        new Response(JSON.stringify({ error: "request_in_flight" }), { status: 429 }),
+        new Response(JSON.stringify(fresh), { status: 200 }),
+      ],
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("Home");
+    expect(result.writes).toEqual([fresh]);
+  });
+
+  test("persistent in-flight snapshot has actionable error", async () => {
+    const result = await runSnapshotInMemory(["--timeout", "20"], {
+      fetchResponse: new Response(JSON.stringify({ error: "request_in_flight" }), { status: 429 }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("retry this brna command after the previous command finishes");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("--active-layer projects only modal-like markdown nodes", async () => {
+    const fresh = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          { id: "background", kind: "button", name: "Background" },
+          { id: "checkout-review-modal", kind: "group", children: [{ id: "place", kind: "button", name: "Place" }] },
+        ],
+      },
+    });
+    const result = await runSnapshotInMemory(["--active-layer"], { fresh });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("## active layer");
+    expect(result.stdout).toContain("checkout-review-modal");
+    expect(result.stdout).not.toContain("Background");
+  });
+
+  test("--active-layer rejects --diff", () => {
+    const result = spawnSync(
+      "bun",
+      ["run", CLI_PATH, "snapshot", "--active-layer", "--diff"],
+      { env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8", timeout: 5000 },
+    );
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("--active-layer cannot be combined with --diff");
   });
 });
 

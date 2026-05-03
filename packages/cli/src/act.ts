@@ -13,6 +13,7 @@ import {
   DEVICE_HEADER,
   diagnoseMetroResponse,
   fail,
+  fetchWithInFlightRetry,
   parseDevice,
   parseMetro,
   parseTimeout,
@@ -258,28 +259,24 @@ async function runWithSelector(
 
 async function fetchSnapshot(shared: SharedFlags): Promise<Snapshot> {
   const url = `${shared.metro}/brna/snapshot`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), shared.timeoutMs);
   const headers: Record<string, string> = {};
   if (shared.device !== undefined) headers[DEVICE_HEADER] = shared.device;
   let response: Response;
   try {
-    response = await fetch(url, { signal: controller.signal, headers });
+    response = await fetchWithInFlightRetry((signal) => fetch(url, { signal, headers }), shared.timeoutMs);
   } catch (err) {
-    clearTimeout(timer);
     const e = err as { name?: string };
     if (e?.name === "AbortError") {
       fail(6, `pre-action snapshot timed out after ${shared.timeoutMs}ms`);
     }
     fail(1, `could not connect to Metro at ${shared.metro}`);
   }
-  clearTimeout(timer);
 
   if (response.status === 503) fail(6, "no runtime connected");
   if (response.status === 404) fail(6, `unknown device '${shared.device ?? "?"}'`);
   if (response.status === 504) fail(6, "runtime timed out fetching pre-action snapshot");
   if (response.status === 502) fail(6, "runtime error fetching pre-action snapshot");
-  if (response.status === 429) fail(6, "another request is in flight");
+  if (response.status === 429) fail(6, "another request is in flight; retry this brna command after the previous command finishes");
   if (!response.ok) {
     const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
     fail(
@@ -308,25 +305,25 @@ async function fetchSnapshot(shared: SharedFlags): Promise<Snapshot> {
 
 async function postAction(shared: SharedFlags, action: ActionRequest): Promise<void> {
   const url = `${shared.metro}/brna/action`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), shared.timeoutMs);
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (shared.device !== undefined) headers[DEVICE_HEADER] = shared.device;
   let response: Response;
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(action),
-      signal: controller.signal,
-    });
+    response = await fetchWithInFlightRetry(
+      (signal) =>
+        fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(action),
+          signal,
+        }),
+      shared.timeoutMs,
+    );
   } catch (err) {
-    clearTimeout(timer);
     const e = err as { name?: string };
     if (e?.name === "AbortError") fail(6, `action timed out after ${shared.timeoutMs}ms`);
     fail(1, `could not connect to Metro at ${shared.metro}`);
   }
-  clearTimeout(timer);
 
   if (response.status === 204) {
     const snapshotAfter = (await activeTracePath()) ? await fetchSnapshot(shared) : undefined;
@@ -352,7 +349,7 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
   if (response.status === 503) fail(6, "no runtime connected");
   if (response.status === 404) fail(6, `unknown device '${shared.device ?? "?"}'`);
   if (response.status === 504) fail(6, "runtime timed out");
-  if (response.status === 429) fail(6, "another request is in flight");
+  if (response.status === 429) fail(6, "another request is in flight; retry this brna command after the previous command finishes");
   if (response.status === 400) {
     let body: { message?: string } = {};
     try {

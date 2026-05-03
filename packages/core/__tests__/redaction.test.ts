@@ -39,9 +39,18 @@ describe("snapshot redaction", () => {
     expect(out).not.toContain("leo@example.com");
   });
 
-  test("redacts secure field text and values by default", () => {
+  test("redacts non-empty secure field values by default", () => {
     const out = toMarkdown(snapshot());
-    expect(out).toContain("<secret>");
+    expect(out).toContain("<redacted>");
     expect(out).not.toContain("myPassword123");
+  });
+
+  test("keeps secure labels and renders empty secure values as empty", () => {
+    const snap = snapshot();
+    snap.tree.children = [
+      { id: "password", kind: "input", name: "Password", value: "", state: ["secure"] },
+    ];
+    const out = toMarkdown(snap);
+    expect(out).toContain('input#password "Password" = "" [secure]');
   });
 });

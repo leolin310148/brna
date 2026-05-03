@@ -5,7 +5,7 @@
       "snap"
     ],
     "description": "Capture the current app snapshot from a connected brna runtime.",
-    "usage": "brna snapshot [--format json|md|yaml] [--diff] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna snapshot [--format json|md|yaml] [--diff] [--active-layer] [--metro <url>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--format",
@@ -14,6 +14,10 @@
       {
         "name": "--diff",
         "description": "Compare against the rolling session baseline."
+      },
+      {
+        "name": "--active-layer",
+        "description": "Print only active modal, sheet, popover, toast, or overlay nodes in markdown output."
       },
       {
         "name": "--metro",
@@ -30,6 +34,7 @@
     ],
     "examples": [
       "brna snapshot",
+      "brna snapshot --active-layer",
       "brna snap --format json",
       "brna snapshot --diff --device ios-sim"
     ]

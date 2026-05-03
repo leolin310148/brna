@@ -22,9 +22,27 @@ export function toMarkdown(snapshot: Snapshot, options: RedactionOptions = {}): 
   return lines.join("\n") + "\n";
 }
 
+export function toActiveLayerMarkdown(snapshot: Snapshot, options: RedactionOptions = {}): string {
+  snapshot = redactSnapshot(snapshot, options);
+  const lines: string[] = [];
+  lines.push(headerLine(snapshot));
+  lines.push(sessionLine(snapshot));
+  lines.push("");
+  lines.push("## active layer");
+  const active = activeLayerRoots(snapshot);
+  if (active.length === 0) {
+    lines.push("- none");
+  } else {
+    for (const node of active) renderNode(node, 0, lines);
+  }
+  return lines.join("\n") + "\n";
+}
+
 function headerLine(snapshot: Snapshot): string {
-  const route = snapshot.screen.route ?? "(no route)";
-  const model = snapshot.meta.device.model;
+  const route = snapshot.screen.route ?? inferScreenSelector(snapshot.tree) ?? "(no route)";
+  const model = snapshot.meta.device.model === "unknown"
+    ? snapshot.meta.device.platform
+    : snapshot.meta.device.model;
   return `# Snapshot · ${route} · ${model}`;
 }
 
@@ -37,10 +55,75 @@ function sessionLine(snapshot: Snapshot): string {
 function screenBlock(snapshot: Snapshot): string[] {
   const out: string[] = [];
   if (snapshot.screen.route) out.push(`route: ${snapshot.screen.route}`);
+  else {
+    const inferred = inferScreenSelector(snapshot.tree);
+    if (inferred) out.push(`inferred_screen: ${inferred}`);
+  }
   if (snapshot.screen.title) out.push(`title: ${snapshot.screen.title}`);
   if (snapshot.screen.navigator) out.push(`navigator: ${snapshot.screen.navigator}`);
   if (snapshot.screen.modal_stack && snapshot.screen.modal_stack.length > 0) {
     out.push(`modal_stack: [${snapshot.screen.modal_stack.join(", ")}]`);
+  }
+  return out;
+}
+
+function inferScreenSelector(root: Node): string | null {
+  const candidates: Array<{ node: Node; depth: number }> = [];
+  collectScreenSelectorCandidates(root, 0, candidates);
+  candidates.sort((a, b) => scoreScreenSelectorCandidate(b) - scoreScreenSelectorCandidate(a));
+  return candidates[0]?.node.id ?? null;
+}
+
+function collectScreenSelectorCandidates(
+  node: Node,
+  depth: number,
+  out: Array<{ node: Node; depth: number }>,
+): void {
+  if (node.id.startsWith("screen:")) out.push({ node, depth });
+  for (const child of node.children ?? []) collectScreenSelectorCandidates(child, depth + 1, out);
+}
+
+function scoreScreenSelectorCandidate(candidate: { node: Node; depth: number }): number {
+  let score = candidate.depth;
+  if (candidate.node.id !== "screen:root") score += 1000;
+  if (candidate.node.kind === "list") score += 100;
+  if (candidate.node.kind === "screen") score -= 50;
+  return score;
+}
+
+function activeLayerRoots(snapshot: Snapshot): Node[] {
+  const roots: Node[] = [];
+  if (snapshot.overlays) roots.push(...snapshot.overlays);
+  collectActiveLayerRoots(snapshot.tree, roots, false);
+  return dedupeNodes(roots);
+}
+
+function collectActiveLayerRoots(node: Node, roots: Node[], insideActive: boolean): void {
+  const active = isActiveLayerNode(node);
+  if (active && !insideActive) {
+    roots.push(node);
+    return;
+  }
+  if (!node.children) return;
+  for (const child of node.children) collectActiveLayerRoots(child, roots, insideActive || active);
+}
+
+function isActiveLayerNode(node: Node): boolean {
+  if (node.kind === "modal" || node.kind === "toast") return true;
+  if (node.actions?.includes("dismiss")) return true;
+  const id = node.id.toLowerCase();
+  if (id.includes("modal") || id.includes("dialog") || id.includes("sheet") || id.includes("popover")) return true;
+  const name = node.name?.toLowerCase() ?? "";
+  return name.includes("modal") || name.includes("dialog") || name.includes("sheet") || name.includes("popover");
+}
+
+function dedupeNodes(nodes: Node[]): Node[] {
+  const seen = new Set<string>();
+  const out: Node[] = [];
+  for (const node of nodes) {
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    out.push(node);
   }
   return out;
 }

@@ -1,6 +1,6 @@
 import type { Node, Snapshot, SnapshotRedactionOptions } from "@brna/schema";
 
-const SECURE_REPLACEMENT = "<secret>";
+const SECURE_REPLACEMENT = "<redacted>";
 
 export type RedactionOptions = SnapshotRedactionOptions;
 
@@ -28,19 +28,25 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
   for (const key of ["name", "text", "accessibility_label", "accessibility_hint", "url"] as const) {
     const value = node[key];
     if (typeof value === "string") {
-      node[key] = secure && (key === "name" || key === "text") ? SECURE_REPLACEMENT : applyRules(value, rules);
+      const mirrorsSecureValue =
+        secure && (key === "name" || key === "text") && typeof node.value === "string" && value === node.value;
+      node[key] = mirrorsSecureValue ? redactSecureString(value) : applyRules(value, rules);
     }
   }
 
   if (node.value !== undefined) {
-    node.value = secure ? SECURE_REPLACEMENT : redactScalar(node.value, rules);
+    node.value = secure && typeof node.value === "string" ? redactSecureString(node.value) : redactScalar(node.value, rules);
   }
   if (node.range?.text !== undefined) {
-    node.range.text = secure ? SECURE_REPLACEMENT : applyRules(node.range.text, rules);
+    node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   }
   if (node.children) {
     for (const child of node.children) redactNode(child, rules, redactSecureFields);
   }
+}
+
+function redactSecureString(value: string): string {
+  return value.length === 0 ? "" : SECURE_REPLACEMENT;
 }
 
 function redactScalar(value: string | number | boolean, rules: CompiledRule[]): string | number | boolean {

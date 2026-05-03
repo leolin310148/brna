@@ -1,5 +1,7 @@
 export const DEFAULT_METRO_URL = "http://localhost:8081";
 export const DEFAULT_TIMEOUT_MS = 5000;
+const IN_FLIGHT_RETRY_MS = 2000;
+const IN_FLIGHT_RETRY_DELAY_MS = 100;
 
 export function fail(code: number, reason: string): never {
   process.stderr.write(`brna: ${reason}\n`);
@@ -44,6 +46,41 @@ export function parseDevice(value: string | undefined): string {
 }
 
 export const DEVICE_HEADER = "x-brna-device-id";
+
+export async function fetchWithInFlightRetry(
+  request: (signal: AbortSignal) => Promise<Response>,
+  timeoutMs: number,
+): Promise<Response> {
+  const deadline = Date.now() + timeoutMs;
+  const retryUntil = Date.now() + Math.min(IN_FLIGHT_RETRY_MS, timeoutMs);
+  let lastResponse: Response | undefined;
+
+  while (Date.now() < deadline) {
+    const remaining = Math.max(1, deadline - Date.now());
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remaining);
+    try {
+      const response = await request(controller.signal);
+      if (response.status !== 429 || Date.now() >= retryUntil) return response;
+      lastResponse = response;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const delay = Math.min(IN_FLIGHT_RETRY_DELAY_MS, Math.max(0, retryUntil - Date.now()));
+    if (delay <= 0) break;
+    await sleep(delay);
+  }
+
+  if (lastResponse) return lastResponse;
+  const controller = new AbortController();
+  controller.abort();
+  return request(controller.signal);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export function failWith(
   code: number,

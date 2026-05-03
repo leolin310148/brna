@@ -188,7 +188,7 @@ async function checkRuntimeConnected(
       return {
         name: "runtime",
         status: "fail",
-        message: "no runtime connected — start your app and ensure withBrna() wraps Metro",
+        message: "no runtime connected — brna does not support Expo web runtimes; open an iOS/Android simulator or device and ensure withBrna() wraps Metro",
       };
     }
     return { name: "runtime", status: "ok", message: `${count} runtime(s) connected` };

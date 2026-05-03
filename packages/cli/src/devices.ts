@@ -101,7 +101,7 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
   }
 
   if (devices.length === 0) {
-    stdout.write("No devices connected.\n");
+    stdout.write("No devices connected. brna does not support Expo web runtimes; open an iOS/Android simulator or device.\n");
     exit(0);
   }
 

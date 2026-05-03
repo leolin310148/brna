@@ -44,6 +44,7 @@ describe("brna devices", () => {
     const res = await run([], []);
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("No devices connected");
+    expect(res.stdout).toContain("does not support Expo web runtimes");
   });
 
   test("--json emits JSON payload", async () => {

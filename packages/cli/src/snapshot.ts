@@ -10,6 +10,7 @@ import {
   toDiffJSON,
   toDiffMarkdown,
   toDiffYAML,
+  toActiveLayerMarkdown,
   toMarkdown,
   toJSON,
   toYAML,
@@ -20,6 +21,7 @@ import {
   DEVICE_HEADER,
   diagnoseMetroResponse,
   fail,
+  fetchWithInFlightRetry,
   parseDevice,
   parseMetro,
   parseTimeout,
@@ -36,6 +38,7 @@ interface ParsedArgs {
   timeoutMs: number;
   format: SnapshotFormat;
   diff: boolean;
+  activeLayer: boolean;
   device?: string;
   to?: string;
   target?: string;
@@ -57,6 +60,7 @@ function parseArgs(rest: string[]): ParsedArgs {
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let format: SnapshotFormat = "md";
   let wantsDiff = false;
+  let activeLayer = false;
   let device: string | undefined;
   let to: string | undefined;
   let target: string | undefined;
@@ -75,6 +79,8 @@ function parseArgs(rest: string[]): ParsedArgs {
       format = value as SnapshotFormat;
     } else if (token === "--diff") {
       wantsDiff = true;
+    } else if (token === "--active-layer") {
+      activeLayer = true;
     } else if (token === "--device") {
       device = parseDevice(rest[++i]);
     } else if (token === "--to") {
@@ -94,7 +100,14 @@ function parseArgs(rest: string[]): ParsedArgs {
     }
   }
 
-  const result: ParsedArgs = { metro, timeoutMs, format, diff: wantsDiff };
+  if (activeLayer && format !== "md") {
+    fail(4, "--active-layer requires markdown output (omit --format or use --format md)");
+  }
+  if (activeLayer && wantsDiff) {
+    fail(4, "--active-layer cannot be combined with --diff");
+  }
+
+  const result: ParsedArgs = { metro, timeoutMs, format, diff: wantsDiff, activeLayer };
   if (device !== undefined) result.device = device;
   if (to !== undefined) result.to = to;
   if (target !== undefined) {
@@ -116,7 +129,7 @@ function parseArgs(rest: string[]): ParsedArgs {
 
 export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {}): Promise<void> {
   const parsed = parseArgs(rest);
-  const { metro, timeoutMs, format, diff: wantsDiff, device, to, target, targetAst } = parsed;
+  const { metro, timeoutMs, format, diff: wantsDiff, activeLayer, device, to, target, targetAst } = parsed;
   const fetchImpl = runtime.fetch ?? fetch;
   const stdout = runtime.stdout ?? process.stdout;
   const stderr = runtime.stderr ?? process.stderr;
@@ -125,29 +138,28 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
   const config = (await loadConfig()).config;
   const redaction = toRedactionOptions(config);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   let response: Response;
   const headers: Record<string, string> = {};
   if (device !== undefined) headers[DEVICE_HEADER] = device;
   try {
     const hasRedaction = redaction.rules !== undefined || redaction.redactSecureFields !== undefined;
-    response = await fetchImpl(url, {
-      method: hasRedaction ? "POST" : "GET",
-      signal: controller.signal,
-      headers: hasRedaction ? { ...headers, "Content-Type": "application/json" } : headers,
-      ...(hasRedaction ? { body: JSON.stringify({ redaction }) } : {}),
-    });
+    response = await fetchWithInFlightRetry(
+      (signal) =>
+        fetchImpl(url, {
+          method: hasRedaction ? "POST" : "GET",
+          signal,
+          headers: hasRedaction ? { ...headers, "Content-Type": "application/json" } : headers,
+          ...(hasRedaction ? { body: JSON.stringify({ redaction }) } : {}),
+        }),
+      timeoutMs,
+    );
   } catch (err) {
-    clearTimeout(timer);
     const e = err as { name?: string };
     if (e?.name === "AbortError") {
       failWith(2, `snapshot timed out after ${timeoutMs}ms`, stderr, exit);
     }
     failWith(1, `could not connect to Metro at ${metro}`, stderr, exit);
   }
-  clearTimeout(timer);
 
   if (response.status === 503) {
     failWith(3, "no runtime connected — start the app first", stderr, exit);
@@ -168,7 +180,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     failWith(3, `runtime error: ${body.code ?? "unknown"} — ${body.message ?? "no message"}`, stderr, exit);
   }
   if (response.status === 429) {
-    failWith(3, "another snapshot request is already in flight", stderr, exit);
+    failWith(3, "another snapshot request is in flight; retry this brna command after the previous command finishes", stderr, exit);
   }
   if (!response.ok) {
     const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
@@ -237,7 +249,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     exit(0);
   }
 
-  const out = projectSnapshot(snapshot, format);
+  const out = activeLayer ? toActiveLayerMarkdown(snapshot) : projectSnapshot(snapshot, format);
   if (to !== undefined) {
     const text = out.endsWith("\n") ? out : `${out}\n`;
     await writeOutputFile(to, text, runtime, stderr, exit);

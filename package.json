@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build:schema": "bun --filter '@brna/schema' build:schema",
+    "build:runtime": "bun --filter '@brna/runtime' build",
     "e2e:expo-sample": "bun test e2e/expo-sample.test.ts",
     "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter '@brna/schema' test && bun --filter '@brna/core' test"

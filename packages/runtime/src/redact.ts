@@ -1,6 +1,6 @@
 import type { Node, Snapshot, SnapshotRedactionOptions } from "@brna/schema";
 
-const SECURE_REPLACEMENT = "<secret>";
+const SECURE_REPLACEMENT = "<redacted>";
 
 export function redactSnapshot(snapshot: Snapshot, options: SnapshotRedactionOptions = {}): Snapshot {
   const rules = compileRules(options.rules ?? []);
@@ -20,19 +20,31 @@ function redactNode(
   redactSecureFields: boolean,
 ): void {
   const secure = redactSecureFields && node.state?.includes("secure") === true;
-  if (node.name !== undefined) node.name = secure ? SECURE_REPLACEMENT : applyRules(node.name, rules);
-  if (node.text !== undefined) node.text = secure ? SECURE_REPLACEMENT : applyRules(node.text, rules);
-  if (typeof node.value === "string") node.value = secure ? SECURE_REPLACEMENT : applyRules(node.value, rules);
+  if (node.name !== undefined) {
+    node.name = secure && typeof node.value === "string" && node.name === node.value
+      ? redactSecureString(node.name)
+      : applyRules(node.name, rules);
+  }
+  if (node.text !== undefined) {
+    node.text = secure && typeof node.value === "string" && node.text === node.value
+      ? redactSecureString(node.text)
+      : applyRules(node.text, rules);
+  }
+  if (typeof node.value === "string") node.value = secure ? redactSecureString(node.value) : applyRules(node.value, rules);
   if (node.accessibility_label !== undefined) {
     node.accessibility_label = applyRules(node.accessibility_label, rules);
   }
   if (node.accessibility_hint !== undefined) {
     node.accessibility_hint = applyRules(node.accessibility_hint, rules);
   }
-  if (node.range?.text !== undefined) node.range.text = secure ? SECURE_REPLACEMENT : applyRules(node.range.text, rules);
+  if (node.range?.text !== undefined) node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   if (node.children) {
     for (const child of node.children) redactNode(child, rules, redactSecureFields);
   }
+}
+
+function redactSecureString(value: string): string {
+  return value.length === 0 ? "" : SECURE_REPLACEMENT;
 }
 
 function compileRules(rules: NonNullable<SnapshotRedactionOptions["rules"]>): Array<{ match: RegExp; replace: string }> {
