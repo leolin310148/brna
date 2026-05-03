@@ -3,18 +3,12 @@ name: Publish to npm
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Version to release, for example 0.0.4
-        required: true
-        type: string
 
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -27,72 +21,25 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            version="${{ github.event.release.tag_name }}"
-          else
-            version="${{ inputs.version }}"
-          fi
-          version="${version#v}"
+          tag="${{ github.event.release.tag_name }}"
+          version="${tag#v}"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Validate version
         run: |
           version="${{ steps.version.outputs.version }}"
 
           node - "$version" <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const { join } = require("node:path");
-
           const version = process.argv[2];
-          const packages = [
-            "package.json",
-            "packages/babel-plugin/package.json",
-            "packages/cli/package.json",
-            "packages/core/package.json",
-            "packages/docs/package.json",
-            "packages/expo-plugin/package.json",
-            "packages/mcp/package.json",
-            "packages/metro-plugin/package.json",
-            "packages/runtime/package.json",
-            "packages/schema/package.json",
-          ];
-
-          for (const file of packages) {
-            const pkg = JSON.parse(readFileSync(join(process.cwd(), file), "utf8"));
-            if (pkg.version !== version) {
-              throw new Error(`${file} is ${pkg.version}, expected ${version}`);
-            }
+          if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+            throw new Error(`Release tag must be a semver version, got ${version}`);
           }
           NODE
 
-      - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="${{ steps.version.outputs.tag }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists on origin"
-          else
-            git tag -a "$tag" -m "$tag"
-            git push origin "$tag"
-          fi
-
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "GitHub Release $tag already exists"
-          else
-            gh release create "$tag" --title "$tag" --notes "Release $tag"
-          fi
-
   publish:
     needs: [prepare-release, cli-smoke]
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -103,35 +50,9 @@ jobs:
         with:
           ref: ${{ needs.prepare-release.outputs.tag }}
 
-      - name: Validate release tag
+      - name: Stamp package versions from release tag
         run: |
-          version="${{ needs.prepare-release.outputs.version }}"
-
-          node - "$version" <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const { join } = require("node:path");
-
-          const version = process.argv[2];
-          const packages = [
-            "package.json",
-            "packages/babel-plugin/package.json",
-            "packages/cli/package.json",
-            "packages/core/package.json",
-            "packages/docs/package.json",
-            "packages/expo-plugin/package.json",
-            "packages/mcp/package.json",
-            "packages/metro-plugin/package.json",
-            "packages/runtime/package.json",
-            "packages/schema/package.json",
-          ];
-
-          for (const file of packages) {
-            const pkg = JSON.parse(readFileSync(join(process.cwd(), file), "utf8"));
-            if (pkg.version !== version) {
-              throw new Error(`${file} is ${pkg.version}, expected ${version}`);
-            }
-          }
-          NODE
+          node .github/scripts/stamp-release-version.mjs "${{ needs.prepare-release.outputs.version }}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -204,6 +125,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare-release.outputs.tag }}
+
+      - name: Stamp package versions from release tag
+        run: |
+          node .github/scripts/stamp-release-version.mjs "${{ needs.prepare-release.outputs.version }}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
