@@ -158,7 +158,7 @@ jobs:
           npm pack ./packages/cli --pack-destination "$pack_dir"
 
           cd "$smoke_dir"
-          npm init -y
+          node -e "require('node:fs').writeFileSync('package.json', JSON.stringify({ name: 'brna-smoke', private: true }) + '\n')"
           npm install "$pack_dir"/brna-schema-*.tgz "$pack_dir"/brna-core-*.tgz "$pack_dir"/brna-mcp-*.tgz "$pack_dir"/brna-cli-*.tgz
 
           npx brna --help
