@@ -1,8 +1,19 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { validateSnapshot } from "@brna/schema";
-import type { Snapshot } from "@brna/schema";
-import { diff, toDiffJSON, toDiffMarkdown, toDiffYAML, toMarkdown, toJSON, toYAML } from "@brna/core";
+import { BrnaSelectorParseError, validateSnapshot } from "@brna/schema";
+import type { Node, SelectorAST, Snapshot, SnapshotDiff } from "@brna/schema";
+import {
+  diff,
+  filterDiffByTarget,
+  parseSelector,
+  resolve,
+  toDiffJSON,
+  toDiffMarkdown,
+  toDiffYAML,
+  toMarkdown,
+  toJSON,
+  toYAML,
+} from "@brna/core";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -27,6 +38,8 @@ interface ParsedArgs {
   diff: boolean;
   device?: string;
   to?: string;
+  target?: string;
+  targetAst?: SelectorAST;
 }
 
 interface SnapshotRuntime {
@@ -46,6 +59,7 @@ function parseArgs(rest: string[]): ParsedArgs {
   let wantsDiff = false;
   let device: string | undefined;
   let to: string | undefined;
+  let target: string | undefined;
 
   for (let i = 0; i < rest.length; i++) {
     const token = rest[i]!;
@@ -69,19 +83,40 @@ function parseArgs(rest: string[]): ParsedArgs {
         fail(4, "missing value for '--to'");
       }
       to = value;
+    } else if (token === "--target") {
+      const value = rest[++i];
+      if (typeof value !== "string" || value.length === 0) {
+        fail(4, "missing value for '--target'");
+      }
+      target = value;
     } else {
       fail(4, `unknown flag '${token}'`);
     }
   }
+
   const result: ParsedArgs = { metro, timeoutMs, format, diff: wantsDiff };
   if (device !== undefined) result.device = device;
   if (to !== undefined) result.to = to;
+  if (target !== undefined) {
+    if (!wantsDiff) {
+      fail(4, "--target requires --diff");
+    }
+    try {
+      result.targetAst = parseSelector(target);
+    } catch (err) {
+      if (err instanceof BrnaSelectorParseError) {
+        fail(4, `malformed --target selector: ${err.message}`);
+      }
+      fail(4, `malformed --target selector '${target}'`);
+    }
+    result.target = target;
+  }
   return result;
 }
 
 export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {}): Promise<void> {
   const parsed = parseArgs(rest);
-  const { metro, timeoutMs, format, diff: wantsDiff, device, to } = parsed;
+  const { metro, timeoutMs, format, diff: wantsDiff, device, to, target, targetAst } = parsed;
   const fetchImpl = runtime.fetch ?? fetch;
   const stdout = runtime.stdout ?? process.stdout;
   const stderr = runtime.stderr ?? process.stderr;
@@ -169,7 +204,20 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     if (!baseline) {
       failWith(6, "no baseline snapshot in this session — run brna snapshot first", stderr, exit);
     }
-    const out = projectDiff(diff(baseline, snapshot), format);
+    const fullDiff = diff(baseline, snapshot);
+    let projected: SnapshotDiff = fullDiff;
+    if (targetAst !== undefined && target !== undefined) {
+      const result = resolve(targetAst, snapshot);
+      if ("none" in result) {
+        failWith(2, `selector not found: ${target}`, stderr, exit);
+      }
+      if ("ambiguous" in result) {
+        const ids = result.ambiguous.map((n: Node) => n.id).join(", ");
+        failWith(3, `selector '${target}' is ambiguous: ${ids}`, stderr, exit);
+      }
+      projected = filterDiffByTarget(baseline, snapshot, fullDiff, result.ok.id);
+    }
+    const out = projectDiff(projected, format);
     if (to !== undefined) {
       await writeOutputFile(to, out, runtime, stderr, exit);
     } else {
@@ -183,7 +231,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
       args: rest,
       snapshot_before: baseline,
       snapshot_after: snapshot,
-      diff: diff(baseline, snapshot),
+      diff: projected,
     });
     exit(0);
   }

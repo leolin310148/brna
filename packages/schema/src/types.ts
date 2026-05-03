@@ -102,13 +102,18 @@ export interface SnapshotMeta {
 }
 
 // Reserved warning codes (free-form strings; documented here for stability):
-//   "id_collision"        — emitted by deriveNodeIdsForSiblings on dup ids
-//   "bounds_unavailable"  — emitted when measureInWindow times out for a node
+//   "id_collision"         — emitted by deriveNodeIdsForSiblings on dup ids
+//   "bounds_unavailable"   — emitted when measureInWindow times out for a node
+//   "undersized_target"    — interactive node measured smaller than 44 pt; payload uses w/h
+//   "overlapping_nodes"    — two interactive nodes overlap; payload uses nodes pair
 export interface SnapshotWarning {
   code: string;
   node?: string;
   count?: number;
   detail?: string;
+  w?: number;
+  h?: number;
+  nodes?: string[];
 }
 
 export interface Screen {

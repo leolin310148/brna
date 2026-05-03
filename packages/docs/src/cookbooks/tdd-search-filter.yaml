@@ -1,0 +1,94 @@
+# TDD cookbook: filtering a list as the user types
+#
+# A coding agent verifies that typing into a search box filters a list
+# down to matching rows. Uses `brna snapshot --diff --target` to keep
+# the recorded diff focused on the search region — the unrelated header
+# clock that ticks every second never appears in the trace.
+#
+# Replay with:  brna trace replay path/to/tdd-search-filter.yaml
+metadata:
+  version: brna-trace/1
+  session_id: cookbook-search
+  started_at: "2026-05-03T11:00:00.000Z"
+  stopped_at: "2026-05-03T11:00:45.000Z"
+events:
+  # 1. Baseline snapshot — three rows in the list, search box empty.
+  - type: snap
+    timestamp: "2026-05-03T11:00:01.000Z"
+    command: snap
+    args: []
+    snapshot_after:
+      meta:
+        schema_version: brna/1
+        captured_at: "2026-05-03T11:00:01.000Z"
+        app: { bundle_id: dev.example.app, version: "1.0.0" }
+        device:
+          platform: android
+          os_version: "14"
+          model: Pixel 7
+          viewport: { w: 412, h: 915, scale: 2.625 }
+          locale: en-US
+        session_id: cookbook-search
+        snapshot_id: snap-1
+      screen: { route: /repos, modal_stack: [] }
+      tree:
+        id: root
+        kind: screen
+        children:
+          - id: header
+            kind: group
+            children:
+              - id: clock
+                kind: text
+                name: "11:00"
+          - id: search-region
+            kind: group
+            children:
+              - id: search
+                kind: input
+                text: Search repositories
+                value: ""
+              - id: list
+                kind: list
+                children:
+                  - id: row-react
+                    kind: list_item
+                    name: facebook/react
+                  - id: row-bun
+                    kind: list_item
+                    name: oven-sh/bun
+                  - id: row-astro
+                    kind: list_item
+                    name: withastro/astro
+
+  # 2. Agent types into the search box.
+  - type: act
+    timestamp: "2026-05-03T11:00:05.000Z"
+    command: act
+    args: [type, "#search", react]
+    diff:
+      events:
+        - type: modified
+          id: search
+          node: { id: search, kind: input, value: react }
+          changes:
+            - field: value
+              before: ""
+              after: react
+
+  # 3. Targeted diff verifies the list filtered to one row. The clock
+  #    update in the unrelated header region is dropped from the diff.
+  - type: snap
+    timestamp: "2026-05-03T11:00:06.000Z"
+    command: snap
+    args: ["--diff", "--target", "#list"]
+    diff:
+      events:
+        - type: removed
+          id: row-bun
+          parent_id: list
+          node: { id: row-bun, kind: list_item, name: oven-sh/bun }
+        - type: removed
+          id: row-astro
+          parent_id: list
+          node: { id: row-astro, kind: list_item, name: withastro/astro }

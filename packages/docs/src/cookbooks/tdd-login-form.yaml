@@ -1,0 +1,83 @@
+# TDD cookbook: validating a login form
+#
+# A coding agent uses brna to assert that the login screen surfaces an
+# inline error when a user submits an empty form, then implements the
+# missing validation and re-runs to confirm the failure becomes a pass.
+#
+# Replay with:  brna trace replay path/to/tdd-login-form.yaml
+metadata:
+  version: brna-trace/1
+  session_id: cookbook-login
+  started_at: "2026-05-03T10:00:00.000Z"
+  stopped_at: "2026-05-03T10:01:30.000Z"
+events:
+  # 1. Baseline snapshot — the agent reads the empty login screen.
+  - type: snap
+    timestamp: "2026-05-03T10:00:01.000Z"
+    command: snap
+    args: []
+    snapshot_after:
+      meta:
+        schema_version: brna/1
+        captured_at: "2026-05-03T10:00:01.000Z"
+        app: { bundle_id: dev.example.app, version: "1.0.0" }
+        device:
+          platform: ios
+          os_version: "17.4"
+          model: iPhone
+          viewport: { w: 393, h: 852, scale: 3 }
+          locale: en-US
+        session_id: cookbook-login
+        snapshot_id: snap-1
+      screen: { route: /login, modal_stack: [] }
+      tree:
+        id: root
+        kind: screen
+        children:
+          - id: form
+            kind: group
+            children:
+              - id: email
+                kind: input
+                text: "you@example.com"
+                value: ""
+              - id: password
+                kind: input
+                text: Password
+                value: ""
+                state: [secure]
+              - id: submit
+                kind: button
+                name: Sign in
+
+  # 2. Agent submits the empty form, expecting a validation error.
+  - type: act
+    timestamp: "2026-05-03T10:00:05.000Z"
+    command: act
+    args: [tap, "#submit"]
+    diff:
+      events:
+        - type: added
+          id: toast-1
+          node:
+            id: toast-1
+            kind: toast
+            name: Email is required
+            state: [error]
+
+  # 3. Verify the error toast persists by re-snapshotting against the baseline.
+  #    --target focuses the diff to the submit button's region; the new toast
+  #    is a global overlay so it is preserved automatically.
+  - type: snap
+    timestamp: "2026-05-03T10:00:06.000Z"
+    command: snap
+    args: ["--diff", "--target", "#submit"]
+    diff:
+      events:
+        - type: added
+          id: toast-1
+          node:
+            id: toast-1
+            kind: toast
+            name: Email is required
+            state: [error]

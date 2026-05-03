@@ -1,0 +1,60 @@
+---
+import Base from "../layouts/Base.astro";
+import loginTrace from "../cookbooks/tdd-login-form.yaml?raw";
+import searchTrace from "../cookbooks/tdd-search-filter.yaml?raw";
+---
+<Base title="MCP Trace Examples & Cookbooks">
+  <h1>MCP Trace Examples & Agent Cookbooks</h1>
+  <p class="muted">
+    Reproducible <code>.yaml</code> traces showing how a coding agent can
+    drive a running React Native dev app via brna's MCP server. Each
+    trace is replayable with <code>brna trace replay &lt;file&gt;</code>
+    and serves both as documentation and as a regression fixture.
+  </p>
+
+  <h2>What's in a trace</h2>
+  <p>
+    A trace is a YAML document with two sections: <code>metadata</code>
+    (session id, start/stop timestamps) and <code>events</code> (an
+    ordered list of <code>snap</code> and <code>act</code> entries).
+    Each event carries the snapshots it observed and, for actions, the
+    <code>SnapshotDiff</code> that was produced. Targeted actions —
+    <code>brna act tap "#submit"</code> — automatically focus that diff
+    on the action's target so the trace stays narrow even when the rest
+    of the screen ticks (clocks, polling banners, animations).
+  </p>
+
+  <section>
+    <h2>Cookbook 1 — Validating a login form</h2>
+    <p>
+      The agent expects the empty login form to surface an inline error.
+      It taps <code>#submit</code>, watches a global toast appear in the
+      diff, then re-snapshots with <code>--target #submit</code> to
+      confirm the toast persists. Notice how the toast — an overlay —
+      is preserved by <code>filterDiffByTarget</code> even though it
+      lives outside the target's subtree.
+    </p>
+    <pre><code>{loginTrace}</code></pre>
+  </section>
+
+  <section>
+    <h2>Cookbook 2 — Filtering a list as the user types</h2>
+    <p>
+      The agent types <code>react</code> into a search box and verifies
+      the list narrows to one row. The header clock keeps ticking
+      every second, but <code>--target "#list"</code> keeps that noise
+      out of the recorded diff so the agent can focus on the assertion
+      that matters.
+    </p>
+    <pre><code>{searchTrace}</code></pre>
+  </section>
+
+  <h2>Replaying a trace</h2>
+  <pre><code>brna trace replay ./tdd-login-form.yaml</code></pre>
+  <p>
+    Replay re-runs each <code>act</code> against the live runtime and
+    asserts that the recorded snapshots still match. Mismatches exit
+    with code 6 and a path to the diverging event — perfect for CI
+    smoke tests or for catching regressions during a refactor.
+  </p>
+</Base>

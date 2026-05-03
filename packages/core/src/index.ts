@@ -13,6 +13,8 @@
  * - synthesiseListPlaceholder  computes `…N items above|below…` for virtualised lists.
  * - collapseLoadingSkeleton    folds runs of shimmer placeholders into a single synthetic group.
  * - diff                       O(n+m) id-keyed diff producing added/removed/modified/moved events.
+ * - filterDiffByTarget         retain only events touching the target, its ancestors,
+ *                              immediate siblings, and overlays.
  * - toDiffMarkdown             deterministic one-way markdown projection for SnapshotDiff.
  * - toDiffJSON/fromDiffJSON    deterministic JSON serialisation for SnapshotDiff.
  * - toDiffYAML/fromDiffYAML    YAML serialisation for SnapshotDiff with pinned options.

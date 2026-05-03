@@ -227,6 +227,52 @@ describe("bounds_unavailable warning", () => {
   });
 });
 
+describe("usability warning payloads", () => {
+  test("validates undersized_target warning with w/h dimensions", () => {
+    const base = makeSnapshot();
+    const snap = makeSnapshot({
+      meta: {
+        ...base.meta,
+        warnings: [{ code: "undersized_target", node: "submit-btn", w: 30, h: 44 }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("validates overlapping_nodes warning with paired node ids", () => {
+    const base = makeSnapshot();
+    const snap = makeSnapshot({
+      meta: {
+        ...base.meta,
+        warnings: [{ code: "overlapping_nodes", nodes: ["save-top", "save-bottom"] }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("rejects non-string entries in warning.nodes", () => {
+    const base = makeSnapshot();
+    const snap = makeSnapshot({
+      meta: {
+        ...base.meta,
+        warnings: [{ code: "overlapping_nodes", nodes: ["a", 42 as never] }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("rejects non-numeric warning.w", () => {
+    const base = makeSnapshot();
+    const snap = makeSnapshot({
+      meta: {
+        ...base.meta,
+        warnings: [{ code: "undersized_target", node: "x", w: "30" as never, h: 44 }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+});
+
 describe("suggested_selectors", () => {
   test("accepts node without suggested_selectors", () => {
     const snap = makeSnapshot({

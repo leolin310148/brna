@@ -9,6 +9,7 @@ import { sessionId, freshUuid } from "./session.js";
 import { ROOT_ID } from "./constants.js";
 import { waitForQuiescence } from "./quiescence.js";
 import { redactSnapshot } from "./redact.js";
+import { computeUsabilityWarnings } from "./usability.js";
 
 export interface CaptureOptions {
   timeout_ms?: number;
@@ -83,6 +84,8 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
   }
 
   applyBounds(allChildren, bounds);
+
+  warnings.push(...computeUsabilityWarnings(allChildren, unavailable));
 
   const inferredCount = countInferredLabels(allChildren);
   if (inferredCount > 0) {

@@ -170,6 +170,108 @@ describe("brna trace", () => {
     }
   });
 
+  test("recorded tap diff is focused on the target's region, key tab is not", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
+    const sessionDir = join(cwd, "sessions");
+    writeFileSync(
+      join(cwd, "brna.config.ts"),
+      `export default { sessionDir: ${JSON.stringify(sessionDir)} };\n`,
+      "utf8",
+    );
+
+    const before = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "form",
+            kind: "group",
+            children: [{ id: "save", kind: "button", name: "Save" }],
+          },
+          {
+            id: "footer",
+            kind: "group",
+            children: [{ id: "clock", kind: "text", name: "12:00" }],
+          },
+        ],
+      },
+    });
+    const after = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "form",
+            kind: "group",
+            children: [{ id: "save", kind: "button", name: "Saved", state: ["focused"] }],
+          },
+          {
+            id: "footer",
+            kind: "group",
+            children: [{ id: "clock", kind: "text", name: "12:01" }],
+          },
+        ],
+      },
+    });
+    let currentSnapshot = before;
+    const server = createServer((req, res) => {
+      if (req.method === "GET" && (req.url ?? "").startsWith("/brna/snapshot")) {
+        const text = JSON.stringify(currentSnapshot);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Length", Buffer.byteLength(text).toString());
+        res.end(text);
+        return;
+      }
+      if (req.method === "POST" && (req.url ?? "").startsWith("/brna/action")) {
+        req.resume();
+        currentSnapshot = after;
+        res.statusCode = 204;
+        res.setHeader("Content-Length", "0");
+        res.end();
+        return;
+      }
+      res.statusCode = 404;
+      res.end();
+    });
+    await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+    const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+    try {
+      // Targeted tap: trace diff should only mention save (and ancestors), not clock.
+      expect((await runCli(cwd, ["trace", "start"])).status).toBe(0);
+      const tap = await runCli(cwd, ["act", "tap", "#save", "--metro", baseUrl, "--timeout", "5000"]);
+      expect(tap.status).toBe(0);
+      expect(tap.stdout).toBe("");
+      expect(tap.stderr).toBe("");
+      const stop1 = await runCli(cwd, ["trace", "stop"]);
+      expect(stop1.status).toBe(0);
+      const traceTap = fromCanonicalYAML(readFileSync(stop1.stdout.trim(), "utf8")) as {
+        events?: Array<{ diff?: { events?: Array<{ id: string }> } }>;
+      };
+      const tapIds = (traceTap.events?.[0]?.diff?.events ?? []).map((e) => e.id);
+      expect(tapIds).toContain("save");
+      expect(tapIds).not.toContain("clock");
+
+      // Untargeted key tab: trace diff should remain unfiltered → clock change is recorded.
+      currentSnapshot = before;
+      expect((await runCli(cwd, ["trace", "start"])).status).toBe(0);
+      const key = await runCli(cwd, ["act", "key", "tab", "--metro", baseUrl, "--timeout", "5000"]);
+      expect(key.status).toBe(0);
+      const stop2 = await runCli(cwd, ["trace", "stop"]);
+      const traceKey = fromCanonicalYAML(readFileSync(stop2.stdout.trim(), "utf8")) as {
+        events?: Array<{ diff?: { events?: Array<{ id: string }> } }>;
+      };
+      const keyIds = (traceKey.events?.[0]?.diff?.events ?? []).map((e) => e.id);
+      expect(keyIds).toContain("save");
+      expect(keyIds).toContain("clock");
+    } finally {
+      await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+    }
+  });
+
   test("replay fails when a recorded snapshot does not match current state", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
     const recorded = makeSnapshot();

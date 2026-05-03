@@ -217,3 +217,127 @@ describe("snapshot --diff", () => {
     expect(result.writes).toHaveLength(1);
   });
 });
+
+describe("snapshot --diff --target", () => {
+  function baselineWithSubmit(): Snapshot {
+    return makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "form",
+            kind: "group",
+            children: [{ id: "submit", kind: "button", name: "Save" }],
+          },
+          {
+            id: "footer",
+            kind: "group",
+            children: [{ id: "clock", kind: "text", name: "12:00" }],
+          },
+        ],
+      },
+    });
+  }
+
+  function freshWithMultipleChanges(): Snapshot {
+    return makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "form",
+            kind: "group",
+            children: [{ id: "submit", kind: "button", name: "Submit" }],
+          },
+          {
+            id: "footer",
+            kind: "group",
+            children: [{ id: "clock", kind: "text", name: "12:01" }],
+          },
+        ],
+      },
+    });
+  }
+
+  test("--target without --diff exits 4 and does not contact Metro", () => {
+    const result = spawnSync(
+      "bun",
+      ["run", CLI_PATH, "snapshot", "--target", "#submit"],
+      { env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8", timeout: 5000 },
+    );
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("--target requires --diff");
+    expect(result.stdout).toBe("");
+  });
+
+  test("--diff --target with malformed selector exits 4 (subprocess)", () => {
+    const result = spawnSync(
+      "bun",
+      ["run", CLI_PATH, "snapshot", "--diff", "--target", "button:"],
+      { env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8", timeout: 5000 },
+    );
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("malformed --target selector");
+    expect(result.stdout).toBe("");
+  });
+
+  test("--diff --target with not-found selector exits 2 and does not refresh cache", async () => {
+    const result = await runSnapshotInMemory(["--diff", "--target", "#missing"], {
+      baseline: baselineWithSubmit(),
+      fresh: freshWithMultipleChanges(),
+    });
+    expect(result.code).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("brna: selector not found: #missing\n");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("--diff --target with ambiguous selector exits 3 listing ids in document order", async () => {
+    const baseline = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          { id: "save-top", kind: "button", role: "button", name: "Save" },
+          { id: "save-bottom", kind: "button", role: "button", name: "Save" },
+        ],
+      },
+    });
+    const fresh = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          { id: "save-top", kind: "button", role: "button", name: "Save" },
+          { id: "save-bottom", kind: "button", role: "button", name: "Save" },
+        ],
+      },
+    });
+    const result = await runSnapshotInMemory(["--diff", "--target", "button:Save"], {
+      baseline,
+      fresh,
+    });
+    expect(result.code).toBe(3);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("save-top");
+    expect(result.stderr).toContain("save-bottom");
+    expect(result.stderr.indexOf("save-top")).toBeLessThan(result.stderr.indexOf("save-bottom"));
+    expect(result.writes).toEqual([]);
+  });
+
+  test("--diff --target focuses output to the target's region", async () => {
+    const baseline = baselineWithSubmit();
+    const fresh = freshWithMultipleChanges();
+    const result = await runSnapshotInMemory(["--diff", "--target", "#submit"], {
+      baseline,
+      fresh,
+    });
+    expect(result.code).toBe(0);
+    // submit's name change should appear, clock's name change should not.
+    expect(result.stdout).toContain("submit");
+    expect(result.stdout).not.toContain("clock");
+    expect(result.writes).toEqual([fresh]);
+  });
+});

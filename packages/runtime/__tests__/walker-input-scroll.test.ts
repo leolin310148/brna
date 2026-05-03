@@ -95,6 +95,29 @@ describe("input host recognition", () => {
     expect(node.value).toBe("");
   });
 
+  test("AndroidTextInput with secureTextEntry emits 'secure' state", () => {
+    const f = makeFiber({
+      type: "AndroidTextInput",
+      props: { testID: "pwd", value: "hunter2", secureTextEntry: true },
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const node = result.rootChildren[0]!;
+    expect(node.kind).toBe("input");
+    expect(node.state).toContain("secure");
+  });
+
+  test("AndroidTextInput live and snapshot ids match (parity)", () => {
+    const f = makeFiber({
+      type: "AndroidTextInput",
+      props: { testID: "android-input", value: "x" },
+    });
+    const root = makeRoot(f);
+    const snap = walkFiberRoot(root, "$root");
+    const live = walkLive([root], "$root");
+    expect(live[0]!.id).toBe(snap.rootChildren[0]!.id);
+    expect(live[0]!.kind).toBe("input");
+  });
+
   test("TextInput without value prop omits Node.value", () => {
     const f = makeFiber({
       type: "TextInput",
@@ -195,6 +218,21 @@ describe("scroll host recognition", () => {
       props: { testID: "horiz" },
     });
     expect(mapHostToNodeKind(f)).toBe("list");
+  });
+
+  test("AndroidHorizontalScrollView with children emits list with rows", () => {
+    const f = makeFiber({
+      type: "AndroidHorizontalScrollView",
+      props: { testID: "carousel" },
+      children: [
+        { type: "View", props: { testID: "card-1" } },
+        { type: "View", props: { testID: "card-2" } },
+      ],
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const node = result.rootChildren[0]!;
+    expect(node.kind).toBe("list");
+    expect(node.children).toHaveLength(2);
   });
 
   test("RCTScrollContentView is NOT emitted; children pass through to parent", () => {

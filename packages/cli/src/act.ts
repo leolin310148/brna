@@ -6,7 +6,7 @@ import {
   type Snapshot,
   type Node,
 } from "@brna/schema";
-import { diff, resolve, parseSelector } from "@brna/core";
+import { diff, filterDiffByTarget, resolve, parseSelector } from "@brna/core";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -35,6 +35,7 @@ interface SharedFlags {
   exit?: (code: number) => never;
   commandArgs?: string[];
   snapshotBefore?: Snapshot;
+  targetId?: string;
 }
 
 export async function runAct(rest: string[], runtime: { exit?: (code: number) => never } = {}): Promise<void> {
@@ -251,6 +252,7 @@ async function runWithSelector(
     const ids = result.ambiguous.map((n: Node) => n.id);
     fail(3, `selector '${selector}' is ambiguous: ${ids.join(", ")}`);
   }
+  shared.targetId = result.ok.id;
   await postAction(shared, build(result.ok.id));
 }
 
@@ -328,6 +330,14 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
 
   if (response.status === 204) {
     const snapshotAfter = (await activeTracePath()) ? await fetchSnapshot(shared) : undefined;
+    let recordedDiff: ReturnType<typeof diff> | undefined;
+    if (shared.snapshotBefore && snapshotAfter) {
+      const full = diff(shared.snapshotBefore, snapshotAfter);
+      recordedDiff =
+        shared.targetId !== undefined
+          ? filterDiffByTarget(shared.snapshotBefore, snapshotAfter, full, shared.targetId)
+          : full;
+    }
     await appendTraceEvent({
       type: "act",
       timestamp: new Date().toISOString(),
@@ -335,7 +345,7 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
       args: shared.commandArgs ?? [],
       snapshot_before: shared.snapshotBefore,
       snapshot_after: snapshotAfter,
-      ...(shared.snapshotBefore && snapshotAfter ? { diff: diff(shared.snapshotBefore, snapshotAfter) } : {}),
+      ...(recordedDiff ? { diff: recordedDiff } : {}),
     });
     (shared.exit ?? process.exit)(0);
   }
