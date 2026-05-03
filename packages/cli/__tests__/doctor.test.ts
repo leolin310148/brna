@@ -90,6 +90,33 @@ describe("brna doctor", () => {
     expect(res.stdout).toContain("no runtime connected");
   });
 
+  test("missing runtime reports last-seen disconnected device when Metro has history", async () => {
+    const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
+    const lastSeenAt = Date.now() - 14_000;
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) {
+        return new Response(
+          JSON.stringify({
+            devices: [],
+            recent_disconnected: [
+              { id: "ca48972f", platform: "android", os_version: "36", last_seen_at: lastSeenAt },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/index.bundle")) return new Response("__brnaSource", { status: 200 });
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("last seen");
+    expect(res.stdout).toContain("ca48972f");
+    expect(res.stdout).toContain("currently disconnected");
+  });
+
   test("HTML devices endpoint diagnoses missing Metro middleware", async () => {
     const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
     const fetchImpl: typeof fetch = async (input) => {

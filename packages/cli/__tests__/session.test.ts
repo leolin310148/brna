@@ -10,6 +10,7 @@ import {
   resetSessionIdForTests,
   resolveSessionId,
   writeSnapshotCache,
+  snapshotSessionId,
 } from "../src/session.js";
 
 function makeSnapshot(): Snapshot {
@@ -38,6 +39,17 @@ async function tempRoot(): Promise<string> {
 }
 
 describe("session id derivation", () => {
+  test("honors BRNA_SESSION_ID override", () => {
+    const old = process.env.BRNA_SESSION_ID;
+    process.env.BRNA_SESSION_ID = "agent/session 1";
+    try {
+      expect(resolveSessionId({ noTty: true, ppid: 42, pid: 99 })).toBe("env-agent_session_1");
+    } finally {
+      if (old === undefined) delete process.env.BRNA_SESSION_ID;
+      else process.env.BRNA_SESSION_ID = old;
+    }
+  });
+
   test("uses tty inode when available", () => {
     expect(resolveSessionId({ ttyIno: 0x3a7c91, ppid: 42, pid: 99 })).toBe("tty-3a7c91");
   });
@@ -59,6 +71,13 @@ describe("session id derivation", () => {
 });
 
 describe("snapshot cache", () => {
+  test("defaults snapshot cache key to runtime session id", async () => {
+    const root = await tempRoot();
+    const snapshot = makeSnapshot();
+    await writeSnapshotCache(snapshot, { tmpdir: root });
+    expect(await readSnapshotCache({ tmpdir: root, sessionId: snapshotSessionId(snapshot) })).toEqual(snapshot);
+  });
+
   test("creates cache directory lazily and writes canonical snapshot bytes", async () => {
     const root = await tempRoot();
     const snapshot = makeSnapshot();

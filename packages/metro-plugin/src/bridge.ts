@@ -56,10 +56,15 @@ export interface DeviceInfo {
   os_version?: string;
   app_version?: string;
   registered_at: number;
+  last_seen_at: number;
 }
 
 interface RuntimeEntry extends DeviceInfo {
   ws: WebSocket;
+}
+
+export interface DisconnectedDeviceInfo extends DeviceInfo {
+  disconnected_at: number;
 }
 
 export interface BrnaBridgeOptions {
@@ -69,6 +74,7 @@ export interface BrnaBridgeOptions {
 
 export class BrnaBridge {
   private devices = new Map<string, RuntimeEntry>();
+  private recentDisconnected = new Map<string, DisconnectedDeviceInfo>();
   // Insertion order in `devices` is the connection order; last-registered is
   // the most recently inserted entry, used as the fallback when no
   // `x-brna-device-id` header is present.
@@ -129,6 +135,7 @@ export class BrnaBridge {
       id: initialId,
       ws,
       registered_at: Date.now(),
+      last_seen_at: Date.now(),
     };
     this.devices.set(initialId, entry);
 
@@ -188,7 +195,19 @@ export class BrnaBridge {
 
     const removeIfMine = () => {
       const current = this.devices.get(entry.id);
-      if (current && current.ws === ws) this.devices.delete(entry.id);
+      if (current && current.ws === ws) {
+        const now = Date.now();
+        this.recentDisconnected.set(entry.id, {
+          id: entry.id,
+          platform: entry.platform,
+          os_version: entry.os_version,
+          app_version: entry.app_version,
+          registered_at: entry.registered_at,
+          last_seen_at: now,
+          disconnected_at: now,
+        });
+        this.devices.delete(entry.id);
+      }
     };
     ws.on("close", removeIfMine);
     ws.on("error", removeIfMine);
@@ -219,6 +238,8 @@ export class BrnaBridge {
     if (typeof frame.platform === "string") entry.platform = frame.platform;
     if (typeof frame.os_version === "string") entry.os_version = frame.os_version;
     if (typeof frame.app_version === "string") entry.app_version = frame.app_version;
+    entry.last_seen_at = Date.now();
+    this.recentDisconnected.delete(entry.id);
   }
 
   hasRuntime(deviceId?: string): boolean {
@@ -242,9 +263,14 @@ export class BrnaBridge {
         os_version: entry.os_version,
         app_version: entry.app_version,
         registered_at: entry.registered_at,
+        last_seen_at: entry.last_seen_at,
       });
     }
     return out;
+  }
+
+  listRecentDisconnectedDevices(): DisconnectedDeviceInfo[] {
+    return Array.from(this.recentDisconnected.values());
   }
 
   acquireSlot(): boolean {

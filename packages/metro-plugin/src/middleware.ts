@@ -211,7 +211,10 @@ export async function handleAction(
 }
 
 export function handleDevices(bridge: BrnaBridge, res: ServerResponse): void {
-  sendJson(res, 200, { devices: bridge.listDevices() });
+  sendJson(res, 200, {
+    devices: bridge.listDevices(),
+    recent_disconnected: bridge.listRecentDisconnectedDevices(),
+  });
 }
 
 export function brnaMiddleware(): Middleware {

@@ -164,7 +164,7 @@ async function checkRuntimeConnected(
       };
     }
     const diagnosis = await diagnoseMetroResponse(res, "devices endpoint");
-    let body: { devices?: unknown[] };
+    let body: { devices?: unknown[]; recent_disconnected?: unknown[] };
     try {
       body = (await res.json()) as { devices?: unknown[] };
     } catch (err) {
@@ -177,6 +177,14 @@ async function checkRuntimeConnected(
     }
     const count = Array.isArray(body.devices) ? body.devices.length : 0;
     if (count === 0) {
+      const lastSeen = newestRecentDisconnected(body.recent_disconnected);
+      if (lastSeen) {
+        return {
+          name: "runtime",
+          status: "fail",
+          message: `last seen ${formatAge(Date.now() - lastSeen.last_seen_at)} ago (device ${lastSeen.id}${formatDevicePlatform(lastSeen)}) — currently disconnected`,
+        };
+      }
       return {
         name: "runtime",
         status: "fail",
@@ -192,6 +200,45 @@ async function checkRuntimeConnected(
       message: `could not query devices endpoint: ${(err as Error).message}`,
     };
   }
+}
+
+interface RecentDisconnectedDevice {
+  id: string;
+  platform?: string;
+  os_version?: string;
+  last_seen_at: number;
+}
+
+function newestRecentDisconnected(value: unknown): RecentDisconnectedDevice | null {
+  if (!Array.isArray(value)) return null;
+  let newest: RecentDisconnectedDevice | null = null;
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.id !== "string") continue;
+    if (typeof candidate.last_seen_at !== "number" || !Number.isFinite(candidate.last_seen_at)) continue;
+    const next: RecentDisconnectedDevice = {
+      id: candidate.id,
+      last_seen_at: candidate.last_seen_at,
+    };
+    if (typeof candidate.platform === "string") next.platform = candidate.platform;
+    if (typeof candidate.os_version === "string") next.os_version = candidate.os_version;
+    if (!newest || next.last_seen_at > newest.last_seen_at) newest = next;
+  }
+  return newest;
+}
+
+function formatAge(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.round(minutes / 60)}h`;
+}
+
+function formatDevicePlatform(device: RecentDisconnectedDevice): string {
+  const parts = [device.platform, device.os_version].filter((v): v is string => typeof v === "string" && v.length > 0);
+  return parts.length > 0 ? `, ${parts.join(" ")}` : "";
 }
 
 async function checkBabelFingerprint(

@@ -89,6 +89,25 @@ describe("multi-device registry", () => {
     expect(body.devices[0]!.platform).toBe("ios");
   });
 
+  test("/brna/devices includes recently disconnected runtime metadata", () => {
+    const bridge = new BrnaBridge();
+    const ws = attach(bridge, { device_id: "dev-a", platform: "android", os_version: "36" });
+    ws.close();
+
+    const res = makeMockRes();
+    handleDevices(bridge, res as never);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      devices: unknown[];
+      recent_disconnected: Array<{ id: string; platform?: string; os_version?: string; last_seen_at?: number }>;
+    };
+    expect(body.devices).toHaveLength(0);
+    expect(body.recent_disconnected[0]!.id).toBe("dev-a");
+    expect(body.recent_disconnected[0]!.platform).toBe("android");
+    expect(body.recent_disconnected[0]!.os_version).toBe("36");
+    expect(typeof body.recent_disconnected[0]!.last_seen_at).toBe("number");
+  });
+
   test("snapshot routes to specific device when device-id supplied", async () => {
     const bridge = new BrnaBridge();
     const wsA = attach(bridge, { device_id: "dev-a" });

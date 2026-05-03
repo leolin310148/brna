@@ -36,6 +36,9 @@ export function resetSessionIdForTests(): void {
 }
 
 export function resolveSessionId(inputs: SessionIdInputs = {}): string {
+  const explicit = process.env.BRNA_SESSION_ID;
+  if (typeof explicit === "string" && explicit.length > 0) return `env-${safeSessionKey(explicit)}`;
+
   const ttyIno = inputs.ttyIno ?? readTtyInode(inputs.noTty);
   if (ttyIno !== null) return `tty-${Number(ttyIno).toString(16)}`;
 
@@ -50,11 +53,17 @@ export function getCacheDir(options: SessionCacheOptions = {}): string {
   return join(options.tmpdir ?? osTmpdir(), "brna", "session", options.sessionId ?? getSessionId());
 }
 
+export function snapshotSessionId(snapshot: Snapshot): string {
+  const explicit = process.env.BRNA_SESSION_ID;
+  if (typeof explicit === "string" && explicit.length > 0) return `env-${safeSessionKey(explicit)}`;
+  return `runtime-${safeSessionKey(snapshot.meta.session_id)}`;
+}
+
 export async function writeSnapshotCache(
   snapshot: Snapshot,
   options: SessionCacheOptions = {},
 ): Promise<string | null> {
-  const dir = getCacheDir(options);
+  const dir = getCacheDir({ ...options, sessionId: options.sessionId ?? snapshotSessionId(snapshot) });
   const target = join(dir, CACHE_FILE);
   const tmp = join(dir, `${CACHE_FILE}.tmp-${options.pid ?? process.pid}`);
   try {
@@ -106,4 +115,8 @@ function errorReason(err: unknown): string {
   if (typeof code === "string" && code.length > 0) return code;
   const message = (err as { message?: unknown })?.message;
   return typeof message === "string" && message.length > 0 ? message : "unknown";
+}
+
+function safeSessionKey(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 128) || "default";
 }

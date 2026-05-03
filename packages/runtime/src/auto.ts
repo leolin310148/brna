@@ -1,4 +1,4 @@
-import { NativeModules } from "react-native";
+import { AppState, NativeModules } from "react-native";
 import { connectAgent } from "./bridge.js";
 
 function inferMetroUrl(): string | null {
@@ -22,6 +22,11 @@ if (isDev) {
   if (metroUrl) {
     try {
       connectAgent({ metroUrl });
+      AppState.addEventListener("change", (state) => {
+        if (state === "active") {
+          connectAgent({ metroUrl });
+        }
+      });
     } catch {
       /* never throw from auto-entry */
     }

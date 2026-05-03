@@ -24,7 +24,7 @@ import {
   parseMetro,
   parseTimeout,
 } from "./options.js";
-import { readSnapshotCache, writeSnapshotCache } from "./session.js";
+import { readSnapshotCache, snapshotSessionId, writeSnapshotCache } from "./session.js";
 import { loadConfig, toRedactionOptions } from "./config.js";
 import { appendTraceEvent } from "./trace.js";
 
@@ -200,7 +200,8 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
   }
 
   if (wantsDiff) {
-    const baseline = await (runtime.readSnapshotCache ?? readSnapshotCache)();
+    const cacheSessionId = snapshotSessionId(snapshot);
+    const baseline = await (runtime.readSnapshotCache ?? readSnapshotCache)({ sessionId: cacheSessionId });
     if (!baseline) {
       failWith(6, "no baseline snapshot in this session — run brna snapshot first", stderr, exit);
     }
@@ -223,7 +224,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     } else {
       stdout.write(out);
     }
-    await refreshSnapshotCache(snapshot, runtime);
+    await refreshSnapshotCache(snapshot, runtime, cacheSessionId);
     await appendTraceEvent({
       type: "snap",
       timestamp: new Date().toISOString(),
@@ -244,7 +245,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     stdout.write(out);
     if (!out.endsWith("\n")) stdout.write("\n");
   }
-  await refreshSnapshotCache(snapshot, runtime);
+  await refreshSnapshotCache(snapshot, runtime, snapshotSessionId(snapshot));
   await appendTraceEvent({
     type: "snap",
     timestamp: new Date().toISOString(),
@@ -296,8 +297,12 @@ async function writeOutputFile(
   }
 }
 
-async function refreshSnapshotCache(snapshot: Snapshot, runtime: SnapshotRuntime): Promise<void> {
-  const warning = await (runtime.writeSnapshotCache ?? writeSnapshotCache)(snapshot);
+async function refreshSnapshotCache(
+  snapshot: Snapshot,
+  runtime: SnapshotRuntime,
+  sessionId: string,
+): Promise<void> {
+  const warning = await (runtime.writeSnapshotCache ?? writeSnapshotCache)(snapshot, { sessionId });
   if (warning !== null) {
     (runtime.stderr ?? process.stderr).write(`brna: warning: snapshot cache write failed: ${warning}\n`);
   }
