@@ -137,6 +137,7 @@ export interface Node {
   range?: NodeRange;
   state?: StateFlag[];
   selector?: string;
+  suggested_selectors?: string[];
   actions?: Action[];
   bounds?: Bounds;
   children?: Node[];

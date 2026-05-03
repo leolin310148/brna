@@ -1,6 +1,6 @@
 {
   "name": "@brna/metro-plugin",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Expo config plugin + Metro middleware: HTTP/WebSocket surface inside Metro process",
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@brna/schema": "^0.0.6",
+    "@brna/schema": "^0.0.7",
     "ws": "^8.18.0"
   },
   "devDependencies": {

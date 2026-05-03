@@ -116,6 +116,45 @@ function hasDisplayNameAssignment(programPath, name) {
   return found;
 }
 
+const COMPONENT_FACTORY_NAMES = new Set([
+  "forwardRef",
+  "memo",
+  "lazy",
+  "observer",
+]);
+
+function isComponentFactoryCallee(callee) {
+  if (!callee) return false;
+  if (callee.type === "Identifier") {
+    return COMPONENT_FACTORY_NAMES.has(callee.name);
+  }
+  if (
+    callee.type === "MemberExpression" &&
+    !callee.computed &&
+    callee.property &&
+    callee.property.type === "Identifier"
+  ) {
+    return COMPONENT_FACTORY_NAMES.has(callee.property.name);
+  }
+  return false;
+}
+
+function containsJsx(rootPath) {
+  if (!rootPath) return false;
+  let found = false;
+  rootPath.traverse({
+    JSXElement(innerPath) {
+      found = true;
+      innerPath.stop();
+    },
+    JSXFragment(innerPath) {
+      found = true;
+      innerPath.stop();
+    },
+  });
+  return found;
+}
+
 function collectDisplayNameTargets(programPath) {
   const targets = [];
   const seen = new Set();
@@ -127,20 +166,23 @@ function collectDisplayNameTargets(programPath) {
 
   for (const stmtPath of programPath.get("body")) {
     if (stmtPath.isFunctionDeclaration()) {
-      add(componentNameFromId(stmtPath.node.id));
+      const name = componentNameFromId(stmtPath.node.id);
+      if (name && containsJsx(stmtPath)) add(name);
       continue;
     }
     if (stmtPath.isVariableDeclaration()) {
-      for (const decl of stmtPath.node.declarations) {
+      for (const declPath of stmtPath.get("declarations")) {
+        const decl = declPath.node;
         const name = componentNameFromId(decl.id);
         const init = decl.init;
         if (!name || !init) continue;
         if (
           init.type === "ArrowFunctionExpression" ||
-          init.type === "FunctionExpression" ||
-          init.type === "CallExpression"
+          init.type === "FunctionExpression"
         ) {
-          add(name);
+          if (containsJsx(declPath.get("init"))) add(name);
+        } else if (init.type === "CallExpression") {
+          if (isComponentFactoryCallee(init.callee)) add(name);
         }
       }
     }
@@ -188,8 +230,13 @@ module.exports = function brnaInjectAutoEntry(api) {
             );
           }
         },
-        exit(programPath) {
+        exit(programPath, state) {
           if (process.env.NODE_ENV === "production") return;
+          const filename = getStateFilename(state);
+          if (filename) {
+            const normalised = String(filename).split(path.sep).join("/");
+            if (normalised.indexOf("/node_modules/") !== -1) return;
+          }
           for (const name of collectDisplayNameTargets(programPath)) {
             programPath.pushContainer(
               "body",

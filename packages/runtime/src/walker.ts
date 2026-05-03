@@ -152,6 +152,17 @@ export interface ExtractedFields {
 const INFERRED_LABEL_MAX_WORDS = 5;
 const INTERACTIVE_INFERRED_KINDS = new Set<NodeKind>(["button", "link"]);
 
+export function countInferredLabels(nodes: Node[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node._dev?.inferred_label === true) count += 1;
+    if (node.children && node.children.length > 0) {
+      count += countInferredLabels(node.children);
+    }
+  }
+  return count;
+}
+
 export function findFirstSource(nodes: Node[]): string | undefined {
   for (const node of nodes) {
     if (node._dev && typeof node._dev.source === "string" && node._dev.source.length > 0) {
@@ -176,6 +187,19 @@ function findDescendantText(nodes: Node[]): string | undefined {
     }
   }
   return undefined;
+}
+
+function humaniseTestId(testID: string): string {
+  // Convert kebab-case, snake_case, or camelCase into Title Case words.
+  const spaced = testID
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  if (spaced.length === 0) return testID;
+  return spaced
+    .split(/\s+/)
+    .map((word) => (word.length > 0 ? word[0]!.toUpperCase() + word.slice(1) : word))
+    .join(" ");
 }
 
 function truncateToWords(text: string, maxWords: number): string {
@@ -471,8 +495,8 @@ function buildSubtree(hits: HostHit[], parentId: string): BuildResult {
         if (text) inferred = truncateToWords(text, INFERRED_LABEL_MAX_WORDS);
       }
       if (!inferred && fields.icon_label) inferred = fields.icon_label;
-      if (!inferred && fields.testID) inferred = fields.testID;
       if (!inferred && fields.handler_label) inferred = fields.handler_label;
+      if (!inferred && fields.testID) inferred = humaniseTestId(fields.testID);
       if (!inferred) inferred = `action#${interactivePosition}`;
       if (inferred) {
         node.name = `__${inferred}__`;

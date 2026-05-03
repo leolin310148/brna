@@ -1,6 +1,6 @@
 {
   "name": "@brna/docs",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Astro documentation site for brna",
   "repository": {
     "type": "git",

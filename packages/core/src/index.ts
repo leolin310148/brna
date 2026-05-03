@@ -5,6 +5,8 @@
  * - parseSelector / resolve / canonicalSelectorFor / populateSelectors
  *                              the selector grammar parser, resolver (returns ok|none|ambiguous),
  *                              and canonical selector generator.
+ * - annotateSuggestedSelectors annotates a snapshot tree with prioritised
+ *                              `suggested_selectors` per node (canonical first, capped at 4).
  * - toJSON / fromJSON          deterministic JSON serialisation; round-trips byte-identically.
  * - toYAML / fromYAML          YAML serialisation backed by the `yaml` package with pinned options.
  * - toMarkdown                 deterministic one-way projection for LLM consumers (no fromMarkdown).

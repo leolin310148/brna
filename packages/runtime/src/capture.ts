@@ -1,8 +1,9 @@
 import { Platform, Dimensions, NativeModules } from "react-native";
 import type { Node, Snapshot, SnapshotRedactionOptions, SnapshotWarning } from "@brna/schema";
 import { SCHEMA_VERSION } from "@brna/schema";
+import { annotateSuggestedSelectors, populateSelectors } from "@brna/core/selector";
 import { findRenderer, getFiberRoots } from "./devtools.js";
-import { findFirstSource, walkFiberRoot, type MeasureTarget } from "./walker.js";
+import { countInferredLabels, findFirstSource, walkFiberRoot, type MeasureTarget } from "./walker.js";
 import { measureBatch } from "./measure.js";
 import { sessionId, freshUuid } from "./session.js";
 import { ROOT_ID } from "./constants.js";
@@ -83,15 +84,21 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
 
   applyBounds(allChildren, bounds);
 
-  const tree: Node = {
+  const inferredCount = countInferredLabels(allChildren);
+  if (inferredCount > 0) {
+    warnings.push({ code: "inferred_label_debt", count: inferredCount });
+  }
+
+  const rawTree: Node = {
     id: ROOT_ID,
     kind: "screen",
     children: allChildren.length > 0 ? allChildren : undefined,
   };
 
   const primarySource = findFirstSource(allChildren);
+  const tree = populateSelectors(rawTree);
 
-  const snapshot: Snapshot = {
+  const baseSnapshot: Snapshot = {
     meta: {
       schema_version: SCHEMA_VERSION,
       captured_at: new Date().toISOString(),
@@ -106,7 +113,8 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
     tree,
   };
 
-  return redactSnapshot(snapshot, options.redaction);
+  const annotated = annotateSuggestedSelectors(baseSnapshot);
+  return redactSnapshot(annotated, options.redaction);
 }
 
 

@@ -91,7 +91,7 @@ jobs:
           fi
 
   publish:
-    needs: prepare-release
+    needs: [prepare-release, cli-smoke]
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -191,3 +191,53 @@ jobs:
             echo "Publishing $name@$version from $dir"
             npm publish --workspace "$dir" --access public --provenance
           done
+
+  cli-smoke:
+    needs: prepare-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Pack and smoke-test CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pack_dir="$PWD/.pack-smoke"
+          smoke_dir="$PWD/.smoke-cli"
+          mkdir -p "$pack_dir" "$smoke_dir"
+
+          npm pack ./packages/schema --pack-destination "$pack_dir"
+          npm pack ./packages/core --pack-destination "$pack_dir"
+          npm pack ./packages/mcp --pack-destination "$pack_dir"
+          npm pack ./packages/cli --pack-destination "$pack_dir"
+
+          cd "$smoke_dir"
+          npm init -y
+          npm install "$pack_dir"/brna-schema-*.tgz "$pack_dir"/brna-core-*.tgz "$pack_dir"/brna-mcp-*.tgz "$pack_dir"/brna-cli-*.tgz
+
+          npx brna --help
+          if npx brna doctor --metro http://localhost:1; then
+            echo "doctor unexpectedly succeeded against a closed Metro port"
+            exit 1
+          fi

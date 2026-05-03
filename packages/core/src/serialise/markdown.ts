@@ -102,10 +102,38 @@ export function nodeLine(node: Node): string {
   if (rangeAnnotation) parts.push(rangeAnnotation);
   if (node.state && node.state.length > 0) parts.push(`[${[...node.state].sort().join(", ")}]`);
   if (node.actions && node.actions.length > 0) {
-    const ref = node.id.startsWith("auto:") ? "" : ` [#${node.id}]`;
+    const canonical = canonicalSelectorForLine(node);
+    const ref = canonical ? ` [${canonical}]` : "";
     parts.push(`→ ${node.actions[0]}${ref}`);
   }
+  const alternateSelectors = formatAlternateSelectors(node);
+  if (alternateSelectors) parts.push(alternateSelectors);
   return parts.join(" ");
+}
+
+function canonicalSelectorForLine(node: Node): string | null {
+  if (!node.id.startsWith("auto:")) return `#${node.id}`;
+  if (node.selector) return node.selector;
+  return null;
+}
+
+const MARKDOWN_ALTERNATE_SELECTOR_LIMIT = 2;
+
+function formatAlternateSelectors(node: Node): string | null {
+  if (!node.suggested_selectors || node.suggested_selectors.length === 0) return null;
+  // Drop the canonical (first) entry and any duplicate already shown inline.
+  const canonical = node.suggested_selectors[0];
+  const inline = canonicalSelectorForLine(node);
+  const seen = new Set<string>([canonical ?? "", inline ?? ""]);
+  const alternates: string[] = [];
+  for (const entry of node.suggested_selectors.slice(1)) {
+    if (alternates.length >= MARKDOWN_ALTERNATE_SELECTOR_LIMIT) break;
+    if (seen.has(entry)) continue;
+    seen.add(entry);
+    alternates.push(entry);
+  }
+  if (alternates.length === 0) return null;
+  return `selectors=[${alternates.join(", ")}]`;
 }
 
 function formatRangeAnnotation(range: Node["range"]): string | null {

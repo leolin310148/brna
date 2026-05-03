@@ -97,4 +97,41 @@ describe("displayName supplementation", () => {
     const out = transform('function Card() { return <View />; }\nCard.displayName = "Manual";');
     expect(out.match(/Card\.displayName/g)?.length).toBe(1);
   });
+
+  test("assigns displayName for arrow components", () => {
+    const out = transform("const Card = () => <View />;");
+    expect(out).toContain('Card.displayName = Card.displayName || "Card"');
+  });
+
+  test("assigns displayName for forwardRef and memo factories", () => {
+    const out = transform(
+      "const Card = forwardRef(function (p, r) { return <View />; });\n" +
+        "const Memoed = React.memo(Card);"
+    );
+    expect(out).toContain('Card.displayName = Card.displayName || "Card"');
+    expect(out).toContain('Memoed.displayName = Memoed.displayName || "Memoed"');
+  });
+
+  test("does not assign displayName to Symbol primitives", () => {
+    const out = transform("const IS_PLATFORM_OBJECT_KEY = Symbol('isPlatformObject');");
+    expect(out).not.toContain("IS_PLATFORM_OBJECT_KEY.displayName");
+  });
+
+  test("does not assign displayName to Object.freeze constants", () => {
+    const out = transform("const CONFIG = Object.freeze({ flag: true });");
+    expect(out).not.toContain("CONFIG.displayName");
+  });
+
+  test("does not assign displayName to functions that do not return JSX", () => {
+    const out = transform("function Util() { return 42; }");
+    expect(out).not.toContain("Util.displayName");
+  });
+
+  test("skips displayName injection for files inside node_modules", () => {
+    const out = transform("function Card() { return <View />; }", {
+      filename: path.join(REPO_ROOT, "node_modules", "some-pkg", "index.js"),
+      cwd: REPO_ROOT,
+    });
+    expect(out).not.toContain("Card.displayName");
+  });
 });

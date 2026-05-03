@@ -15,4 +15,26 @@ import Base from "../layouts/Base.astro";
     <h2>Selector flow</h2>
     <p>Read the snapshot, choose a selector such as <code>#save</code> or <code>button:Submit</code>, then call the matching action tool. The MCP server resolves selectors with the same engine as the CLI before posting to Metro.</p>
   </section>
+
+  <section class="card">
+    <h2>Suggested selectors</h2>
+    <p>
+      Each node in the snapshot carries a canonical <code>selector</code> and
+      an ordered list of <code>suggested_selectors</code>. The first entry of
+      <code>suggested_selectors</code> always equals <code>selector</code>;
+      every entry in the list resolves uniquely to that node, so an agent can
+      copy any of them verbatim into a <code>brna act</code> call.
+    </p>
+    <p>Suggestions are emitted in priority order:</p>
+    <ol>
+      <li><code>#&lt;id&gt;</code> when the node has a stable id (testID or accessibilityIdentifier).</li>
+      <li><code>@&lt;testID&gt;</code> as a syntactic alternate for stable-id nodes.</li>
+      <li><code>&lt;role&gt;:&lt;name&gt;</code> when role and name resolve uniquely.</li>
+      <li><code>&lt;role&gt;:&lt;name&gt; in #&lt;ancestor&gt;</code> when role/name needs scoping.</li>
+      <li><code>&lt;text&gt;...&lt;text&gt;</code> as a readable text-fragment fallback.</li>
+    </ol>
+    <p>The list is capped at four entries per node. Agents should prefer the
+       first entry (<code>selector</code>) and fall back to alternates only when
+       they need a more readable form.</p>
+  </section>
 </Base>

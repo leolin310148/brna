@@ -196,16 +196,17 @@ describe("auto-labeller heuristic", () => {
     expect(node._dev?.inferred_label).toBe(true);
   });
 
-  test("falls back to testID when no descendant text exists", () => {
+  test("falls back to testID humanised when no other inference applies", () => {
+    const handler = function on() {};
     const root = makeRoot(
       makeFiber({
         type: "RCTView",
-        props: { onResponderRelease: () => {}, testID: "btn-login" },
+        props: { onResponderRelease: handler, testID: "btn-login" },
       }),
     );
     const node = walkFiberRoot(root, "screen:root").rootChildren[0]!;
     expect(node.kind).toBe("button");
-    expect(node.name).toBe("__btn-login__");
+    expect(node.name).toBe("__Btn Login__");
     expect(node._dev?.inferred_label).toBe(true);
   });
 

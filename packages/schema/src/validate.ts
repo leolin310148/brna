@@ -29,6 +29,7 @@ const ALLOWED_NODE_KEYS = new Set<string>([
   "range",
   "state",
   "selector",
+  "suggested_selectors",
   "actions",
   "bounds",
   "children",
@@ -233,6 +234,24 @@ function walkNode(node: Node, path: string): void {
   }
   if (node.range !== undefined) {
     validateRange(node.range, `${path}.range`);
+  }
+  if (node.suggested_selectors !== undefined) {
+    if (!Array.isArray(node.suggested_selectors)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.suggested_selectors`,
+        message: "suggested_selectors must be an array of strings",
+      });
+    }
+    node.suggested_selectors.forEach((entry, i) => {
+      if (typeof entry !== "string" || entry.length === 0) {
+        throw new BrnaValidationError({
+          code: "shape",
+          path: `${path}.suggested_selectors[${i}]`,
+          message: "suggested_selectors entries must be non-empty strings",
+        });
+      }
+    });
   }
   if (node.name && SENTINEL_PATTERN.test(node.name)) {
     if (node._dev?.inferred_label !== true) {

@@ -166,6 +166,32 @@ describe("brna doctor", () => {
     expect(written.expo.plugins).toContain("@brna/expo-plugin");
   });
 
+  test("manual Expo setup does not fail missing Expo plugin check", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({ dependencies: { expo: "50.0.0", react: "18.2.0", "react-native": "0.74.0" } }),
+      "/proj/app.json": JSON.stringify({ expo: { name: "demo", plugins: [] } }),
+      "/proj/babel.config.js": "module.exports = { presets: ['babel-preset-expo'], plugins: ['@brna/babel-plugin'] };\n",
+      "/proj/metro.config.js": "const { withBrna } = require('@brna/metro-plugin');\nmodule.exports = withBrna({});\n",
+    };
+    const res = await run([], { fs, fetchImpl: okFetch });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("expo-plugin: not used (manual babel + metro setup detected");
+    expect(res.stdout).not.toContain("@brna/expo-plugin missing");
+  });
+
+  test("--fix does not register Expo plugin over manual Expo setup", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({ dependencies: { expo: "50.0.0", react: "18.2.0", "react-native": "0.74.0" } }),
+      "/proj/app.json": JSON.stringify({ expo: { name: "demo", plugins: [] } }),
+      "/proj/babel.config.js": "module.exports = { plugins: ['@brna/babel-plugin'] };\n",
+      "/proj/metro.config.js": "const { withBrna } = require('@brna/metro-plugin');\nmodule.exports = withBrna({});\n",
+    };
+    const res = await run(["--fix"], { fs, fetchImpl: okFetch });
+    expect(res.code).toBe(0);
+    expect(res.writes).toHaveLength(0);
+    expect(res.stdout).toContain("manual babel + metro setup already configured");
+  });
+
   test("--fix asks before registering Expo plugin", async () => {
     const prompts: string[] = [];
     const fs: FsMap = {

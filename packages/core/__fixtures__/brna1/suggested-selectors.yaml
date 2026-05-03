@@ -1,0 +1,82 @@
+meta:
+  app:
+    bundle_id: com.example.app
+    rn_version: 0.76.0
+    version: 1.0.0 (1)
+  captured_at: 2026-05-01T12:00:00.000Z
+  device:
+    locale: en-US
+    model: iPhone 15 Pro
+    os_version: "17.4"
+    platform: ios
+    viewport:
+      h: 852
+      scale: 3
+      w: 393
+  schema_version: brna/1
+  session_id: 00000000-0000-0000-0000-000000000001
+  snapshot_id: 00000000-0000-0000-0000-000000000002
+screen:
+  modal_stack: []
+  route: /checkout
+  title: Checkout
+tree:
+  children:
+    - actions:
+        - tap
+      id: submit
+      kind: button
+      name: Pay Now
+      role: button
+      selector: "#submit"
+      suggested_selectors:
+        - "#submit"
+        - "@submit"
+        - button:Pay Now
+        - "button:Pay Now in #screen-checkout"
+    - children:
+        - actions:
+            - tap
+          id: auto:save_address
+          kind: button
+          name: Save
+          role: button
+          selector: "button:Save in #form-address"
+          suggested_selectors:
+            - "button:Save in #form-address"
+      id: form-address
+      kind: region
+      selector: "#form-address"
+      suggested_selectors:
+        - "#form-address"
+        - "@form-address"
+    - children:
+        - actions:
+            - tap
+          id: auto:save_payment
+          kind: button
+          name: Save
+          role: button
+          selector: "button:Save in #form-payment"
+          suggested_selectors:
+            - "button:Save in #form-payment"
+      id: form-payment
+      kind: region
+      selector: "#form-payment"
+      suggested_selectors:
+        - "#form-payment"
+        - "@form-payment"
+    - id: auto:tx-disclaimer
+      kind: text
+      selector: "#auto:tx-disclaimer"
+      suggested_selectors:
+        - "#auto:tx-disclaimer"
+        - By...terms
+        - By...agree...terms
+      text: By continuing you agree to our terms
+  id: screen-checkout
+  kind: screen
+  selector: "#screen-checkout"
+  suggested_selectors:
+    - "#screen-checkout"
+    - "@screen-checkout"

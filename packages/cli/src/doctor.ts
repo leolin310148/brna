@@ -273,8 +273,15 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
 
   const isExpoProject = typeof deps.expo === "string";
   if (isExpoProject) {
+    const manualSetup = await hasManualBrnaSetup(projectRoot, runtime);
     const appConfig = await readAppConfig(projectRoot, runtime);
-    if (!appConfig) {
+    if (manualSetup && (!appConfig || !hasBrnaPlugin(appConfig.parsed))) {
+      out.push({
+        name: "expo-plugin",
+        status: "skip",
+        message: "not used (manual babel + metro setup detected — OK)",
+      });
+    } else if (!appConfig) {
       out.push({
         name: "expo-plugin",
         status: "warn",
@@ -292,6 +299,36 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
   }
 
   return out;
+}
+
+async function hasManualBrnaSetup(projectRoot: string, runtime: DoctorRuntime): Promise<boolean> {
+  const [hasBabel, hasMetro] = await Promise.all([
+    hasPatchedConfig(projectRoot, runtime, ["babel.config.js", "babel.config.cjs"], (text) =>
+      text.includes(BABEL_PLUGIN_NAME),
+    ),
+    hasPatchedConfig(projectRoot, runtime, ["metro.config.js", "metro.config.cjs"], (text) =>
+      text.includes(METRO_PLUGIN_NAME) || text.includes("withBrna"),
+    ),
+  ]);
+  return hasBabel && hasMetro;
+}
+
+async function hasPatchedConfig(
+  projectRoot: string,
+  runtime: DoctorRuntime,
+  candidates: string[],
+  predicate: (text: string) => boolean,
+): Promise<boolean> {
+  for (const candidate of candidates) {
+    const path = resolve(projectRoot, candidate);
+    try {
+      const text = await (runtime.readFile ?? readFile)(path, "utf8");
+      if (predicate(text)) return true;
+    } catch {
+      /* try next */
+    }
+  }
+  return false;
 }
 
 interface AppConfig {
@@ -346,6 +383,13 @@ async function applyFixes(
   }
   if (!isExpo) {
     return applyDirectConfigFixes(projectRoot, runtime, stdout);
+  }
+  if (await hasManualBrnaSetup(projectRoot, runtime)) {
+    return [{
+      name: "fix",
+      status: "ok",
+      message: "manual babel + metro setup already configured",
+    }];
   }
   const result = await applyExpoFix(projectRoot, runtime, stdout);
   return [result];

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { runSnapshot } from "./snapshot.js";
 import { runAct } from "./act.js";
 import { runDevices } from "./devices.js";

@@ -2,10 +2,17 @@
 
 Agent-friendly snapshots and actions for React Native apps.
 
-`brna` lets a coding agent inspect and drive a running React Native app without
-guessing from screenshots. It exposes a structured snapshot of the current UI
-and a small action API for tapping, typing, scrolling, pressing keys, and
-checking what changed.
+`brna` is an **agent-time inspect/act primitive** for development workflows. It
+lets a coding agent read the current screen of a running React Native dev app
+and drive it with stable selectors. It is **not** an end-to-end test runner
+and is not a replacement for Maestro, Detox, or Appium — use those when you
+need recorded test suites, native gesture coverage, or production app testing.
+
+`brna` exposes a structured snapshot of the current UI and a small action API
+for tapping, typing, scrolling, pressing keys, and checking what changed. Each
+node carries a canonical `selector` and an ordered list of
+`suggested_selectors` so an agent can copy a working selector directly out of
+the snapshot.
 
 It is built for Expo and React Native development sessions where you want an
 agent to understand the app screen like a developer would: labels, roles,
@@ -34,6 +41,8 @@ Install the CLI and Expo integration packages:
 npm install --save-dev @brna/cli @brna/expo-plugin
 npm install @brna/runtime @brna/metro-plugin @brna/babel-plugin
 ```
+
+The CLI runs on Node.js 18 or newer.
 
 Register the Expo plugin in `app.json`:
 

@@ -1,6 +1,6 @@
 {
   "name": "@brna/cli",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "brna CLI — agent-friendly snapshot and action surface for React Native apps",
   "repository": {
     "type": "git",
@@ -8,7 +8,7 @@
   },
   "type": "module",
   "bin": {
-    "brna": "./dist/brna"
+    "brna": "./dist/brna.js"
   },
   "files": [
     "dist",
@@ -22,13 +22,16 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "build": "bun build ./src/cli.ts --compile --outfile dist/brna",
+    "build": "node -e \"require('node:fs').rmSync('dist/brna',{force:true})\" && bun build ./src/cli.ts --target=node --outfile dist/brna.js",
     "prepack": "bun run build",
     "start": "bun run ./src/cli.ts"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@brna/schema": "^0.0.6",
-    "@brna/core": "^0.0.6",
-    "@brna/mcp": "^0.0.6"
+    "@brna/schema": "^0.0.7",
+    "@brna/core": "^0.0.7",
+    "@brna/mcp": "^0.0.7"
   }
 }

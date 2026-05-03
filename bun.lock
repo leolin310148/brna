@@ -11,7 +11,7 @@
     },
     "packages/babel-plugin": {
       "name": "@brna/babel-plugin",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "devDependencies": {
         "@babel/core": "^7.0.0",
         "@babel/plugin-syntax-jsx": "^7.0.0",
@@ -22,9 +22,9 @@
     },
     "packages/cli": {
       "name": "@brna/cli",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "bin": {
-        "brna": "./src/cli.ts",
+        "brna": "./dist/brna.js",
       },
       "dependencies": {
         "@brna/core": "workspace:*",
@@ -34,15 +34,15 @@
     },
     "packages/core": {
       "name": "@brna/core",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "dependencies": {
-        "@brna/schema": "workspace:*",
+        "@brna/schema": "^0.0.7",
         "yaml": "^2.5.0",
       },
     },
     "packages/docs": {
       "name": "@brna/docs",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "dependencies": {
         "@brna/cli": "workspace:*",
         "astro": "^5.7.0",
@@ -53,16 +53,16 @@
     },
     "packages/expo-plugin": {
       "name": "@brna/expo-plugin",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "peerDependencies": {
         "expo": "*",
       },
     },
     "packages/mcp": {
       "name": "@brna/mcp",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "bin": {
-        "brna-mcp": "./src/server.ts",
+        "brna-mcp": "./dist/brna-mcp.js",
       },
       "dependencies": {
         "@brna/core": "workspace:*",
@@ -72,7 +72,7 @@
     },
     "packages/metro-plugin": {
       "name": "@brna/metro-plugin",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "dependencies": {
         "@brna/schema": "workspace:*",
         "ws": "^8.18.0",
@@ -87,9 +87,10 @@
     },
     "packages/runtime": {
       "name": "@brna/runtime",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "dependencies": {
-        "@brna/schema": "workspace:*",
+        "@brna/core": "^0.0.7",
+        "@brna/schema": "^0.0.7",
       },
       "peerDependencies": {
         "react": ">=18.0.0",
@@ -98,7 +99,7 @@
     },
     "packages/schema": {
       "name": "@brna/schema",
-      "version": "0.0.1",
+      "version": "0.0.7",
       "dependencies": {
         "ajv": "^8.17.0",
       },

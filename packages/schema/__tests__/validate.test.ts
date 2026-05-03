@@ -227,6 +227,49 @@ describe("bounds_unavailable warning", () => {
   });
 });
 
+describe("suggested_selectors", () => {
+  test("accepts node without suggested_selectors", () => {
+    const snap = makeSnapshot({
+      tree: { id: "root", kind: "screen" },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("accepts node with non-empty suggested_selectors entries", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "button",
+        selector: "#submit",
+        suggested_selectors: ["#submit", "button:Submit"],
+      },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("rejects empty selector entry", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "button",
+        suggested_selectors: ["#submit", ""],
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("rejects non-string entry", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "button",
+        suggested_selectors: ["#submit", 42 as never],
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+});
+
 describe("diff validation", () => {
   const node: Node = { id: "x", kind: "button", name: "Submit" };
 
