@@ -35,16 +35,18 @@ actions through the Model Context Protocol.
 
 ## Quick Start In An Expo App
 
-Install the CLI and Expo integration packages:
+Install the CLI and runtime packages:
 
 ```sh
-npm install --save-dev @brna/cli @brna/expo-plugin
+npm install --save-dev @brna/cli
 npm install @brna/runtime @brna/metro-plugin @brna/babel-plugin
 ```
 
 The CLI runs on Node.js 18 or newer.
 
-For managed, EAS, and dev-client Expo apps, wire Babel and Metro directly:
+For managed, EAS, and dev-client Expo apps — anything that runs `expo start`
+without a local prebuild — wire Babel and Metro directly. This is the
+recommended path:
 
 ```js
 // babel.config.js
@@ -66,8 +68,12 @@ const config = getDefaultConfig(__dirname);
 module.exports = withBrna(config);
 ```
 
-If you use a static `app.json` prebuild workflow, you can also register the
-Expo config plugin:
+If you use a static `app.json` prebuild workflow, you can additionally install
+the config plugin and register it:
+
+```sh
+npm install --save-dev @brna/expo-plugin
+```
 
 ```json
 {
@@ -77,7 +83,8 @@ Expo config plugin:
 }
 ```
 
-The config plugin patches Babel and Metro during `expo prebuild`. Direct wiring
+The config plugin only applies during `expo prebuild` — use it on top of, or
+instead of, direct wiring when you regenerate native projects. Direct wiring
 above is the reliable path for `expo start` against an existing dev client.
 
 Start Metro with a cleared cache after changing Babel or Metro config:
@@ -97,6 +104,10 @@ If `doctor` reports missing setup, run:
 ```sh
 npx brna doctor --fix
 ```
+
+`--fix` patches `babel.config.js` and `metro.config.js` directly for managed,
+EAS, and dev-client Expo apps. For static prebuild app config it can also
+register the `@brna/expo-plugin`.
 
 Once the app is running in a simulator, emulator, or device, capture a snapshot:
 

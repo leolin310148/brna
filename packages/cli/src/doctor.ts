@@ -24,6 +24,10 @@ const EXPO_PLUGIN_NAME = "@brna/expo-plugin";
 const BABEL_PLUGIN_NAME = "@brna/babel-plugin";
 const METRO_PLUGIN_NAME = "@brna/metro-plugin";
 const BABEL_FINGERPRINT = "__brnaSource";
+// Cold unminified Expo bundles can take well over the default doctor timeout
+// to compile on a fresh Metro cache. Hold a 20s floor for the fingerprint
+// probe specifically; an explicit larger --timeout still wins.
+export const BABEL_PROBE_TIMEOUT_FLOOR_MS = 20000;
 
 export type CheckStatus = "ok" | "warn" | "fail" | "skip";
 
@@ -254,8 +258,9 @@ async function checkBabelFingerprint(
   runtime: DoctorRuntime,
 ): Promise<CheckResult> {
   const fetchImpl = runtime.fetch ?? fetch;
+  const probeTimeoutMs = Math.max(timeoutMs, BABEL_PROBE_TIMEOUT_FLOOR_MS);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), probeTimeoutMs);
   try {
     const bundlePath = await bundlePathForProject(projectRoot, runtime);
     const res = await fetchImpl(`${metro}/${bundlePath}.bundle?platform=ios&dev=true&minify=false`, {
@@ -362,7 +367,7 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
       out.push({
         name: "expo-plugin",
         status: "warn",
-        message: "no Expo app config found",
+        message: "no Expo app config found — run 'brna doctor --fix' to wire Babel + Metro directly (the reliable path for expo start / dev-client flows)",
       });
     } else if (hasBrnaPlugin(appConfig.parsed)) {
       out.push({ name: "expo-plugin", status: "ok", message: `${EXPO_PLUGIN_NAME} registered` });
@@ -370,7 +375,7 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
       out.push({
         name: "expo-plugin",
         status: "fail",
-        message: `${EXPO_PLUGIN_NAME} missing from plugins — run 'brna doctor --fix'`,
+        message: `${EXPO_PLUGIN_NAME} missing — run 'brna doctor --fix' (direct Babel + Metro wiring is the reliable path for expo start / dev-client flows; the config plugin only applies during expo prebuild)`,
       });
     }
   }
@@ -523,16 +528,16 @@ async function applyExpoFix(
 ): Promise<CheckResult> {
   const appConfig = await readAppConfig(projectRoot, runtime);
   if (!appConfig) {
-    return { name: "fix", status: "warn", message: "no editable Expo app config found; trying direct Babel + Metro setup" };
+    return { name: "fix", status: "warn", message: "no editable Expo app config found; falling back to direct Babel + Metro wiring (managed/dev-client setup path)" };
   }
   if (hasBrnaPlugin(appConfig.parsed)) {
-    return { name: "fix", status: "ok", message: `${EXPO_PLUGIN_NAME} already registered` };
+    return { name: "fix", status: "ok", message: `${EXPO_PLUGIN_NAME} already registered (applies during expo prebuild)` };
   }
   if (!appConfig.editable) {
     return {
       name: "fix",
       status: "warn",
-      message: `${appConfig.path} is dynamic; trying direct Babel + Metro setup`,
+      message: `${appConfig.path} is dynamic; falling back to direct Babel + Metro wiring (managed/dev-client setup path)`,
     };
   }
   if (!(await confirmWrite(`Register ${EXPO_PLUGIN_NAME} in ${appConfig.path}?`, runtime, stdout))) {
@@ -545,7 +550,7 @@ async function applyExpoFix(
   } catch (err) {
     return { name: "fix", status: "fail", message: `could not write ${appConfig.path}: ${(err as Error).message}` };
   }
-  return { name: "fix", status: "ok", message: `added ${EXPO_PLUGIN_NAME} to ${appConfig.path}` };
+  return { name: "fix", status: "ok", message: `added ${EXPO_PLUGIN_NAME} to ${appConfig.path} (applies during expo prebuild)` };
 }
 
 async function applyDirectConfigFixes(

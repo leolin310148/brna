@@ -44,6 +44,8 @@ interface RuntimeFrame {
   platform?: string;
   os_version?: string;
   app_version?: string;
+  app_name?: string;
+  app_bundle_id?: string;
 }
 
 export interface SnapshotRequestOptions {
@@ -56,6 +58,8 @@ export interface DeviceInfo {
   platform?: string;
   os_version?: string;
   app_version?: string;
+  app_name?: string;
+  app_bundle_id?: string;
   registered_at: number;
   last_seen_at: number;
 }
@@ -203,6 +207,8 @@ export class BrnaBridge {
           platform: entry.platform,
           os_version: entry.os_version,
           app_version: entry.app_version,
+          app_name: entry.app_name,
+          app_bundle_id: entry.app_bundle_id,
           registered_at: entry.registered_at,
           last_seen_at: now,
           disconnected_at: now,
@@ -239,6 +245,12 @@ export class BrnaBridge {
     if (typeof frame.platform === "string") entry.platform = frame.platform;
     if (typeof frame.os_version === "string") entry.os_version = frame.os_version;
     if (typeof frame.app_version === "string") entry.app_version = frame.app_version;
+    if (typeof frame.app_name === "string" && frame.app_name.length > 0) {
+      entry.app_name = frame.app_name;
+    }
+    if (typeof frame.app_bundle_id === "string" && frame.app_bundle_id.length > 0) {
+      entry.app_bundle_id = frame.app_bundle_id;
+    }
     entry.last_seen_at = Date.now();
     this.recentDisconnected.delete(entry.id);
   }
@@ -258,14 +270,17 @@ export class BrnaBridge {
     const out: DeviceInfo[] = [];
     for (const entry of this.devices.values()) {
       if (entry.ws.readyState !== WebSocket.OPEN) continue;
-      out.push({
+      const info: DeviceInfo = {
         id: entry.id,
-        platform: entry.platform,
-        os_version: entry.os_version,
-        app_version: entry.app_version,
         registered_at: entry.registered_at,
         last_seen_at: entry.last_seen_at,
-      });
+      };
+      if (entry.platform !== undefined) info.platform = entry.platform;
+      if (entry.os_version !== undefined) info.os_version = entry.os_version;
+      if (entry.app_version !== undefined) info.app_version = entry.app_version;
+      if (entry.app_name !== undefined) info.app_name = entry.app_name;
+      if (entry.app_bundle_id !== undefined) info.app_bundle_id = entry.app_bundle_id;
+      out.push(info);
     }
     return out;
   }

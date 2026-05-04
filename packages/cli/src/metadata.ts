@@ -55,6 +55,23 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     ],
   },
   {
+    name: "wait",
+    description: "Poll snapshots until a selector appears (or disappears with --gone) or a timeout is reached.",
+    usage: "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url>] [--device <id>]",
+    options: [
+      { name: "--gone", description: "Wait until the selector resolves to no nodes." },
+      { name: "--timeout", description: "Total wait timeout in milliseconds (default 30000)." },
+      { name: "--interval", description: "Polling cadence in milliseconds (default 500, minimum 100)." },
+      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--device", description: "Target a connected runtime device id." },
+    ],
+    examples: [
+      "brna wait \"text:Confirmed\"",
+      "brna wait \"text:Loading\" --gone --timeout 5000",
+      "brna wait \"button:Save\" --interval 250",
+    ],
+  },
+  {
     name: "doctor",
     description: "Check Metro/runtime connectivity and project configuration, with optional safe fixes.",
     usage: "brna doctor [--fix] [--metro <url>] [--timeout <ms>]",

@@ -77,6 +77,41 @@ describe("multi-device registry", () => {
     expect(a?.os_version).toBe("17.4");
   });
 
+  test("listDevices captures app metadata from hello frame", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, {
+      device_id: "dev-a",
+      platform: "ios",
+      app_name: "Hotcake",
+      app_version: "1.2.3",
+      app_bundle_id: "com.example.hotcake",
+    });
+    const a = bridge.listDevices().find((d) => d.id === "dev-a");
+    expect(a?.app_name).toBe("Hotcake");
+    expect(a?.app_version).toBe("1.2.3");
+    expect(a?.app_bundle_id).toBe("com.example.hotcake");
+  });
+
+  test("listDevices omits absent app metadata fields", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, { device_id: "dev-a", platform: "ios" });
+    const a = bridge.listDevices().find((d) => d.id === "dev-a") as Record<string, unknown>;
+    expect(a).not.toHaveProperty("app_name");
+    expect(a).not.toHaveProperty("app_bundle_id");
+    expect(a).not.toHaveProperty("app_version");
+  });
+
+  test("/brna/devices JSON omits absent app metadata fields", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, { device_id: "dev-a", platform: "ios" });
+    const res = makeMockRes();
+    handleDevices(bridge, res as never);
+    const body = JSON.parse(res.body) as { devices: Array<Record<string, unknown>> };
+    expect(body.devices[0]).not.toHaveProperty("app_name");
+    expect(body.devices[0]).not.toHaveProperty("app_bundle_id");
+    expect(body.devices[0]).not.toHaveProperty("app_version");
+  });
+
   test("/brna/devices endpoint returns the registry", () => {
     const bridge = new BrnaBridge();
     attach(bridge, { device_id: "dev-a", platform: "ios", os_version: "17.4" });

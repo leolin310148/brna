@@ -1,5 +1,6 @@
 import type { Node, SelectorAST, Snapshot } from "@brna/schema";
 import { parseSelector } from "./parse.js";
+import { displayLabel } from "./inferred-label.js";
 
 export type ResolveResult =
   | { ok: Node }
@@ -54,8 +55,15 @@ function matchesLeaf(ast: SelectorAST, node: Node): boolean {
       return node.id === ast.id;
     case "testid":
       return node.id === ast.testID;
-    case "role-name":
-      return (node.role === ast.role || node.kind === ast.role) && node.name === ast.name;
+    case "role-name": {
+      if (node.role !== ast.role && node.kind !== ast.role) return false;
+      if (node.name === ast.name) return true;
+      // Inferred sentinel labels accept their normalized form: a node with raw
+      // name `__Sitemap__` and `_dev.inferred_label === true` matches both
+      // `role:__Sitemap__` and `role:Sitemap`.
+      const display = displayLabel(node);
+      return display !== undefined && display !== node.name && display === ast.name;
+    }
     case "text": {
       const haystack = node.text ?? node.name ?? "";
       let cursor = 0;

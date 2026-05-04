@@ -1,13 +1,15 @@
 import type { Node } from "@brna/schema";
+import { displayLabel } from "./inferred-label.js";
 
 export function canonicalSelectorFor(node: Node, ancestors: Node[] = []): string {
   if (!node.id.startsWith("auto:")) return `#${node.id}`;
   if (node.role && node.name) {
+    const display = displayLabel(node) ?? node.name;
     const namedAncestor = [...ancestors].reverse().find((a) => !a.id.startsWith("auto:"));
     if (namedAncestor) {
-      return `${node.role}:${node.name} in #${namedAncestor.id}`;
+      return `${node.role}:${display} in #${namedAncestor.id}`;
     }
-    return `${node.role}:${node.name}`;
+    return `${node.role}:${display}`;
   }
   return `#${node.id}`;
 }

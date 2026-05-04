@@ -13,6 +13,8 @@ interface DeviceInfo {
   platform?: string;
   os_version?: string;
   app_version?: string;
+  app_name?: string;
+  app_bundle_id?: string;
   registered_at?: number;
 }
 
@@ -113,9 +115,9 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
   const headers: string[] = ["ID", "PLATFORM", "OS", "APP"];
   const rows: string[][] = devices.map((d) => [
     d.id,
-    d.platform ?? "?",
-    d.os_version ?? "?",
-    d.app_version ?? "?",
+    d.platform ?? "unknown",
+    d.os_version ?? "unknown",
+    formatAppCell(d),
   ]);
   const widths = headers.map((h, i) =>
     Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)),
@@ -123,4 +125,12 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
   const fmt = (cells: string[]): string =>
     cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}
+
+function formatAppCell(device: DeviceInfo): string {
+  const label = device.app_name ?? device.app_bundle_id;
+  if (label && device.app_version) return `${label} ${device.app_version}`;
+  if (label) return label;
+  if (device.app_version) return device.app_version;
+  return "unknown";
 }

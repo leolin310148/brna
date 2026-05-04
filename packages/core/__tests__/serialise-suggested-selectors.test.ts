@@ -164,3 +164,37 @@ describe("Markdown projection — suggested_selectors", () => {
     expect(md).toContain("→ tap button:Save in #root");
   });
 });
+
+describe("inferred-label normalization in serialisers", () => {
+  const snap = snapshotWith({
+    id: "root",
+    kind: "screen",
+    children: [
+      {
+        id: "auto:sitemap",
+        kind: "button",
+        role: "button",
+        name: "__Sitemap__",
+        _dev: { inferred_label: true },
+      },
+    ],
+  });
+
+  test("Markdown drops sentinel underscores in quoted name", () => {
+    const md = toMarkdown(snap);
+    expect(md).toContain('"Sitemap"');
+    expect(md).not.toContain('"__Sitemap__"');
+  });
+
+  test("JSON preserves raw inferred label", () => {
+    const json = toJSON(snap);
+    expect(json).toContain('"name": "__Sitemap__"');
+  });
+
+  test("YAML preserves raw inferred label", () => {
+    const yaml = toYAML(snap);
+    const round = fromYAML(yaml);
+    const button = round.tree.children?.[0] as Node;
+    expect(button.name).toBe("__Sitemap__");
+  });
+});

@@ -199,4 +199,48 @@ describe("annotateSuggestedSelectors", () => {
     // canonical (#auto:abcd) is still the first suggestion since it resolves.
     expect(grp.suggested_selectors?.[0]).toBe(grp.selector);
   });
+
+  test("inferred labels prefer normalized role:name and keep raw form", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "auto:sitemap",
+          kind: "button",
+          role: "button",
+          name: "__Sitemap__",
+          _dev: { inferred_label: true },
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:sitemap");
+    // First (canonical) is the normalized form, scoped to the nearest stable ancestor.
+    expect(btn.suggested_selectors?.[0]).toBe("button:Sitemap in #root");
+    expect(btn.suggested_selectors).toContain("button:Sitemap");
+    expect(btn.suggested_selectors).toContain("button:__Sitemap__");
+    // Both forms still resolve back to the same node.
+    const normalized = resolve("button:Sitemap", result);
+    const raw = resolve("button:__Sitemap__", result);
+    expect("ok" in normalized && normalized.ok.id).toBe("auto:sitemap");
+    expect("ok" in raw && raw.ok.id).toBe("auto:sitemap");
+  });
+
+  test("non-inferred names with literal underscores are not normalized", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "auto:literal",
+          kind: "text",
+          name: "regular",
+          text: "regular",
+        },
+      ],
+    });
+    const node = findNode(result, (n) => n.id === "auto:literal");
+    // Without _dev.inferred_label the suggestions stay literal — no rewrite.
+    expect(node.suggested_selectors).toContain("text:regular");
+  });
 });

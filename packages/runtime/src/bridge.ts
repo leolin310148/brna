@@ -13,6 +13,59 @@ interface ConnectAgentOptions {
   metroUrl: string;
 }
 
+interface AppMetadata {
+  app_name?: string;
+  app_bundle_id?: string;
+  app_version?: string;
+}
+
+function readAppMetadata(): AppMetadata {
+  const meta: AppMetadata = {};
+  // React Native does not expose app metadata directly without native modules.
+  // Pick up commonly available fields from optional Expo Constants when present
+  // — but never throw or require the dependency.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Constants = (require as unknown as (id: string) => unknown)("expo-constants") as
+      | {
+          default?: {
+            expoConfig?: {
+              name?: string;
+              version?: string;
+              ios?: { bundleIdentifier?: string };
+              android?: { package?: string };
+            };
+            manifest?: {
+              name?: string;
+              version?: string;
+              ios?: { bundleIdentifier?: string };
+              android?: { package?: string };
+            };
+            manifest2?: { extra?: { expoClient?: { name?: string; version?: string } } };
+          };
+        }
+      | undefined;
+    const expoConfig = Constants?.default?.expoConfig ?? Constants?.default?.manifest;
+    if (expoConfig) {
+      if (typeof expoConfig.name === "string" && expoConfig.name.length > 0) {
+        meta.app_name = expoConfig.name;
+      }
+      if (typeof expoConfig.version === "string" && expoConfig.version.length > 0) {
+        meta.app_version = expoConfig.version;
+      }
+      const bundleId = Platform.OS === "android"
+        ? expoConfig.android?.package
+        : expoConfig.ios?.bundleIdentifier;
+      if (typeof bundleId === "string" && bundleId.length > 0) {
+        meta.app_bundle_id = bundleId;
+      }
+    }
+  } catch {
+    /* expo-constants is optional — bare RN apps will hit this branch */
+  }
+  return meta;
+}
+
 interface IncomingFrame {
   type?: string;
   id?: string;
@@ -41,6 +94,7 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
       schema_version: SCHEMA_VERSION,
       platform: Platform.OS === "android" ? "android" : "ios",
       os_version: String(Platform.Version ?? "0"),
+      ...readAppMetadata(),
     });
   };
 

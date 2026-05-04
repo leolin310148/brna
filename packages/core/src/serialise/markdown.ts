@@ -1,5 +1,6 @@
 import type { Node, Snapshot } from "@brna/schema";
 import { redactSnapshot, type RedactionOptions } from "./redact.js";
+import { displayLabel } from "../selector/inferred-label.js";
 
 export function toMarkdown(snapshot: Snapshot, options: RedactionOptions = {}): string {
   snapshot = redactSnapshot(snapshot, options);
@@ -179,7 +180,7 @@ export function nodeLine(node: Node): string {
   if (node.role && node.role !== node.kind && !roleIsRedundant(node.role, node.kind)) {
     parts.push(`[role=${node.role}]`);
   }
-  if (node.name) parts.push(`"${node.name}"`);
+  if (node.name) parts.push(`"${displayLabel(node) ?? node.name}"`);
   if (node.value !== undefined) parts.push(`= ${JSON.stringify(node.value)}`);
   const rangeAnnotation = formatRangeAnnotation(node.range);
   if (rangeAnnotation) parts.push(rangeAnnotation);

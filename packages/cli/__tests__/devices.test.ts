@@ -65,4 +65,42 @@ describe("formatDevicesTable", () => {
     expect(out.split("\n")[0]).toContain("ID");
     expect(out).toContain("longerid");
   });
+
+  test("renders app name when runtime supplied app metadata", () => {
+    const out = formatDevicesTable([
+      { id: "dev-a", platform: "ios", os_version: "17.4", app_name: "Hotcake", app_version: "1.2.3" },
+    ]);
+    expect(out).toContain("Hotcake");
+    expect(out).toContain("1.2.3");
+    expect(out).not.toContain("unknown");
+  });
+
+  test("renders 'unknown' when app metadata is absent", () => {
+    const out = formatDevicesTable([{ id: "dev-a" }]);
+    const appColumn = out.split("\n")[1]!;
+    expect(appColumn).toContain("unknown");
+  });
+});
+
+describe("brna devices --json", () => {
+  test("omits absent app metadata fields", async () => {
+    const res = await run(["--json"], [{ id: "dev-a", platform: "ios" }]);
+    expect(res.code).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { devices: Array<Record<string, unknown>> };
+    expect(parsed.devices[0]).toEqual({ id: "dev-a", platform: "ios" });
+    expect(parsed.devices[0]).not.toHaveProperty("app_name");
+    expect(parsed.devices[0]).not.toHaveProperty("app_bundle_id");
+    expect(parsed.devices[0]).not.toHaveProperty("app_version");
+  });
+
+  test("preserves populated app metadata fields", async () => {
+    const res = await run(["--json"], [
+      { id: "dev-a", platform: "ios", app_name: "Hotcake", app_version: "1.2.3", app_bundle_id: "com.example.hotcake" },
+    ]);
+    expect(res.code).toBe(0);
+    const parsed = JSON.parse(res.stdout) as { devices: Array<Record<string, unknown>> };
+    expect(parsed.devices[0]!.app_name).toBe("Hotcake");
+    expect(parsed.devices[0]!.app_bundle_id).toBe("com.example.hotcake");
+    expect(parsed.devices[0]!.app_version).toBe("1.2.3");
+  });
 });

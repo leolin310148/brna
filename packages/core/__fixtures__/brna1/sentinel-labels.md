@@ -7,6 +7,6 @@ title: Inferred labels
 
 ## tree
 - screen#screen-inferred
-  - button#btn-1 "__Submit__" → tap #btn-1
-  - button#btn-2 "__Delete (icon)__" → tap #btn-2
+  - button#btn-1 "Submit" → tap #btn-1
+  - button#btn-2 "Delete (icon)" → tap #btn-2
   - button#btn-3 "Real Submit" → tap #btn-3

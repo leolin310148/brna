@@ -7,6 +7,7 @@ import { runVerify } from "./verify.js";
 import { runMcp } from "./mcp.js";
 import { runConfig } from "./config.js";
 import { runTrace } from "./trace.js";
+import { runWait } from "./wait.js";
 import { DOCS_URL, commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
 import {
   DAEMON_INTERNAL_ENV,
@@ -39,7 +40,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 
   if (argv.length === 0) {
     process.stderr.write(
-      `brna: usage: brna <snapshot|snap|act|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
+      `brna: usage: brna <snapshot|snap|act|wait|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
     );
     return 4;
   }
@@ -203,6 +204,8 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
       await runConfig(rest);
     } else if (subcommand === "trace") {
       await runTrace(rest);
+    } else if (subcommand === "wait") {
+      await runWait(rest, runtime);
     } else {
       process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
       return 4;
