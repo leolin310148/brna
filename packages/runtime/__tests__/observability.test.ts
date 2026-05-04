@@ -5,6 +5,7 @@ import {
   getNetwork,
   installObservability,
   resetObservabilityForTest,
+  uninstallObservability,
 } from "../src/observability.js";
 
 afterEach(() => {
@@ -23,6 +24,16 @@ describe("RingBuffer", () => {
     ring.push(1);
     ring.push(2);
     expect(ring.toArray()).toEqual([2]);
+  });
+
+  test("reports size and clears records", () => {
+    const ring = new RingBuffer<string>({ capacity: 2 });
+    ring.push("a");
+    ring.push("b");
+    expect(ring.size()).toBe(2);
+    ring.clear();
+    expect(ring.size()).toBe(0);
+    expect(ring.toArray()).toEqual([]);
   });
 });
 
@@ -227,5 +238,161 @@ describe("installObservability — fetch", () => {
     const posts = getNetwork({ method: "POST" });
     expect(posts.length).toBe(1);
     expect(posts[0]!.url).toBe("https://api.test/b");
+  });
+
+  test("captures request metadata from Request-like inputs and init", async () => {
+    const original = (input: unknown) =>
+      Promise.resolve({
+        status: 200,
+        statusText: "OK",
+        headers: { forEach: (cb: (value: string, key: string) => void) => cb("text/plain", "Content-Type") },
+        clone: () => ({ text: () => Promise.resolve("abcdef") }),
+        url: (input as { url: string }).url,
+      } as unknown);
+    const g = { fetch: original } as Record<string, unknown>;
+    installObservability({ globalObject: g, bodyPreviewBytes: 3 });
+
+    await (g.fetch as typeof fetch)(
+      {
+        url: "https://api.test/request-like",
+        method: "put",
+        headers: [["X-Request", "from-input"]],
+      } as unknown as RequestInfo,
+      {
+        headers: { Authorization: "Bearer token" },
+        body: "abcdef",
+      },
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const records = getNetwork();
+    expect(records[0]!.method).toBe("PUT");
+    expect(records[0]!.url).toBe("https://api.test/request-like");
+    expect(records[0]!.request_headers).toEqual([{ name: "Authorization", value: "<redacted>" }]);
+    expect(records[0]!.request_body_preview).toBe("abc");
+    expect(records[0]!.response_body_preview).toBe("abc");
+  });
+
+  test("records synchronously thrown fetches as errored", () => {
+    const original = () => {
+      throw new Error("sync boom");
+    };
+    const g = { fetch: original } as Record<string, unknown>;
+    installObservability({ globalObject: g });
+
+    expect(() => (g.fetch as typeof fetch)("https://api.test/sync")).toThrow("sync boom");
+    const records = getNetwork();
+    expect(records[0]!.state).toBe("errored");
+    expect(records[0]!.error_message).toBe("sync boom");
+  });
+});
+
+describe("installObservability — error handler", () => {
+  test("captures global errors and restores the previous handler", () => {
+    let activeHandler: ((error: unknown, isFatal?: boolean) => void) | undefined;
+    let previousCalls = 0;
+    const previous = () => {
+      previousCalls += 1;
+      throw new Error("previous handler failed");
+    };
+    const ErrorUtils = {
+      getGlobalHandler: () => previous,
+      setGlobalHandler: (handler: unknown) => {
+        activeHandler = handler as (error: unknown, isFatal?: boolean) => void;
+      },
+    };
+    const g = { ErrorUtils } as Record<string, unknown>;
+    installObservability({ globalObject: g });
+
+    activeHandler?.(Object.assign(new Error("fatal crash"), { name: "InvariantError" }), true);
+    const logs = getLogs();
+    expect(logs[0]!.source).toBe("error");
+    expect(logs[0]!.message).toBe("InvariantError: fatal crash (fatal)");
+    expect(logs[0]!.stack).toBeString();
+    expect(previousCalls).toBe(1);
+
+    uninstallObservability();
+    expect(activeHandler).toBe(previous);
+  });
+});
+
+describe("installObservability — XMLHttpRequest", () => {
+  class MockXhr {
+    static instances: MockXhr[] = [];
+    listeners: Record<string, Array<() => void>> = {};
+    status = 202;
+    statusText = "Accepted";
+    responseText = "response-body";
+    opened: { method: string; url: string } | null = null;
+    headers: Array<[string, string]> = [];
+    sentBody: unknown;
+
+    constructor() {
+      MockXhr.instances.push(this);
+    }
+
+    open(method: string, url: string): void {
+      this.opened = { method, url };
+    }
+
+    setRequestHeader(name: string, value: string): void {
+      this.headers.push([name, value]);
+    }
+
+    send(body?: unknown): void {
+      this.sentBody = body;
+    }
+
+    addEventListener(event: string, cb: () => void): void {
+      this.listeners[event] = [...(this.listeners[event] ?? []), cb];
+    }
+
+    getAllResponseHeaders(): string {
+      return "X-One: 1\r\nInvalid\r\nX-Two: two\r\n";
+    }
+
+    emit(event: string): void {
+      for (const cb of this.listeners[event] ?? []) cb();
+    }
+  }
+
+  test("records completed and errored XHR requests", () => {
+    const g = { XMLHttpRequest: MockXhr } as Record<string, unknown>;
+    installObservability({ globalObject: g, bodyPreviewBytes: 4 });
+
+    const xhr = new MockXhr();
+    xhr.open("post", "https://api.test/xhr");
+    xhr.setRequestHeader("X-Token", "secret");
+    xhr.send("payload");
+    xhr.emit("load");
+
+    const failed = new MockXhr();
+    failed.statusText = "Network Error";
+    failed.open("GET", "https://api.test/fail");
+    failed.send();
+    failed.emit("error");
+
+    const records = getNetwork();
+    expect(records[0]).toMatchObject({
+      method: "POST",
+      url: "https://api.test/xhr",
+      state: "completed",
+      source: "xhr",
+      request_headers: [{ name: "X-Token", value: "secret" }],
+      request_body_preview: "payl",
+      status: 202,
+      status_text: "Accepted",
+      response_headers: [{ name: "X-One", value: "1" }, { name: "X-Two", value: "two" }],
+      response_body_preview: "resp",
+    });
+    expect(records[1]).toMatchObject({
+      method: "GET",
+      url: "https://api.test/fail",
+      state: "errored",
+      error_message: "Network Error",
+    });
+
+    uninstallObservability();
+    expect((MockXhr.prototype as unknown as Record<string, unknown>).__brnaXhrWrapped).toBeUndefined();
   });
 });

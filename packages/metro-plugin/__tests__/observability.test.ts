@@ -70,6 +70,13 @@ function makeMockReq(method: string, url: string): MockReq {
   return ee;
 }
 
+function feedBody(req: MockReq, body: string): void {
+  setImmediate(() => {
+    req.emit("data", Buffer.from(body));
+    req.emit("end");
+  });
+}
+
 function attachRuntime(bridge: BrnaBridge): MockSocket {
   const ws = makeMockSocket();
   bridge.onConnection(ws as unknown as Parameters<BrnaBridge["onConnection"]>[0]);
@@ -160,6 +167,48 @@ describe("handleLogs", () => {
     const body = JSON.parse(res.body) as { error: string; code: string };
     expect(body.error).toBe("runtime_error");
     expect(body.code).toBe("logs_failed");
+  });
+
+  test("parses POST body options and handles non-ok log result variants", async () => {
+    const cases = [
+      [{ kind: "timeout" }, 504, "runtime_timeout"],
+      [{ kind: "unknown_device", device_id: "gone" }, 404, "unknown_device"],
+      [{ kind: "runtime_error", code: "logs_failed", message: "boom" }, 502, "runtime_error"],
+    ] as const;
+    for (const [result, status, error] of cases) {
+      let options: unknown;
+      const bridge = {
+        hasRuntime: () => true,
+        requestLogs: async (opts: unknown) => {
+          options = opts;
+          return result;
+        },
+      } as unknown as BrnaBridge;
+      const req = makeMockReq("POST", "/brna/logs");
+      req.headers["content-length"] = "28";
+      const res = makeMockRes();
+      const promise = handleLogs(bridge, req as never, res as never);
+      feedBody(req, JSON.stringify({ level: "error", limit: 2 }));
+      await promise;
+      expect(options).toEqual({ level: "error", limit: 2 });
+      expect(res.statusCode).toBe(status);
+      expect(JSON.parse(res.body).error).toBe(error);
+    }
+  });
+
+  test("maps thrown log requests to connection and internal errors", async () => {
+    for (const [message, status] of [["no_runtime_connected", 503], ["boom", 500]] as const) {
+      const bridge = {
+        hasRuntime: () => true,
+        requestLogs: async () => {
+          throw new Error(message);
+        },
+      } as unknown as BrnaBridge;
+      const req = makeMockReq("GET", "/brna/logs");
+      const res = makeMockRes();
+      await handleLogs(bridge, req as never, res as never);
+      expect(res.statusCode).toBe(status);
+    }
   });
 
   test("ignores response with unknown id and times out", async () => {
@@ -259,5 +308,63 @@ describe("handleNetwork", () => {
     const res = makeMockRes();
     await handleNetwork(bridge, req as never, res as never, "missing");
     expect(res.statusCode).toBe(404);
+  });
+
+  test("forwards numeric network query filters", async () => {
+    const bridge = new BrnaBridge();
+    const ws = attachRuntime(bridge);
+    const req = makeMockReq("GET", "/brna/network?since=10&status=201&statusMin=200&statusMax=299&limit=5");
+    const res = makeMockRes();
+    const promise = handleNetwork(bridge, req as never, res as never);
+    await new Promise((r) => setImmediate(r));
+    const frame = lastSent(ws) as unknown as {
+      id: string;
+      options: { since: number; status: number; statusMin: number; statusMax: number; limit: number };
+    };
+    expect(frame.options).toEqual({ since: 10, status: 201, statusMin: 200, statusMax: 299, limit: 5 });
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "network.response", id: frame.id, records: [] })));
+    await promise;
+  });
+
+  test("parses POST body options and handles non-ok network result variants", async () => {
+    const cases = [
+      [{ kind: "timeout" }, 504, "runtime_timeout"],
+      [{ kind: "unknown_device", device_id: "gone" }, 404, "unknown_device"],
+      [{ kind: "runtime_error", code: "network_failed", message: "boom" }, 502, "runtime_error"],
+    ] as const;
+    for (const [result, status, error] of cases) {
+      let options: unknown;
+      const bridge = {
+        hasRuntime: () => true,
+        requestNetwork: async (opts: unknown) => {
+          options = opts;
+          return result;
+        },
+      } as unknown as BrnaBridge;
+      const req = makeMockReq("POST", "/brna/network");
+      req.headers["content-length"] = "33";
+      const res = makeMockRes();
+      const promise = handleNetwork(bridge, req as never, res as never);
+      feedBody(req, JSON.stringify({ method: "patch", statusMin: 400 }));
+      await promise;
+      expect(options).toEqual({ method: "PATCH", statusMin: 400 });
+      expect(res.statusCode).toBe(status);
+      expect(JSON.parse(res.body).error).toBe(error);
+    }
+  });
+
+  test("maps thrown network requests to connection and internal errors", async () => {
+    for (const [message, status] of [["no_runtime_connected", 503], ["boom", 500]] as const) {
+      const bridge = {
+        hasRuntime: () => true,
+        requestNetwork: async () => {
+          throw new Error(message);
+        },
+      } as unknown as BrnaBridge;
+      const req = makeMockReq("GET", "/brna/network");
+      const res = makeMockRes();
+      await handleNetwork(bridge, req as never, res as never);
+      expect(res.statusCode).toBe(status);
+    }
   });
 });

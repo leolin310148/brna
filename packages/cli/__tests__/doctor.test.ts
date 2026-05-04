@@ -35,7 +35,7 @@ async function run(rest: string[], opts: {
         opts.fs[p] = data;
       },
       fetch: opts.fetchImpl ?? (async () => new Response("{}", { status: 200 })),
-      confirm: opts.confirm,
+      confirm: opts.confirm ?? (() => true),
       stdout: { write: (c: string | Uint8Array) => ((stdout += String(c)), true) },
       stderr: { write: (c: string | Uint8Array) => ((stderr += String(c)), true) },
       exit: (code) => {

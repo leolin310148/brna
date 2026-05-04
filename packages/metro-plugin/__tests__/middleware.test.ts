@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { BrnaBridge } from "../src/bridge.js";
-import { handleAction, handleSnapshot } from "../src/middleware.js";
+import { handleAction, handleDevices, handleSnapshot, handleSnapshotPost } from "../src/middleware.js";
 
 interface MockSocket extends EventEmitter {
   readyState: number;
@@ -59,12 +59,14 @@ function makeMockRes(): MockRes {
 interface MockReq extends EventEmitter {
   url: string;
   method: string;
+  headers: Record<string, string>;
 }
 
 function makeMockReq(): MockReq {
   const ee = new EventEmitter() as MockReq;
   ee.url = "/brna/action";
   ee.method = "POST";
+  ee.headers = {};
   return ee;
 }
 
@@ -221,5 +223,130 @@ describe("snapshot/action shared single-flight slot", () => {
     const snapRes = makeMockRes();
     handleSnapshot(bridge, snapRes as never);
     expect(snapRes.statusCode).toBe(429);
+  });
+});
+
+describe("handleSnapshot", () => {
+  test("returns immediate errors before requesting snapshots", () => {
+    const noRuntime = {
+      hasRuntime: () => false,
+    } as unknown as BrnaBridge;
+    const noRuntimeRes = makeMockRes();
+    handleSnapshot(noRuntime, noRuntimeRes as never);
+    expect(noRuntimeRes.statusCode).toBe(503);
+
+    const unknownDevice = {
+      hasRuntime: (deviceId?: string) => deviceId === undefined,
+    } as unknown as BrnaBridge;
+    const unknownRes = makeMockRes();
+    handleSnapshot(unknownDevice, unknownRes as never, "missing");
+    expect(unknownRes.statusCode).toBe(404);
+  });
+
+  test("serialises snapshot success and runtime result variants", async () => {
+    for (const [result, status, error] of [
+      [{ kind: "snapshot", snapshot: { ok: true } }, 200, undefined],
+      [{ kind: "timeout" }, 504, "runtime_timeout"],
+      [{ kind: "unknown_device", device_id: "dev-x" }, 404, "unknown_device"],
+      [{ kind: "runtime_error", code: "capture_failed", message: "boom" }, 502, "runtime_error"],
+    ] as const) {
+      let released = false;
+      const bridge = {
+        hasRuntime: () => true,
+        acquireSlot: () => true,
+        releaseSlot: () => {
+          released = true;
+        },
+        requestSnapshot: async () => result,
+      } as unknown as BrnaBridge;
+      const res = makeMockRes();
+      handleSnapshot(bridge, res as never);
+      await new Promise((r) => setImmediate(r));
+      expect(released).toBe(true);
+      expect(res.statusCode).toBe(status);
+      if (error) expect(JSON.parse(res.body).error).toBe(error);
+      else expect(JSON.parse(res.body)).toEqual({ ok: true });
+    }
+  });
+
+  test("returns 429 when the shared slot is unavailable", () => {
+    const bridge = {
+      hasRuntime: () => true,
+      acquireSlot: () => false,
+    } as unknown as BrnaBridge;
+    const res = makeMockRes();
+    handleSnapshot(bridge, res as never);
+    expect(res.statusCode).toBe(429);
+  });
+
+  test("maps rejected snapshot requests to connection and internal errors", async () => {
+    for (const [message, status] of [["no_runtime_connected", 503], ["boom", 500]] as const) {
+      let released = false;
+      const bridge = {
+        hasRuntime: () => true,
+        acquireSlot: () => true,
+        releaseSlot: () => {
+          released = true;
+        },
+        requestSnapshot: async () => {
+          throw new Error(message);
+        },
+      } as unknown as BrnaBridge;
+      const res = makeMockRes();
+      handleSnapshot(bridge, res as never);
+      await new Promise((r) => setImmediate(r));
+      expect(released).toBe(true);
+      expect(res.statusCode).toBe(status);
+    }
+  });
+});
+
+describe("handleSnapshotPost", () => {
+  test("passes redaction and measurement options to snapshot requests", async () => {
+    let captured: unknown;
+    const bridge = {
+      hasRuntime: () => true,
+      acquireSlot: () => true,
+      releaseSlot: () => {},
+      requestSnapshot: async (_deviceId: string | undefined, options: unknown) => {
+        captured = options;
+        return { kind: "snapshot", snapshot: { ok: true } };
+      },
+    } as unknown as BrnaBridge;
+    const req = makeMockReq();
+    const res = makeMockRes();
+    const promise = handleSnapshotPost(bridge, req as never, res as never, "dev-a");
+    feedBody(req, JSON.stringify({ redaction: { redactSecureFields: false }, measureTimeoutMs: 123 }));
+    await promise;
+    await new Promise((r) => setImmediate(r));
+    expect(captured).toEqual({ redaction: { redactSecureFields: false }, measureTimeoutMs: 123 });
+    expect(res.statusCode).toBe(200);
+  });
+
+  test("rejects malformed snapshot request bodies", async () => {
+    const bridge = {} as BrnaBridge;
+    const req = makeMockReq();
+    const res = makeMockRes();
+    const promise = handleSnapshotPost(bridge, req as never, res as never);
+    feedBody(req, "{");
+    await promise;
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toBe("malformed_snapshot_request");
+  });
+});
+
+describe("handleDevices", () => {
+  test("includes live and recently disconnected devices", () => {
+    const bridge = {
+      listDevices: () => [{ id: "live", registered_at: 1, last_seen_at: 2 }],
+      listRecentDisconnectedDevices: () => [{ id: "old", registered_at: 1, last_seen_at: 2, disconnected_at: 3 }],
+    } as unknown as BrnaBridge;
+    const res = makeMockRes();
+    handleDevices(bridge, res as never);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({
+      devices: [{ id: "live", registered_at: 1, last_seen_at: 2 }],
+      recent_disconnected: [{ id: "old", registered_at: 1, last_seen_at: 2, disconnected_at: 3 }],
+    });
   });
 });

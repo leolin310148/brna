@@ -8,8 +8,16 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { diff, fromCanonicalYAML, toCanonicalYAML } from "@brna/core";
 import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
+import {
+  loadConfig,
+  measureTimeoutFromConfig,
+  runConfig,
+  sessionDirFromConfig,
+  toObservabilityRedactionOptions,
+  toRedactionOptions,
+} from "../src/config.js";
 import { runSnapshot } from "../src/snapshot.js";
-import { replayTraceFile } from "../src/trace.js";
+import { activeTracePath, appendTraceEvent, replayTraceFile, runTrace } from "../src/trace.js";
 
 const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
 
@@ -36,6 +44,55 @@ function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
 }
 
 describe("brna config", () => {
+  test("runConfig init, show, and path execute in-process", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const prior = process.cwd();
+    try {
+      process.chdir(cwd);
+      const init = await captureProcessExit(() => runConfig(["init"]));
+      expect(init.code).toBe(0);
+      expect(realpathSync(init.stdout.trim())).toBe(realpathSync(join(cwd, "brna.config.ts")));
+      expect(readFileSync(join(cwd, "brna.config.ts"), "utf8")).toContain("redactSecureFields");
+
+      writeFileSync(
+        join(cwd, "brna.config.ts"),
+        `export default {
+          sessionDir: ${JSON.stringify(join(cwd, "sessions"))},
+          redact: [{ match: /secret/gi, replace: "<secret>" }],
+        };\n`,
+      );
+      const path = await captureProcessExit(() => runConfig(["path"]));
+      expect(path.code).toBe(0);
+      expect(realpathSync(path.stdout.trim())).toBe(realpathSync(join(cwd, "brna.config.ts")));
+
+      const show = await captureProcessExit(() => runConfig(["show"]));
+      expect(show.code).toBe(0);
+      expect(JSON.parse(show.stdout).config.sessionDir).toBe(join(cwd, "sessions"));
+      expect(JSON.parse(show.stdout).config.redact[0].match).toEqual({ source: "secret", flags: "gi" });
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("runConfig reports usage and missing path errors in-process", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const prior = process.cwd();
+    try {
+      process.chdir(cwd);
+      const missingPath = await captureProcessExit(() => runConfig(["path"]));
+      expect(missingPath.code).toBe(1);
+      expect(missingPath.stderr).toContain("no brna.config.ts or brna.config.js found");
+
+      const usage = await captureProcessExit(() => runConfig(["unknown"]));
+      expect(usage.code).toBe(4);
+      expect(usage.stderr).toContain("usage: brna config");
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   test("config init writes a default brna.config.ts", () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
     const result = spawnSync("bun", ["run", CLI_PATH, "config", "init"], {
@@ -168,9 +225,159 @@ describe("brna config", () => {
     }
     expect(contacted).toBe(false);
   });
+
+  test("config helpers load config and normalise redaction options", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    try {
+      expect(await loadConfig(cwd)).toEqual({ config: {} });
+      const configPath = join(cwd, "brna.config.ts");
+      writeFileSync(
+        configPath,
+        `export default {
+          sessionDir: ${JSON.stringify(join(cwd, "sessions"))},
+          measureTimeoutMs: 1500,
+          redactSecureFields: false,
+          redact: [
+            { match: "token.value", replace: "<token>" },
+            { match: /secret/gi, replace: "<secret>" },
+          ],
+        };\n`,
+        "utf8",
+      );
+
+      const loaded = await loadConfig(cwd);
+      expect(realpathSync(loaded.path!)).toBe(realpathSync(configPath));
+      expect(sessionDirFromConfig(loaded.config)).toBe(join(cwd, "sessions"));
+      expect(measureTimeoutFromConfig(loaded.config)).toBe(1500);
+      expect(toRedactionOptions(loaded.config)).toEqual({
+        redactSecureFields: false,
+        rules: [
+          { match: { source: "token\\.value", flags: "g" }, replace: "<token>" },
+          { match: { source: "secret", flags: "gi" }, replace: "<secret>" },
+        ],
+      });
+      expect(toObservabilityRedactionOptions(loaded.config)).toEqual({
+        rules: [
+          { match: { source: "token\\.value", flags: "g" }, replace: "<token>" },
+          { match: { source: "secret", flags: "gi" }, replace: "<secret>" },
+        ],
+      });
+      expect(() => measureTimeoutFromConfig({ measureTimeoutMs: Number.NaN })).toThrow(/finite positive/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("brna trace", () => {
+  test("runTrace lifecycle and appendTraceEvent execute in-process", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
+    const sessionDir = join(cwd, "sessions");
+    const prior = process.cwd();
+    try {
+      process.chdir(cwd);
+      writeFileSync(join(cwd, "brna.config.ts"), `export default { sessionDir: ${JSON.stringify(sessionDir)} };\n`);
+
+      const start = await captureProcessExit(() => runTrace(["start"]));
+      expect(start.code).toBe(0);
+      const tracePath = start.stdout.trim();
+      expect(await activeTracePath()).toBe(tracePath);
+
+      await appendTraceEvent({
+        type: "snap",
+        timestamp: "2026-05-02T00:00:00.000Z",
+        command: "snapshot",
+        args: ["--format", "json"],
+      });
+
+      const status = await captureProcessExit(() => runTrace(["status"]));
+      expect(status.stdout).toContain(`active ${tracePath}`);
+      const path = await captureProcessExit(() => runTrace(["path"]));
+      expect(path.stdout.trim()).toBe(tracePath);
+
+      const stop = await captureProcessExit(() => runTrace(["stop"]));
+      expect(stop.code).toBe(0);
+      expect(stop.stdout.trim()).toBe(tracePath);
+      expect(await activeTracePath()).toBeNull();
+      const trace = fromCanonicalYAML(readFileSync(tracePath, "utf8")) as {
+        metadata?: { stopped_at?: string };
+        events?: unknown[];
+      };
+      expect(trace.metadata?.stopped_at).toBeString();
+      expect(trace.events).toHaveLength(1);
+
+      const stoppedStatus = await captureProcessExit(() => runTrace(["status"]));
+      expect(stoppedStatus.stdout).toBe("no active trace\n");
+      const stoppedPath = await captureProcessExit(() => runTrace(["path"]));
+      expect(stoppedPath.code).toBe(4);
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("runTrace rejects malformed command lines in-process", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
+    const prior = process.cwd();
+    try {
+      process.chdir(cwd);
+      writeFileSync(join(cwd, "brna.config.ts"), `export default { sessionDir: ${JSON.stringify(join(cwd, "sessions"))} };\n`);
+      expect((await captureProcessExit(() => runTrace(["bogus"]))).code).toBe(4);
+      expect((await captureProcessExit(() => runTrace(["start", "extra"]))).code).toBe(4);
+      expect((await captureProcessExit(() => runTrace(["replay"]))).code).toBe(4);
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("replayTraceFile validates snapshots, devices, and act continuation", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
+    const recorded = makeSnapshot();
+    const tracePath = join(cwd, "trace.yaml");
+    writeFileSync(
+      tracePath,
+      toCanonicalYAML({
+        metadata: {
+          session_id: "test",
+          started_at: "2026-05-02T00:00:00.000Z",
+          version: "brna-trace/1",
+        },
+        events: [
+          {
+            args: ["tap", "#save", "--metro", "http://127.0.0.1:9", "--timeout", "5000", "--device", "dev-a"],
+            command: "act",
+            snapshot_before: recorded,
+            snapshot_after: recorded,
+            timestamp: "2026-05-02T00:00:00.000Z",
+            type: "act",
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const seenDeviceHeaders: string[] = [];
+    let runActArgs: string[] | null = null;
+    await replayTraceFile(tracePath, {
+      fetch: async (_url, init) => {
+        seenDeviceHeaders.push((init?.headers as Record<string, string>)["x-brna-device-id"]);
+        return new Response(JSON.stringify(recorded), { status: 200 });
+      },
+      runAct: async (args, runtime) => {
+        runActArgs = args;
+        runtime?.exit?.(0);
+      },
+      fail: (code, reason) => {
+        throw Object.assign(new Error(reason), { code });
+      },
+    });
+
+    expect(seenDeviceHeaders).toEqual(["dev-a", "dev-a"]);
+    expect(runActArgs).toEqual(["tap", "#save", "--metro", "http://127.0.0.1:9", "--timeout", "5000", "--device", "dev-a"]);
+    await rm(cwd, { recursive: true, force: true });
+  });
+
   test("start and stop create a YAML trace with metadata and events", () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
     const sessionDir = join(cwd, "sessions");
@@ -442,4 +649,35 @@ async function runCli(cwd: string, args: string[]): Promise<{ status: number | n
     proc.exited,
   ]);
   return { status, stdout, stderr };
+}
+
+async function captureProcessExit(fn: () => Promise<void>): Promise<{ code: number; stdout: string; stderr: string }> {
+  const originalExit = process.exit;
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
+  let stdout = "";
+  let stderr = "";
+  process.exit = ((code?: string | number | null) => {
+    throw Object.assign(new Error("exit"), { code: typeof code === "number" ? code : 0 });
+  }) as typeof process.exit;
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    stdout += String(chunk);
+    return true;
+  }) as typeof process.stdout.write;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    await fn();
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "number") return { code, stdout, stderr };
+    throw err;
+  } finally {
+    process.exit = originalExit;
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
+  throw new Error("expected process.exit");
 }

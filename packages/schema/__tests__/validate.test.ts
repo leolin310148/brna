@@ -48,6 +48,16 @@ describe("sentinel rule", () => {
 });
 
 describe("structural validation", () => {
+  test("rejects non-object snapshots and missing trees", () => {
+    expect(() => validateSnapshot(null as never)).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshot({
+        meta: makeSnapshot().meta,
+        screen: { modal_stack: [] },
+      } as never),
+    ).toThrow(BrnaValidationError);
+  });
+
   test("rejects unknown kind", () => {
     const snap = makeSnapshot({
       tree: { id: "root", kind: "View" as never },
@@ -87,6 +97,18 @@ describe("structural validation", () => {
   test("rejects mismatched schema_version", () => {
     const snap = makeSnapshot({
       meta: { ...makeSnapshot().meta, schema_version: "brna/2" as never },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("validates overlay nodes", () => {
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        overlays: [{ id: "ok-overlay", kind: "group" }],
+      })),
+    ).not.toThrow();
+    const snap = makeSnapshot({
+      overlays: [{ id: "bad-overlay", kind: "View" as never }],
     });
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
@@ -407,5 +429,51 @@ describe("diff validation", () => {
         events: [{ type: "modified", id: "x", node, changes: [{ field: "bounds", before: {}, after: {} }] }],
       }),
     ).toThrow(BrnaValidationError);
+  });
+
+  test("rejects malformed diff containers and events", () => {
+    expect(() => validateSnapshotDiff(null)).toThrow(BrnaValidationError);
+    expect(() => validateSnapshotDiff({})).toThrow(BrnaValidationError);
+    expect(() => validateSnapshotDiff({ events: [null] })).toThrow(BrnaValidationError);
+    expect(() => validateSnapshotDiff({ events: [{ type: "added", id: "", node }] })).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "added", id: "x", parent_id: 1, node }] }),
+    ).toThrow(BrnaValidationError);
+  });
+
+  test("rejects malformed moved and modified event payloads", () => {
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "moved", id: "x", node, to_parent: "new" }] }),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "moved", id: "x", node, from_parent: "old" }] }),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "modified", id: "x", node, changes: "bad" }] }),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "modified", id: "x", node, changes: [null] }] }),
+    ).toThrow(BrnaValidationError);
+  });
+
+  test("rejects malformed diff nodes", () => {
+    const cases: unknown[] = [
+      { type: "added", id: "x", node: null },
+      { type: "added", id: "x", node: { kind: "button" } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", state: ["mystery"] } },
+      { type: "added", id: "x", node: { id: "x", kind: "View" } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", custom: true } },
+      { type: "added", id: "x", node: { id: "x", kind: "slider", range: null } },
+      { type: "added", id: "x", node: { id: "x", kind: "slider", range: { step: 1 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "slider", range: { now: Number.NaN } } },
+      { type: "added", id: "x", node: { id: "x", kind: "slider", range: { text: 1 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: null } },
+      { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: 0, extra: 1 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: "0", end: 1 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", suggested_selectors: "bad" } },
+    ];
+    for (const event of cases) {
+      expect(() => validateSnapshotDiff({ events: [event] })).toThrow(BrnaValidationError);
+    }
   });
 });
