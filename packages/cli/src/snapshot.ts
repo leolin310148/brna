@@ -29,6 +29,7 @@ import {
 import { readSnapshotCache, snapshotSessionId, writeSnapshotCache } from "./session.js";
 import { loadConfig, measureTimeoutFromConfig, toRedactionOptions } from "./config.js";
 import { appendTraceEvent } from "./trace.js";
+import { runCapture, type NativePlatform, type SpawnNative } from "./capture.js";
 
 export type SnapshotFormat = "md" | "json" | "yaml";
 const VALID_FORMATS = new Set<string>(["md", "json", "yaml"]);
@@ -39,8 +40,13 @@ interface ParsedArgs {
   format: SnapshotFormat;
   diff: boolean;
   activeLayer: boolean;
+  image: boolean;
   device?: string;
   to?: string;
+  imageTo?: string;
+  overlay?: boolean;
+  nativeDevice?: string;
+  nativePlatform?: NativePlatform;
   target?: string;
   targetAst?: SelectorAST;
 }
@@ -53,6 +59,8 @@ interface SnapshotRuntime {
   stderr?: Pick<typeof process.stderr, "write">;
   exit?: (code: number) => never;
   writeFile?: (path: string, data: string) => Promise<void>;
+  writeCaptureFile?: (path: string, data: Buffer) => Promise<void>;
+  spawnNative?: SpawnNative;
 }
 
 function parseArgs(rest: string[]): ParsedArgs {
@@ -61,8 +69,13 @@ function parseArgs(rest: string[]): ParsedArgs {
   let format: SnapshotFormat = "md";
   let wantsDiff = false;
   let activeLayer = false;
+  let image = false;
   let device: string | undefined;
   let to: string | undefined;
+  let imageTo: string | undefined;
+  let overlay = false;
+  let nativeDevice: string | undefined;
+  let nativePlatform: NativePlatform | undefined;
   let target: string | undefined;
 
   for (let i = 0; i < rest.length; i++) {
@@ -81,8 +94,30 @@ function parseArgs(rest: string[]): ParsedArgs {
       wantsDiff = true;
     } else if (token === "--active-layer") {
       activeLayer = true;
+    } else if (token === "--image") {
+      image = true;
+    } else if (token === "--image-to") {
+      const value = rest[++i];
+      if (typeof value !== "string" || value.length === 0) {
+        fail(4, "missing value for '--image-to'");
+      }
+      imageTo = value;
+    } else if (token === "--overlay") {
+      overlay = true;
     } else if (token === "--device") {
       device = parseDevice(rest[++i]);
+    } else if (token === "--native-device") {
+      const value = rest[++i];
+      if (typeof value !== "string" || value.length === 0) {
+        fail(4, "missing value for '--native-device'");
+      }
+      nativeDevice = value;
+    } else if (token === "--native-platform") {
+      const value = rest[++i];
+      if (value !== "android" && value !== "ios") {
+        fail(4, `'--native-platform' must be 'android' or 'ios', got '${value ?? ""}'`);
+      }
+      nativePlatform = value;
     } else if (token === "--to") {
       const value = rest[++i];
       if (typeof value !== "string" || value.length === 0) {
@@ -106,10 +141,20 @@ function parseArgs(rest: string[]): ParsedArgs {
   if (activeLayer && wantsDiff) {
     fail(4, "--active-layer cannot be combined with --diff");
   }
+  if (image !== (imageTo !== undefined)) {
+    fail(4, "--image and --image-to must be supplied together");
+  }
+  if (!image && (overlay || nativeDevice !== undefined || nativePlatform !== undefined)) {
+    fail(4, "--overlay, --native-device, and --native-platform require --image");
+  }
 
-  const result: ParsedArgs = { metro, timeoutMs, format, diff: wantsDiff, activeLayer };
+  const result: ParsedArgs = { metro, timeoutMs, format, diff: wantsDiff, activeLayer, image };
   if (device !== undefined) result.device = device;
   if (to !== undefined) result.to = to;
+  if (imageTo !== undefined) result.imageTo = imageTo;
+  if (overlay) result.overlay = overlay;
+  if (nativeDevice !== undefined) result.nativeDevice = nativeDevice;
+  if (nativePlatform !== undefined) result.nativePlatform = nativePlatform;
   if (target !== undefined) {
     if (!wantsDiff) {
       fail(4, "--target requires --diff");
@@ -129,7 +174,22 @@ function parseArgs(rest: string[]): ParsedArgs {
 
 export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {}): Promise<void> {
   const parsed = parseArgs(rest);
-  const { metro, timeoutMs, format, diff: wantsDiff, activeLayer, device, to, target, targetAst } = parsed;
+  const {
+    metro,
+    timeoutMs,
+    format,
+    diff: wantsDiff,
+    activeLayer,
+    device,
+    to,
+    image,
+    imageTo,
+    overlay,
+    nativeDevice,
+    nativePlatform,
+    target,
+    targetAst,
+  } = parsed;
   const fetchImpl = runtime.fetch ?? fetch;
   const stdout = runtime.stdout ?? process.stdout;
   const stderr = runtime.stderr ?? process.stderr;
@@ -257,6 +317,13 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
       snapshot_after: snapshot,
       diff: projected,
     });
+    if (image && imageTo !== undefined) {
+      await writeSidecarImage(
+        { metro, timeoutMs, imageTo, device, overlay, nativeDevice, nativePlatform },
+        runtime,
+        stderr,
+      );
+    }
     exit(0);
   }
 
@@ -276,7 +343,74 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     args: rest,
     snapshot_after: snapshot,
   });
+  if (image && imageTo !== undefined) {
+    await writeSidecarImage(
+      { metro, timeoutMs, imageTo, device, overlay, nativeDevice, nativePlatform },
+      runtime,
+      stderr,
+    );
+  }
   exit(0);
+}
+
+async function writeSidecarImage(
+  opts: {
+    metro: string;
+    timeoutMs: number;
+    imageTo: string;
+    device?: string;
+    overlay?: boolean;
+    nativeDevice?: string;
+    nativePlatform?: NativePlatform;
+  },
+  runtime: SnapshotRuntime,
+  stderr: Pick<typeof process.stderr, "write">,
+): Promise<void> {
+  const captureArgs = [
+    "--to",
+    opts.imageTo,
+    "--metro",
+    opts.metro,
+    "--timeout",
+    String(opts.timeoutMs),
+  ];
+  if (opts.device !== undefined) captureArgs.push("--device", opts.device);
+  if (opts.overlay === true) captureArgs.push("--overlay");
+  if (opts.nativeDevice !== undefined) captureArgs.push("--native-device", opts.nativeDevice);
+  if (opts.nativePlatform !== undefined) captureArgs.push("--native-platform", opts.nativePlatform);
+
+  let captureStderr = "";
+  try {
+    await runCapture(captureArgs, {
+      fetch: runtime.fetch,
+      spawnNative: runtime.spawnNative,
+      writeFile: runtime.writeCaptureFile,
+      stderr: { write: (chunk: string | Uint8Array) => ((captureStderr += String(chunk)), true) },
+      stdout: { write: () => true },
+      exit: (code) => {
+        throw Object.assign(new Error("capture exit"), { code });
+      },
+    });
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (code === 0) {
+      if (captureStderr.length > 0) stderr.write(captureStderr);
+      return;
+    }
+    if (typeof code === "number") {
+      stderr.write(`brna: warning: sidecar image capture failed: ${summariseCaptureFailure(captureStderr)}\n`);
+      return;
+    }
+    stderr.write(`brna: warning: sidecar image capture failed: ${(err as Error).message}\n`);
+  }
+}
+
+function summariseCaptureFailure(stderr: string): string {
+  const trimmed = stderr.trim();
+  if (!trimmed) return "unknown error";
+  const withoutPrefix = trimmed.replace(/^brna:\s*/, "");
+  const line = withoutPrefix.split("\n")[0] ?? withoutPrefix;
+  return line.slice(0, 240);
 }
 
 export function projectSnapshot(snapshot: Snapshot, format: SnapshotFormat): string {

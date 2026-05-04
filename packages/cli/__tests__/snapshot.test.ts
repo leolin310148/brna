@@ -1,11 +1,66 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { deflateSync } from "node:zlib";
 import { SCHEMA_VERSION, validateSnapshot, type Snapshot } from "@brna/schema";
 import { diff, fromDiffJSON, fromDiffYAML, fromJSON, fromYAML } from "@brna/core";
 import { projectDiff, projectSnapshot, runSnapshot } from "../src/snapshot.js";
+import type { NativeCaptureCommand, SpawnNative, SpawnResult } from "../src/capture.js";
 
 const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+const CRC_TABLE: number[] = (() => {
+  const table = new Array<number>(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(data: Buffer): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < data.length; i++) c = CRC_TABLE[(c ^ data[i]!) & 0xff]! ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const t = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([t, data])) >>> 0, 0);
+  return Buffer.concat([len, t, data, crc]);
+}
+
+function makeSolidPng(width: number, height: number, color: [number, number, number, number]): Buffer {
+  const channels = 4;
+  const stride = width * channels;
+  const filtered = Buffer.alloc((stride + 1) * height);
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * (stride + 1);
+    filtered[rowStart] = 0;
+    for (let x = 0; x < width; x++) {
+      const px = rowStart + 1 + x * channels;
+      for (let c = 0; c < channels; c++) filtered[px + c] = color[c]!;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.writeUInt8(8, 8);
+  ihdr.writeUInt8(6, 9);
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(filtered)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const FAKE_PNG = makeSolidPng(2, 2, [255, 255, 255, 255]);
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
   return {
@@ -38,18 +93,37 @@ async function runSnapshotInMemory(
     fetchResponse?: Response;
     fetchResponses?: Response[];
     writeWarning?: string | null;
+    spawnResult?: SpawnResult;
+    spawn?: SpawnNative;
   } = {},
-): Promise<{ code: number; stdout: string; stderr: string; writes: Snapshot[] }> {
+): Promise<{
+  code: number;
+  stdout: string;
+  stderr: string;
+  writes: Snapshot[];
+  outputFiles: Array<{ path: string; data: string }>;
+  captureFiles: Array<{ path: string; data: Buffer }>;
+  nativeCommands: NativeCaptureCommand[];
+}> {
   let stdout = "";
   let stderr = "";
   const writes: Snapshot[] = [];
+  const outputFiles: Array<{ path: string; data: string }> = [];
+  const captureFiles: Array<{ path: string; data: Buffer }> = [];
+  const nativeCommands: NativeCaptureCommand[] = [];
   const fresh = options.fresh ?? makeSnapshot();
   try {
     await runSnapshot(rest, {
-      fetch: async () => {
+      fetch: async (input) => {
         if (options.fetchReject) throw options.fetchReject;
         if (options.fetchResponses && options.fetchResponses.length > 0) return options.fetchResponses.shift()!;
         if (options.fetchResponse) return options.fetchResponse;
+        const url = typeof input === "string" ? input : (input as { url: string }).url;
+        if (url.includes("/brna/devices")) {
+          return new Response(JSON.stringify({
+            devices: [{ id: "ios-sim", platform: "ios", native_device_id: "SIM-1" }],
+          }), { status: 200 });
+        }
         return new Response(JSON.stringify(fresh), { status: 200 });
       },
       readSnapshotCache: async () => options.baseline ?? null,
@@ -57,6 +131,20 @@ async function runSnapshotInMemory(
         writes.push(snapshot);
         return options.writeWarning ?? null;
       },
+      writeFile: async (path, data) => {
+        outputFiles.push({ path, data });
+      },
+      writeCaptureFile: async (path, data) => {
+        captureFiles.push({ path, data });
+      },
+      spawnNative: options.spawn ?? (async (cmd) => {
+        nativeCommands.push(cmd);
+        return options.spawnResult ?? {
+          status: 0,
+          stdout: FAKE_PNG,
+          stderr: "",
+        };
+      }),
       stdout: { write: (chunk: string | Uint8Array) => ((stdout += String(chunk)), true) },
       stderr: { write: (chunk: string | Uint8Array) => ((stderr += String(chunk)), true) },
       exit: (code) => {
@@ -65,7 +153,9 @@ async function runSnapshotInMemory(
     });
   } catch (err) {
     const code = (err as { code?: unknown }).code;
-    if (typeof code === "number") return { code, stdout, stderr, writes };
+    if (typeof code === "number") {
+      return { code, stdout, stderr, writes, outputFiles, captureFiles, nativeCommands };
+    }
     throw err;
   }
   throw new Error("expected runSnapshot to exit");
@@ -268,6 +358,91 @@ describe("snapshot --diff", () => {
     );
     expect(result.status).toBe(4);
     expect(result.stderr).toContain("--active-layer cannot be combined with --diff");
+  });
+});
+
+describe("snapshot --image", () => {
+  test("--image without --image-to exits 4 before contacting Metro", () => {
+    const result = spawnSync(
+      "bun",
+      ["run", CLI_PATH, "snapshot", "--image"],
+      { env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8", timeout: 5000 },
+    );
+    expect(result.status).toBe(4);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--image and --image-to must be supplied together");
+  });
+
+  test("writes sidecar image while preserving stdout snapshot projection", async () => {
+    const result = await runSnapshotInMemory([
+      "--image",
+      "--image-to",
+      "/tmp/screen.png",
+      "--native-platform",
+      "android",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("# Snapshot");
+    expect(result.captureFiles).toHaveLength(1);
+    expect(result.captureFiles[0]!.path).toBe("/tmp/screen.png");
+    expect(result.nativeCommands[0]!.platform).toBe("android");
+  });
+
+  test("--to remains the snapshot output path and --image-to is the PNG path", async () => {
+    const result = await runSnapshotInMemory([
+      "--to",
+      "/tmp/snapshot.md",
+      "--image",
+      "--image-to",
+      "/tmp/screen.png",
+      "--native-platform",
+      "ios",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.outputFiles).toHaveLength(1);
+    expect(result.outputFiles[0]!.path).toBe("/tmp/snapshot.md");
+    expect(result.outputFiles[0]!.data).toContain("# Snapshot");
+    expect(result.captureFiles).toHaveLength(1);
+    expect(result.captureFiles[0]!.path).toBe("/tmp/screen.png");
+  });
+
+  test("capture failure is reported as a warning while snapshot exits 0", async () => {
+    const result = await runSnapshotInMemory([
+      "--image",
+      "--image-to",
+      "/tmp/screen.png",
+      "--native-platform",
+      "android",
+    ], {
+      spawnResult: {
+        status: 1,
+        stdout: Buffer.alloc(0),
+        stderr: "error: more than one device/emulator",
+      },
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("# Snapshot");
+    expect(result.stderr).toContain("brna: warning: sidecar image capture failed:");
+    expect(result.captureFiles).toHaveLength(0);
+  });
+
+  test("passes device, overlay, and native-device options through to capture", async () => {
+    const result = await runSnapshotInMemory([
+      "--device",
+      "ios-sim",
+      "--image",
+      "--image-to",
+      "/tmp/overlay.png",
+      "--overlay",
+      "--native-device",
+      "SIM-2",
+      "--native-platform",
+      "ios",
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.captureFiles).toHaveLength(1);
+    expect(result.nativeCommands[0]!.args).toEqual(["simctl", "io", "SIM-2", "screenshot", "-"]);
   });
 });
 

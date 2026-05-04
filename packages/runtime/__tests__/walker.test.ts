@@ -274,6 +274,39 @@ describe("extractNodeFields via walkFiberRoot", () => {
     expect(JSON.stringify(node)).not.toContain("Authorization");
   });
 
+  test("image source array, string, and local asset id are captured safely", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RCTView",
+        props: { testID: "root" },
+        children: [
+          { type: "RCTImageView", props: { testID: "array", source: [{ uri: "https://example.com/a.png" }] } },
+          { type: "RCTImageView", props: { testID: "string", source: "file:///tmp/b.png" } },
+          { type: "RCTImageView", props: { testID: "asset", source: 42 } },
+        ],
+      }),
+    );
+    const children = walkFiberRoot(root, "screen:root").rootChildren[0]!.children!;
+    expect(children[0]!.image_source).toBe("https://example.com/a.png");
+    expect(children[1]!.image_source).toBe("file:///tmp/b.png");
+    expect(children[2]!.image_source).toBe("42");
+  });
+
+  test("image source omits inline data image payloads", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RCTImageView",
+        props: {
+          testID: "inline",
+          source: { uri: "data:image/png;base64,iVBORw0KGgo" },
+        },
+      }),
+    );
+    const node = walkFiberRoot(root, "screen:root").rootChildren[0]!;
+    expect(node.kind).toBe("image");
+    expect(node.image_source).toBeUndefined();
+  });
+
   test("virtualized list total_count and item index are captured", () => {
     function FlatList() {}
     function CellRenderer() {}
@@ -308,6 +341,77 @@ describe("extractNodeFields via walkFiberRoot", () => {
     expect(row.kind).toBe("list_item");
     expect(row.index).toBe(1);
     expect(row.children?.[0]?.kind).toBe("text");
+  });
+
+  test("virtualized list visible_range is captured from internal state", () => {
+    function FlatList() {}
+    const list = makeComposite({
+      type: FlatList,
+      props: { data: Array.from({ length: 30 }) },
+      stateNode: { state: { cellsAroundViewport: { first: 5, last: 15 } } },
+      children: [
+        {
+          type: "RCTScrollView",
+          props: { testID: "feed" },
+          children: [
+            {
+              type: "RCTView",
+              props: { testID: "row" },
+            },
+          ],
+        },
+      ],
+    });
+    const feed = walkFiberRoot(makeRoot(list), "screen:root").rootChildren[0]!;
+    expect(feed.kind).toBe("list");
+    expect(feed.visible_range).toEqual({ start: 5, end: 15 });
+  });
+
+  test("virtualized list visible_range falls back to emitted list_item indices", () => {
+    function FlatList() {}
+    function CellRenderer() {}
+    const list = makeComposite({
+      type: FlatList,
+      props: { data: Array.from({ length: 30 }) },
+      children: [
+        {
+          type: "RCTScrollView",
+          props: { testID: "feed" },
+          children: [
+            {
+              type: CellRenderer,
+              props: { index: 3 },
+              children: [{ type: "RCTView", props: { testID: "row-c" } }],
+            },
+            {
+              type: CellRenderer,
+              props: { index: 4 },
+              children: [{ type: "RCTView", props: { testID: "row-d" } }],
+            },
+          ],
+        },
+      ],
+    });
+    const feed = walkFiberRoot(makeRoot(list), "screen:root").rootChildren[0]!;
+    expect(feed.visible_range).toEqual({ start: 3, end: 4 });
+  });
+
+  test("virtualized list omits visible_range when no finite range is available", () => {
+    function FlatList() {}
+    const list = makeComposite({
+      type: FlatList,
+      props: { data: Array.from({ length: 30 }) },
+      stateNode: { state: { cellsAroundViewport: { first: Number.NaN, last: 4 } } },
+      children: [
+        {
+          type: "RCTScrollView",
+          props: { testID: "feed" },
+          children: [{ type: "RCTView", props: { testID: "row" } }],
+        },
+      ],
+    });
+    const feed = walkFiberRoot(makeRoot(list), "screen:root").rootChildren[0]!;
+    expect(feed.visible_range).toBeUndefined();
   });
 });
 

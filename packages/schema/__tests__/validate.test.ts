@@ -212,10 +212,34 @@ describe("advanced snapshot fields", () => {
         id: "feed",
         kind: "list",
         total_count: 50,
+        visible_range: { start: 5, end: 15 },
         children: [{ id: "row-12", kind: "list_item", index: 12 }],
       },
     });
     expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("accepts virtualized list metadata without visible_range", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        total_count: 50,
+        children: [{ id: "row-12", kind: "list_item", index: 12 }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("rejects non-finite visible_range values", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        visible_range: { start: 0, end: Number.POSITIVE_INFINITY },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
 });
 

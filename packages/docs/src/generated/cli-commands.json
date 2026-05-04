@@ -5,7 +5,7 @@
       "snap"
     ],
     "description": "Capture the current app snapshot from a connected brna runtime.",
-    "usage": "brna snapshot [--format json|md|yaml] [--diff] [--active-layer] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna snapshot [--format json|md|yaml] [--diff] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--format",
@@ -20,6 +20,18 @@
         "description": "Print only active modal, sheet, popover, toast, or overlay nodes in markdown output."
       },
       {
+        "name": "--image",
+        "description": "Also write a sidecar PNG screenshot. Requires --image-to."
+      },
+      {
+        "name": "--image-to",
+        "description": "Output PNG path for --image sidecar capture."
+      },
+      {
+        "name": "--overlay",
+        "description": "Annotate the sidecar PNG with snapshot bounds and short selector labels."
+      },
+      {
         "name": "--metro",
         "description": "Metro base URL. Defaults to http://localhost:8081."
       },
@@ -30,11 +42,20 @@
       {
         "name": "--device",
         "description": "Target a connected runtime device id."
+      },
+      {
+        "name": "--native-device",
+        "description": "Override native screenshot target for --image."
+      },
+      {
+        "name": "--native-platform",
+        "description": "Force the native screenshot platform for --image."
       }
     ],
     "examples": [
       "brna snapshot",
       "brna snapshot --active-layer",
+      "brna snapshot --image --image-to screen.png",
       "brna snap --format json",
       "brna snapshot --diff --device ios-sim"
     ]
@@ -238,6 +259,90 @@
       "brna config init",
       "brna config show",
       "brna config path"
+    ]
+  },
+  {
+    "name": "logs",
+    "description": "Print recent runtime console/error log records captured by the brna runtime.",
+    "usage": "brna logs [--json] [--since <ms-or-timestamp>] [--level <level>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "options": [
+      {
+        "name": "--json",
+        "description": "Print log records as JSON."
+      },
+      {
+        "name": "--since",
+        "description": "Filter records to those at or after a duration ago (ms) or absolute ms timestamp."
+      },
+      {
+        "name": "--level",
+        "description": "Minimum level to include: debug|log|info|warn|error."
+      },
+      {
+        "name": "--limit",
+        "description": "Maximum number of records to return."
+      },
+      {
+        "name": "--metro",
+        "description": "Metro base URL. Defaults to http://localhost:8081."
+      },
+      {
+        "name": "--timeout",
+        "description": "Request timeout in milliseconds."
+      },
+      {
+        "name": "--device",
+        "description": "Target a connected runtime device id."
+      }
+    ],
+    "examples": [
+      "brna logs",
+      "brna logs --level warn",
+      "brna logs --since 5000 --json"
+    ]
+  },
+  {
+    "name": "network",
+    "description": "Print recent runtime fetch/XHR network records captured by the brna runtime.",
+    "usage": "brna network [--json] [--since <ms-or-timestamp>] [--method <verb>] [--status <code-or-range>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "options": [
+      {
+        "name": "--json",
+        "description": "Print network records as JSON."
+      },
+      {
+        "name": "--since",
+        "description": "Filter records to those at or after a duration ago (ms) or absolute ms timestamp."
+      },
+      {
+        "name": "--method",
+        "description": "Filter records by HTTP method (case-insensitive)."
+      },
+      {
+        "name": "--status",
+        "description": "Filter records by status code or range (e.g. 200, 200-299, 4xx)."
+      },
+      {
+        "name": "--limit",
+        "description": "Maximum number of records to return."
+      },
+      {
+        "name": "--metro",
+        "description": "Metro base URL. Defaults to http://localhost:8081."
+      },
+      {
+        "name": "--timeout",
+        "description": "Request timeout in milliseconds."
+      },
+      {
+        "name": "--device",
+        "description": "Target a connected runtime device id."
+      }
+    ],
+    "examples": [
+      "brna network",
+      "brna network --method POST",
+      "brna network --status 4xx --json"
     ]
   },
   {

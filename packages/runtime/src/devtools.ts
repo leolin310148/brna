@@ -15,6 +15,7 @@ export interface AnyFiber {
   return: AnyFiber | null;
   memoizedProps: Record<string, unknown> | null;
   pendingProps: Record<string, unknown> | null;
+  memoizedState?: unknown;
   stateNode: unknown;
   _debugSource?: DebugSource | null;
 }

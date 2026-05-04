@@ -23,23 +23,32 @@ screen:
 tree:
   children:
     - children:
-        - id: item-0
+        - children:
+            - id: item-0-thumb
+              image_source: "42"
+              kind: image
+          id: item-0
+          index: 0
           kind: list_item
           name: Item 1
           text: Item 1
         - id: item-1
+          index: 1
           kind: list_item
           name: Item 2
           text: Item 2
         - id: item-2
+          index: 2
           kind: list_item
           name: Item 3
           text: Item 3
         - id: item-3
+          index: 3
           kind: list_item
           name: Item 4
           text: Item 4
         - id: item-4
+          index: 4
           kind: list_item
           name: Item 5
           text: Item 5

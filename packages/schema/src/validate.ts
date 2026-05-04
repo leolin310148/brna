@@ -237,6 +237,9 @@ function walkNode(node: Node, path: string): void {
   if (node.range !== undefined) {
     validateRange(node.range, `${path}.range`);
   }
+  if (node.visible_range !== undefined) {
+    validateVisibleRange(node.visible_range, `${path}.visible_range`);
+  }
   if (node.suggested_selectors !== undefined) {
     if (!Array.isArray(node.suggested_selectors)) {
       throw new BrnaValidationError({
@@ -316,5 +319,35 @@ function validateRange(range: unknown, path: string): void {
       path,
       message: "range must contain at least one of min/max/now/text",
     });
+  }
+}
+
+function validateVisibleRange(range: unknown, path: string): void {
+  if (!range || typeof range !== "object" || Array.isArray(range)) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "visible_range must be an object",
+    });
+  }
+  const obj = range as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (key !== "start" && key !== "end") {
+      throw new BrnaValidationError({
+        code: "unknown_property",
+        path: `${path}.${key}`,
+        message: `unknown property '${key}' on visible_range`,
+      });
+    }
+  }
+  for (const k of ["start", "end"] as const) {
+    const v = obj[k];
+    if (typeof v !== "number" || !Number.isFinite(v)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.${k}`,
+        message: `visible_range.${k} must be a finite number`,
+      });
+    }
   }
 }

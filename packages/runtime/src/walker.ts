@@ -118,12 +118,19 @@ interface HostHit {
   kind: NodeKind;
   totalCount?: number;
   itemIndex?: number;
+  visibleRange?: VisibleRange;
 }
 
 interface CollectContext {
   totalCount?: number;
   itemIndex?: number;
   itemHostClaimed?: boolean;
+  visibleRange?: VisibleRange;
+}
+
+interface VisibleRange {
+  start: number;
+  end: number;
 }
 
 function collectHostFibers(start: AnyFiber | null, out: HostHit[], context: CollectContext = {}): void {
@@ -136,6 +143,7 @@ function collectHostFibers(start: AnyFiber | null, out: HostHit[], context: Coll
         fiber,
         kind,
         ...(kind === "list" && fiberContext.totalCount !== undefined ? { totalCount: fiberContext.totalCount } : {}),
+        ...(kind === "list" && fiberContext.visibleRange !== undefined ? { visibleRange: fiberContext.visibleRange } : {}),
         ...(kind === "list_item" && fiberContext.itemIndex !== undefined ? { itemIndex: fiberContext.itemIndex } : {}),
       };
       if (kind === "list_item") fiberContext.itemHostClaimed = true;
@@ -164,6 +172,10 @@ function deriveCollectContext(fiber: AnyFiber, context: CollectContext): Collect
   const totalCount = readVirtualizedListTotalCount(fiber);
   if (totalCount !== undefined) {
     next = { ...next, totalCount };
+  }
+  const visibleRange = readVirtualizedListVisibleRange(fiber);
+  if (visibleRange !== undefined) {
+    next = { ...next, visibleRange };
   }
   const itemIndex = readVirtualizedItemIndex(fiber);
   if (itemIndex !== undefined && next.totalCount !== undefined) {
@@ -431,7 +443,7 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
 }
 
 function extractImageSource(source: unknown): string | undefined {
-  if (typeof source === "string" && source.length > 0) return source;
+  if (typeof source === "string" && source.length > 0) return isInlineDataImage(source) ? undefined : source;
   if (typeof source === "number" && Number.isFinite(source)) return String(source);
   if (Array.isArray(source)) {
     for (const entry of source) {
@@ -442,14 +454,12 @@ function extractImageSource(source: unknown): string | undefined {
   }
   if (!source || typeof source !== "object") return undefined;
   const uri = (source as Record<string, unknown>).uri;
-  if (typeof uri === "string" && uri.length > 0) return uri;
-  const __packager_asset = (source as Record<string, unknown>).__packager_asset;
-  const name = (source as Record<string, unknown>).name;
-  const type = (source as Record<string, unknown>).type;
-  if (__packager_asset === true && typeof name === "string" && name.length > 0) {
-    return typeof type === "string" && type.length > 0 ? `${name}.${type}` : name;
-  }
+  if (typeof uri === "string" && uri.length > 0) return isInlineDataImage(uri) ? undefined : uri;
   return undefined;
+}
+
+function isInlineDataImage(value: string): boolean {
+  return /^data:image\//i.test(value);
 }
 
 function componentName(value: unknown): string | undefined {
@@ -497,6 +507,68 @@ function readVirtualizedListTotalCount(fiber: AnyFiber): number | undefined {
     : undefined;
   if (Array.isArray(stateNodeProps?.data)) return stateNodeProps.data.length;
   return undefined;
+}
+
+function readVirtualizedListVisibleRange(fiber: AnyFiber): VisibleRange | undefined {
+  if (!isVirtualizedListComponent(fiber)) return undefined;
+  const stateNode = fiber.stateNode && typeof fiber.stateNode === "object"
+    ? (fiber.stateNode as Record<string, unknown>)
+    : undefined;
+  const candidates = [
+    fiber.memoizedState,
+    fiber.pendingProps,
+    fiber.memoizedProps,
+    stateNode?.state,
+    stateNode?._state,
+    stateNode,
+  ];
+  for (const candidate of candidates) {
+    const found = readVisibleRangeFromObject(candidate);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function readVisibleRangeFromObject(value: unknown): VisibleRange | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  const direct = readVisibleRangePair(obj);
+  if (direct) return direct;
+  for (const key of ["cellsAroundViewport", "renderedRange", "visibleRange", "_visibleRange"]) {
+    const nested = readVisibleRangeFromObject(obj[key]);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function readVisibleRangePair(obj: Record<string, unknown>): VisibleRange | undefined {
+  const pairs = [
+    ["_firstChildIndex", "_lastChildIndex"],
+    ["first", "last"],
+    ["firstIndex", "lastIndex"],
+    ["firstVisibleIndex", "lastVisibleIndex"],
+    ["firstRenderedIndex", "lastRenderedIndex"],
+    ["start", "end"],
+  ] as const;
+  for (const [startKey, endKey] of pairs) {
+    const range = makeVisibleRange(obj[startKey], obj[endKey]);
+    if (range) return range;
+  }
+  return undefined;
+}
+
+function makeVisibleRange(start: unknown, end: unknown): VisibleRange | undefined {
+  if (
+    typeof start !== "number" ||
+    typeof end !== "number" ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    end < start
+  ) {
+    return undefined;
+  }
+  return { start, end };
 }
 
 function readVirtualizedItemIndex(fiber: AnyFiber): number | undefined {
@@ -598,6 +670,7 @@ function buildSubtree(hits: HostHit[], parentId: string): BuildResult {
     if (fields.image_source !== undefined) node.image_source = fields.image_source;
     if (hit.totalCount !== undefined) node.total_count = hit.totalCount;
     if (hit.itemIndex !== undefined) node.index = hit.itemIndex;
+    if (hit.visibleRange !== undefined) node.visible_range = hit.visibleRange;
 
     measureTargets.push({ nodeId: id, hostInstance: hit.fiber.stateNode });
 
@@ -607,6 +680,10 @@ function buildSubtree(hits: HostHit[], parentId: string): BuildResult {
       if (sub.nodes.length > 0) node.children = sub.nodes;
       allWarnings.push(...sub.warnings);
       measureTargets.push(...sub.measureTargets);
+    }
+    if (node.kind === "list" && node.visible_range === undefined) {
+      const fallback = visibleRangeFromListItems(node.children);
+      if (fallback) node.visible_range = fallback;
     }
 
     if (
@@ -633,6 +710,21 @@ function buildSubtree(hits: HostHit[], parentId: string): BuildResult {
   });
 
   return { nodes, warnings: allWarnings, measureTargets };
+}
+
+function visibleRangeFromListItems(children: Node[] | undefined): VisibleRange | undefined {
+  if (!children) return undefined;
+  let start: number | undefined;
+  let end: number | undefined;
+  for (const child of children) {
+    if (child.kind !== "list_item") continue;
+    const index = child.index;
+    if (typeof index !== "number" || !Number.isFinite(index)) continue;
+    start = start === undefined ? index : Math.min(start, index);
+    end = end === undefined ? index : Math.max(end, index);
+  }
+  if (start === undefined || end === undefined) return undefined;
+  return { start, end };
 }
 
 export interface WalkResult {

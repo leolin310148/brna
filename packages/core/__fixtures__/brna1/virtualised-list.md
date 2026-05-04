@@ -9,6 +9,7 @@ title: Feed
 - screen#screen-feed
   - list#feed-list
     - list_item#item-0 "Item 1"
+      - image#item-0-thumb
     - list_item#item-1 "Item 2"
     - list_item#item-2 "Item 3"
     - list_item#item-3 "Item 4"
