@@ -8,60 +8,227 @@ import { runMcp } from "./mcp.js";
 import { runConfig } from "./config.js";
 import { runTrace } from "./trace.js";
 import { DOCS_URL, commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
+import {
+  DAEMON_INTERNAL_ENV,
+  DAEMON_SESSION_ENV,
+  DaemonSocketServer,
+  daemonSupported,
+  ensureDaemon,
+  forwardCommand,
+  pingDaemon,
+  resolveDaemonIdentity,
+  stopDaemon,
+  truthyEnv,
+  NO_DAEMON_ENV,
+  type CommandRequest,
+} from "./daemon.js";
 
-const argv = process.argv.slice(2);
-if (argv.length === 0) {
-  process.stderr.write(
-    `brna: usage: brna <snapshot|snap|act|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
-  );
-  process.exit(4);
+class CliExit extends Error {
+  constructor(readonly code: number) {
+    super("cli exit");
+  }
 }
 
-const subcommand = argv[0]!;
-const rest = argv.slice(1);
-if (subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
-  const commandName = rest[0];
-  if (commandName === undefined) {
-    process.stdout.write(formatGlobalHelp());
-    process.exit(0);
+type Writable = Pick<typeof process.stdout, "write">;
+
+export async function runCli(argv = process.argv.slice(2)): Promise<number> {
+  if (process.env[DAEMON_INTERNAL_ENV] === "1") {
+    await runDaemon();
+    return 0;
   }
-  const command = commandByName(commandName);
-  if (!command) {
-    process.stderr.write(`brna: unknown subcommand '${commandName}'\n`);
-    process.exit(4);
+
+  if (argv.length === 0) {
+    process.stderr.write(
+      `brna: usage: brna <snapshot|snap|act|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
+    );
+    return 4;
   }
-  process.stdout.write(formatCommandHelp(command));
-  process.exit(0);
+
+  const localCode = await maybeRunLocalOnly(argv);
+  if (localCode !== null) return localCode;
+
+  if (shouldForwardToDaemon(argv)) {
+    try {
+      const identity = await resolveDaemonIdentity();
+      await ensureDaemon(identity);
+      return await forwardCommand(identity, argv);
+    } catch (err) {
+      process.stderr.write(`brna: daemon unavailable: ${(err as Error).message}\n`);
+      return 1;
+    }
+  }
+
+  return runCommandDirect(argv);
 }
 
-const commandHelp = rest.includes("--help") || rest.includes("-h");
-const command = commandByName(subcommand);
-if (commandHelp) {
-  if (!command) {
-    process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
-    process.exit(4);
+async function maybeRunLocalOnly(argv: string[]): Promise<number | null> {
+  const subcommand = argv[0]!;
+  const rest = argv.slice(1);
+
+  if (subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
+    const commandName = rest[0];
+    if (commandName === undefined) {
+      process.stdout.write(formatGlobalHelp());
+      return 0;
+    }
+    const command = commandByName(commandName);
+    if (!command) {
+      process.stderr.write(`brna: unknown subcommand '${commandName}'\n`);
+      return 4;
+    }
+    process.stdout.write(formatCommandHelp(command));
+    return 0;
   }
-  process.stdout.write(formatCommandHelp(command));
-  process.exit(0);
+
+  const commandHelp = rest.includes("--help") || rest.includes("-h");
+  const command = commandByName(subcommand);
+  if (commandHelp) {
+    if (!command) {
+      process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
+      return 4;
+    }
+    process.stdout.write(formatCommandHelp(command));
+    return 0;
+  }
+
+  if (subcommand === "daemon") {
+    return runDaemonManagement(rest);
+  }
+
+  return null;
 }
 
-if (subcommand === "snapshot" || subcommand === "snap") {
-  void runSnapshot(rest);
-} else if (subcommand === "act") {
-  void runAct(rest);
-} else if (subcommand === "devices") {
-  void runDevices(rest);
-} else if (subcommand === "doctor") {
-  void runDoctor(rest);
-} else if (subcommand === "verify") {
-  void runVerify(rest);
-} else if (subcommand === "mcp") {
-  void runMcp(rest);
-} else if (subcommand === "config") {
-  void runConfig(rest);
-} else if (subcommand === "trace") {
-  void runTrace(rest);
-} else {
-  process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
-  process.exit(4);
+function shouldForwardToDaemon(argv: string[]): boolean {
+  if (!daemonSupported()) return false;
+  if (truthyEnv(process.env[NO_DAEMON_ENV])) return false;
+  if (process.env[DAEMON_INTERNAL_ENV] === "1") return false;
+  if (argv[0] === "daemon") return false;
+  return commandByName(argv[0]!) !== undefined;
+}
+
+async function runDaemonManagement(rest: string[]): Promise<number> {
+  const sub = rest[0];
+  if (sub !== "status" && sub !== "stop") {
+    process.stderr.write("brna: usage: brna daemon <status|stop>\n");
+    return 4;
+  }
+  if (!daemonSupported()) {
+    process.stdout.write("Daemon mode is unsupported on this platform.\n");
+    return 0;
+  }
+  const identity = await resolveDaemonIdentity();
+  if (sub === "status") {
+    const status = await pingDaemon(identity.socketPath);
+    if (!status) {
+      process.stdout.write("Daemon stopped\n");
+      return 0;
+    }
+    process.stdout.write(`Daemon running (pid ${status.pid}, uptime ${formatDuration(status.uptimeMs)})\n`);
+    return 0;
+  }
+  const stopped = await stopDaemon(identity.socketPath);
+  process.stdout.write(stopped ? "Daemon stopped\n" : "Daemon already stopped\n");
+  return 0;
+}
+
+async function runDaemon(): Promise<void> {
+  if (!daemonSupported()) return;
+  const identity = await resolveDaemonIdentity(process.cwd(), process.env[DAEMON_SESSION_ENV]);
+  const server = new DaemonSocketServer(identity.socketPath, runForwardedCommand);
+  const cleanup = () => {
+    void server.close().finally(() => process.exit(0));
+  };
+  process.once("SIGTERM", cleanup);
+  process.once("SIGINT", cleanup);
+  await server.listen();
+  await new Promise<never>(() => {
+    /* keep daemon process alive until idle timeout, stop, or signal */
+  });
+}
+
+async function runForwardedCommand(request: CommandRequest, streams: { stdout: Writable; stderr: Writable }): Promise<number> {
+  const oldCwd = process.cwd();
+  const oldEnv = { ...process.env };
+  const oldStdoutWrite = process.stdout.write;
+  const oldStderrWrite = process.stderr.write;
+  const oldExit = process.exit;
+  process.chdir(request.cwd);
+  replaceEnv({ ...request.env, [DAEMON_SESSION_ENV]: request.sessionId, [NO_DAEMON_ENV]: "1" });
+  process.stdout.write = streams.stdout.write.bind(streams.stdout) as typeof process.stdout.write;
+  process.stderr.write = streams.stderr.write.bind(streams.stderr) as typeof process.stderr.write;
+  process.exit = ((code?: string | number | null | undefined): never => {
+    throw new CliExit(typeof code === "number" ? code : 0);
+  }) as typeof process.exit;
+  try {
+    return await runCommandDirect(request.argv, streams);
+  } finally {
+    process.chdir(oldCwd);
+    replaceEnv(oldEnv);
+    process.stdout.write = oldStdoutWrite;
+    process.stderr.write = oldStderrWrite;
+    process.exit = oldExit;
+  }
+}
+
+async function runCommandDirect(argv: string[], streams?: { stdout: Writable; stderr: Writable }): Promise<number> {
+  const subcommand = argv[0]!;
+  const rest = argv.slice(1);
+  const runtime = streams
+    ? {
+        stdout: streams.stdout,
+        stderr: streams.stderr,
+        exit: (code: number): never => {
+          throw new CliExit(code);
+        },
+      }
+    : {
+        exit: (code: number): never => {
+          throw new CliExit(code);
+        },
+      };
+  try {
+    if (subcommand === "snapshot" || subcommand === "snap") {
+      await runSnapshot(rest, runtime);
+    } else if (subcommand === "act") {
+      await runAct(rest, runtime);
+    } else if (subcommand === "devices") {
+      await runDevices(rest, runtime);
+    } else if (subcommand === "doctor") {
+      await runDoctor(rest, runtime);
+    } else if (subcommand === "verify") {
+      await runVerify(rest, runtime);
+    } else if (subcommand === "mcp") {
+      await runMcp(rest);
+    } else if (subcommand === "config") {
+      await runConfig(rest);
+    } else if (subcommand === "trace") {
+      await runTrace(rest);
+    } else {
+      process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
+      return 4;
+    }
+    return 0;
+  } catch (err) {
+    if (err instanceof CliExit) return err.code;
+    throw err;
+  }
+}
+
+function replaceEnv(next: NodeJS.ProcessEnv): void {
+  for (const key of Object.keys(process.env)) {
+    delete process.env[key];
+  }
+  Object.assign(process.env, next);
+}
+
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}m${remaining}s`;
+}
+
+if (import.meta.main) {
+  void runCli().then((code) => process.exit(code));
 }

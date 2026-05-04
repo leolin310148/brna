@@ -25,6 +25,8 @@ export interface SessionCacheOptions {
 }
 
 export function getSessionId(): string {
+  const daemonSession = process.env.BRNA_DAEMON_SESSION_ID;
+  if (typeof daemonSession === "string" && daemonSession.length > 0) return daemonSession;
   if (memoizedSessionId === null) {
     memoizedSessionId = resolveSessionId();
   }
