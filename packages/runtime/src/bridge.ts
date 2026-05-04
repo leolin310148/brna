@@ -19,6 +19,41 @@ interface AppMetadata {
   app_version?: string;
 }
 
+interface NativeDeviceHints {
+  device_name?: string;
+  is_simulator?: boolean;
+}
+
+function readNativeDeviceHints(): NativeDeviceHints {
+  const hints: NativeDeviceHints = {};
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Constants = (require as unknown as (id: string) => unknown)("expo-constants") as
+      | {
+          default?: {
+            deviceName?: string;
+            isDevice?: boolean;
+            platform?: { ios?: { simulator?: boolean }; android?: { isDevice?: boolean } };
+          };
+        }
+      | undefined;
+    const c = Constants?.default;
+    if (c) {
+      if (typeof c.deviceName === "string" && c.deviceName.length > 0) {
+        hints.device_name = c.deviceName;
+      }
+      if (Platform.OS === "ios" && typeof c.platform?.ios?.simulator === "boolean") {
+        hints.is_simulator = c.platform.ios.simulator;
+      } else if (typeof c.isDevice === "boolean") {
+        hints.is_simulator = !c.isDevice;
+      }
+    }
+  } catch {
+    /* expo-constants is optional */
+  }
+  return hints;
+}
+
 function readAppMetadata(): AppMetadata {
   const meta: AppMetadata = {};
   // React Native does not expose app metadata directly without native modules.
@@ -95,6 +130,7 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
       platform: Platform.OS === "android" ? "android" : "ios",
       os_version: String(Platform.Version ?? "0"),
       ...readAppMetadata(),
+      ...readNativeDeviceHints(),
     });
   };
 

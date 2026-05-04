@@ -72,6 +72,26 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     ],
   },
   {
+    name: "capture",
+    description: "Write a PNG screenshot of the connected runtime device, optionally overlaid with brna snapshot bounds.",
+    usage: "brna capture [--to <path>] [--overlay] [--metro <url>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
+    options: [
+      { name: "--to", description: "Output PNG path. Defaults to a session-scoped path printed to stdout." },
+      { name: "--overlay", description: "Annotate the PNG with snapshot bounds and short selector labels." },
+      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--device", description: "Target a connected brna runtime device id (used to look up native targets)." },
+      { name: "--native-device", description: "Override native screenshot target — adb serial or simulator UDID." },
+      { name: "--native-platform", description: "Force the native capture platform when no runtime is connected." },
+      { name: "--timeout", description: "Request and native-capture timeout in milliseconds." },
+    ],
+    examples: [
+      "brna capture --to screen.png",
+      "brna capture --overlay --to overlay.png",
+      "brna capture --native-platform android --native-device emulator-5554",
+      "brna capture --native-platform ios --native-device booted",
+    ],
+  },
+  {
     name: "doctor",
     description: "Check Metro/runtime connectivity and project configuration, with optional safe fixes.",
     usage: "brna doctor [--fix] [--metro <url>] [--timeout <ms>]",

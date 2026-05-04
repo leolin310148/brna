@@ -92,6 +92,30 @@ describe("multi-device registry", () => {
     expect(a?.app_bundle_id).toBe("com.example.hotcake");
   });
 
+  test("listDevices captures native-device hints from hello frame", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, {
+      device_id: "dev-a",
+      platform: "ios",
+      native_device_id: "ABC-123",
+      device_name: "iPhone 15 Pro Simulator",
+      is_simulator: true,
+    });
+    const a = bridge.listDevices().find((d) => d.id === "dev-a");
+    expect(a?.native_device_id).toBe("ABC-123");
+    expect(a?.device_name).toBe("iPhone 15 Pro Simulator");
+    expect(a?.is_simulator).toBe(true);
+  });
+
+  test("hello frame without native hints still registers", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, { device_id: "dev-a", platform: "ios" });
+    const a = bridge.listDevices().find((d) => d.id === "dev-a") as Record<string, unknown>;
+    expect(a).not.toHaveProperty("native_device_id");
+    expect(a).not.toHaveProperty("device_name");
+    expect(a).not.toHaveProperty("is_simulator");
+  });
+
   test("listDevices omits absent app metadata fields", () => {
     const bridge = new BrnaBridge();
     attach(bridge, { device_id: "dev-a", platform: "ios" });

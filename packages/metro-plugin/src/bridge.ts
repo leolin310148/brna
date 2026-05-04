@@ -46,6 +46,11 @@ interface RuntimeFrame {
   app_version?: string;
   app_name?: string;
   app_bundle_id?: string;
+  // Optional native-device hints used by host-side capture tooling. Treated as
+  // additive metadata; absent fields preserve existing behavior.
+  native_device_id?: string;
+  device_name?: string;
+  is_simulator?: boolean;
 }
 
 export interface SnapshotRequestOptions {
@@ -60,6 +65,12 @@ export interface DeviceInfo {
   app_version?: string;
   app_name?: string;
   app_bundle_id?: string;
+  // Optional hints from runtime hello that help host tooling map a brna
+  // runtime to a native screenshot/capture target. Not required for snapshot
+  // or action routing.
+  native_device_id?: string;
+  device_name?: string;
+  is_simulator?: boolean;
   registered_at: number;
   last_seen_at: number;
 }
@@ -251,6 +262,15 @@ export class BrnaBridge {
     if (typeof frame.app_bundle_id === "string" && frame.app_bundle_id.length > 0) {
       entry.app_bundle_id = frame.app_bundle_id;
     }
+    if (typeof frame.native_device_id === "string" && frame.native_device_id.length > 0) {
+      entry.native_device_id = frame.native_device_id;
+    }
+    if (typeof frame.device_name === "string" && frame.device_name.length > 0) {
+      entry.device_name = frame.device_name;
+    }
+    if (typeof frame.is_simulator === "boolean") {
+      entry.is_simulator = frame.is_simulator;
+    }
     entry.last_seen_at = Date.now();
     this.recentDisconnected.delete(entry.id);
   }
@@ -280,6 +300,9 @@ export class BrnaBridge {
       if (entry.app_version !== undefined) info.app_version = entry.app_version;
       if (entry.app_name !== undefined) info.app_name = entry.app_name;
       if (entry.app_bundle_id !== undefined) info.app_bundle_id = entry.app_bundle_id;
+      if (entry.native_device_id !== undefined) info.native_device_id = entry.native_device_id;
+      if (entry.device_name !== undefined) info.device_name = entry.device_name;
+      if (entry.is_simulator !== undefined) info.is_simulator = entry.is_simulator;
       out.push(info);
     }
     return out;

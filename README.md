@@ -25,6 +25,7 @@ brna snapshot
 brna act tap "#save"
 brna act type "input:Email" "leo@example.com"
 brna act scroll "#feed" --direction down --by 300
+brna capture --to screen.png
 brna doctor
 brna mcp
 ```
@@ -160,6 +161,48 @@ brna act key tab
 Selectors can target explicit ids such as `#save` or semantic matches such as
 `button:Submit` and `input:Email`. Prefer explicit `testID` values for workflows
 that need to be stable over time.
+
+### `capture`
+
+Write a PNG screenshot of the connected runtime device, optionally annotated
+with brna snapshot bounds and selector labels.
+
+```sh
+brna capture --to screen.png
+brna capture --overlay --to overlay.png
+brna capture --native-platform android --native-device emulator-5554
+brna capture --native-platform ios --native-device booted
+```
+
+Useful options:
+
+- `--to <path>` writes the PNG to a specific file. Without it, brna writes a
+  session-scoped `capture-<timestamp>.png` and prints the path on stdout.
+- `--overlay` fetches a fresh snapshot and annotates the PNG with each node's
+  bounds and a short selector label. Logical bounds are converted to pixels
+  using `meta.device.viewport.scale`. Nodes without bounds are skipped.
+- `--device <id>` selects a connected brna runtime; the CLI uses
+  `native_device_id` from the device record when available.
+- `--native-device <id>` is the authoritative target — an `adb` serial on
+  Android or a simulator UDID (or `booted`) on iOS. Use this when several
+  emulators or simulators are running.
+- `--native-platform android|ios` forces the platform when no runtime is
+  connected (useful for purely host-side captures).
+
+**Platform support:**
+
+- **Android emulator and device** via `adb exec-out screencap -p`. Requires
+  the Android Platform Tools `adb` binary on PATH.
+- **iOS Simulator** via `xcrun simctl io <device> screenshot`. Requires the
+  Xcode Command Line Tools.
+- **Physical iOS device capture is not supported** in the first version.
+
+**Overlay limitations:**
+
+- Labels render in a 5x7 bitmap font (ASCII only); long selectors are
+  truncated with an ellipsis.
+- Captures and overlays may catch slightly different UI states because the
+  screenshot and snapshot run sequentially.
 
 ### `devices`
 

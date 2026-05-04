@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { runSnapshot } from "./snapshot.js";
 import { runAct } from "./act.js";
+import { runCapture } from "./capture.js";
 import { runDevices } from "./devices.js";
 import { runDoctor } from "./doctor.js";
 import { runVerify } from "./verify.js";
@@ -40,7 +41,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 
   if (argv.length === 0) {
     process.stderr.write(
-      `brna: usage: brna <snapshot|snap|act|wait|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
+      `brna: usage: brna <snapshot|snap|act|wait|capture|devices|doctor|verify|mcp|config|trace> [args]\nDocs: ${DOCS_URL}\n`,
     );
     return 4;
   }
@@ -206,6 +207,8 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
       await runTrace(rest);
     } else if (subcommand === "wait") {
       await runWait(rest, runtime);
+    } else if (subcommand === "capture") {
+      await runCapture(rest, runtime);
     } else {
       process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
       return 4;

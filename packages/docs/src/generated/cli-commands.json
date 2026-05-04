@@ -77,6 +77,79 @@
     ]
   },
   {
+    "name": "wait",
+    "description": "Poll snapshots until a selector appears (or disappears with --gone) or a timeout is reached.",
+    "usage": "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url>] [--device <id>]",
+    "options": [
+      {
+        "name": "--gone",
+        "description": "Wait until the selector resolves to no nodes."
+      },
+      {
+        "name": "--timeout",
+        "description": "Total wait timeout in milliseconds (default 30000)."
+      },
+      {
+        "name": "--interval",
+        "description": "Polling cadence in milliseconds (default 500, minimum 100)."
+      },
+      {
+        "name": "--metro",
+        "description": "Metro base URL. Defaults to http://localhost:8081."
+      },
+      {
+        "name": "--device",
+        "description": "Target a connected runtime device id."
+      }
+    ],
+    "examples": [
+      "brna wait \"text:Confirmed\"",
+      "brna wait \"text:Loading\" --gone --timeout 5000",
+      "brna wait \"button:Save\" --interval 250"
+    ]
+  },
+  {
+    "name": "capture",
+    "description": "Write a PNG screenshot of the connected runtime device, optionally overlaid with brna snapshot bounds.",
+    "usage": "brna capture [--to <path>] [--overlay] [--metro <url>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
+    "options": [
+      {
+        "name": "--to",
+        "description": "Output PNG path. Defaults to a session-scoped path printed to stdout."
+      },
+      {
+        "name": "--overlay",
+        "description": "Annotate the PNG with snapshot bounds and short selector labels."
+      },
+      {
+        "name": "--metro",
+        "description": "Metro base URL. Defaults to http://localhost:8081."
+      },
+      {
+        "name": "--device",
+        "description": "Target a connected brna runtime device id (used to look up native targets)."
+      },
+      {
+        "name": "--native-device",
+        "description": "Override native screenshot target — adb serial or simulator UDID."
+      },
+      {
+        "name": "--native-platform",
+        "description": "Force the native capture platform when no runtime is connected."
+      },
+      {
+        "name": "--timeout",
+        "description": "Request and native-capture timeout in milliseconds."
+      }
+    ],
+    "examples": [
+      "brna capture --to screen.png",
+      "brna capture --overlay --to overlay.png",
+      "brna capture --native-platform android --native-device emulator-5554",
+      "brna capture --native-platform ios --native-device booted"
+    ]
+  },
+  {
     "name": "doctor",
     "description": "Check Metro/runtime connectivity and project configuration, with optional safe fixes.",
     "usage": "brna doctor [--fix] [--metro <url>] [--timeout <ms>]",
