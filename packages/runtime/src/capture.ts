@@ -10,9 +10,11 @@ import { ROOT_ID } from "./constants.js";
 import { waitForQuiescence } from "./quiescence.js";
 import { redactSnapshot } from "./redact.js";
 import { computeUsabilityWarnings } from "./usability.js";
+import { computeSnapshotHash } from "./hash.js";
 
 export interface CaptureOptions {
   timeout_ms?: number;
+  measureTimeoutMs?: number;
   redaction?: SnapshotRedactionOptions;
 }
 
@@ -77,7 +79,7 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
     measureTargets.push(...t);
   }
 
-  const { bounds, unavailable } = await measureBatch(measureTargets);
+  const { bounds, unavailable } = await measureBatch(measureTargets, options.measureTimeoutMs);
 
   for (const id of unavailable) {
     warnings.push({ code: "bounds_unavailable", node: id });
@@ -117,7 +119,9 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
   };
 
   const annotated = annotateSuggestedSelectors(baseSnapshot);
-  return redactSnapshot(annotated, options.redaction);
+  const redacted = redactSnapshot(annotated, options.redaction);
+  redacted.meta.hash = computeSnapshotHash(redacted);
+  return redacted;
 }
 
 

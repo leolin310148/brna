@@ -48,6 +48,7 @@ interface RuntimeFrame {
 
 export interface SnapshotRequestOptions {
   redaction?: SnapshotRedactionOptions;
+  measureTimeoutMs?: number;
 }
 
 export interface DeviceInfo {

@@ -27,7 +27,7 @@ import {
   parseTimeout,
 } from "./options.js";
 import { readSnapshotCache, snapshotSessionId, writeSnapshotCache } from "./session.js";
-import { loadConfig, toRedactionOptions } from "./config.js";
+import { loadConfig, measureTimeoutFromConfig, toRedactionOptions } from "./config.js";
 import { appendTraceEvent } from "./trace.js";
 
 export type SnapshotFormat = "md" | "json" | "yaml";
@@ -137,19 +137,30 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
   const url = `${metro}/brna/snapshot`;
   const config = (await loadConfig()).config;
   const redaction = toRedactionOptions(config);
+  let measureTimeoutMs: number | undefined;
+  try {
+    measureTimeoutMs = measureTimeoutFromConfig(config);
+  } catch (err) {
+    failWith(4, (err as Error).message, stderr, exit);
+  }
 
   let response: Response;
   const headers: Record<string, string> = {};
   if (device !== undefined) headers[DEVICE_HEADER] = device;
   try {
     const hasRedaction = redaction.rules !== undefined || redaction.redactSecureFields !== undefined;
+    const requestOptions = {
+      ...(hasRedaction ? { redaction } : {}),
+      ...(measureTimeoutMs !== undefined ? { measureTimeoutMs } : {}),
+    };
+    const hasRequestOptions = Object.keys(requestOptions).length > 0;
     response = await fetchWithInFlightRetry(
       (signal) =>
         fetchImpl(url, {
-          method: hasRedaction ? "POST" : "GET",
+          method: hasRequestOptions ? "POST" : "GET",
           signal,
-          headers: hasRedaction ? { ...headers, "Content-Type": "application/json" } : headers,
-          ...(hasRedaction ? { body: JSON.stringify({ redaction }) } : {}),
+          headers: hasRequestOptions ? { ...headers, "Content-Type": "application/json" } : headers,
+          ...(hasRequestOptions ? { body: JSON.stringify(requestOptions) } : {}),
         }),
       timeoutMs,
     );

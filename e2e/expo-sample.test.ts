@@ -11,6 +11,21 @@ interface ProcResult {
   stderr: string;
 }
 
+interface SnapshotNode {
+  id?: string;
+  kind?: string;
+  testID?: string;
+  image_source?: string;
+  total_count?: number;
+  index?: number;
+  children?: SnapshotNode[];
+}
+
+interface JsonSnapshot {
+  meta?: { hash?: string; source?: string };
+  tree?: SnapshotNode;
+}
+
 async function brna(args: string[], opts: { metro?: string } = {}): Promise<ProcResult> {
   const metro = opts.metro ?? METRO_URL;
   if (!metro) throw new Error("BRNA_E2E_METRO_URL is required");
@@ -84,8 +99,15 @@ async function openCase(testID: string, screenID: string): Promise<string> {
   await ensureHome();
   await act(["tap", `#${testID}`]);
   const md = await snapshot();
-  expect(md).toContain(`list#${screenID}`);
+  expect(md).toContain(`#${screenID}`);
   return md;
+}
+
+function flattenNodes(node: SnapshotNode | undefined, out: SnapshotNode[] = []): SnapshotNode[] {
+  if (!node) return out;
+  out.push(node);
+  for (const child of node.children ?? []) flattenNodes(child, out);
+  return out;
 }
 
 const maybeDescribe = METRO_URL ? describe : describe.skip;
@@ -104,7 +126,7 @@ maybeDescribe("Expo sample developing workflows", () => {
       await act(["type", "#input-bio", "Building with an agent"]);
       const form = await snapshot();
       expect(form).toContain('input#input-email "Email" = "leo@example.com"');
-      expect(form).toContain('input#input-password "Password" = "secret123" [secure]');
+      expect(form).toContain('input#input-password "Password" = "<redacted>" [secure]');
       expect(form).toContain('input#input-bio "Bio" = "Building with an agent"');
       expect(form).toContain('input#input-account "Account ID" = "acct_8fz2kq" [readonly]');
 
@@ -154,6 +176,16 @@ maybeDescribe("Expo sample developing workflows", () => {
       const listAfter = await snapshot();
       expect(listAfter).toContain("list#long-list");
       expect(listAfter).not.toEqual(listBefore);
+
+      await openCase("case:advanced", "screen:advanced-components");
+      const advanced = JSON.parse(await snapshot("json")) as JsonSnapshot;
+      expect(advanced.meta?.hash).toMatch(/^[a-f0-9]{8}$/);
+      const advancedNodes = flattenNodes(advanced.tree);
+      expect(advancedNodes.some((node) => node.id === "advanced:wrapped-action")).toBe(true);
+      expect(advancedNodes.some((node) => node.kind === "image" && node.image_source?.includes("contact-1.png"))).toBe(true);
+      expect(JSON.stringify(advanced)).not.toContain("Authorization");
+      expect(advancedNodes.some((node) => node.kind === "list" && node.total_count === 18)).toBe(true);
+      expect(advancedNodes.some((node) => node.kind === "list_item" && node.index === 0)).toBe(true);
 
       await openCase("case:a11y-demo", "screen:a11y-demo");
       const a11yJson = JSON.parse(await snapshot("json")) as {

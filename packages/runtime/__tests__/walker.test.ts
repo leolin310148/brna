@@ -73,6 +73,12 @@ describe("mapHostToNodeKind heuristic", () => {
     const f = makeFiber({ type: "RCTUnknown" });
     expect(mapHostToNodeKind(f)).toBe(null);
   });
+
+  test("native image hosts become image", () => {
+    expect(mapHostToNodeKind(makeFiber({ type: "RCTImageView" }))).toBe("image");
+    expect(mapHostToNodeKind(makeFiber({ type: "RCTImage" }))).toBe("image");
+    expect(mapHostToNodeKind(makeFiber({ type: "Image" }))).toBe("image");
+  });
 });
 
 describe("role-driven NodeKind upgrade", () => {
@@ -248,4 +254,91 @@ describe("extractNodeFields via walkFiberRoot", () => {
     expect(result.measureTargets[0]!.nodeId).toBe("btn");
     expect(result.measureTargets[0]!.hostInstance).toEqual({ __host: "btn" });
   });
+
+  test("image source captures only stable uri", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RCTImageView",
+        props: {
+          testID: "hero",
+          source: {
+            uri: "https://example.com/logo.png",
+            headers: { Authorization: "secret" },
+          },
+        },
+      }),
+    );
+    const node = walkFiberRoot(root, "screen:root").rootChildren[0]! as Record<string, unknown>;
+    expect(node.kind).toBe("image");
+    expect(node.image_source).toBe("https://example.com/logo.png");
+    expect(JSON.stringify(node)).not.toContain("Authorization");
+  });
+
+  test("virtualized list total_count and item index are captured", () => {
+    function FlatList() {}
+    function CellRenderer() {}
+    const list = makeComposite({
+      type: FlatList,
+      props: { data: ["a", "b", "c"] },
+      children: [
+        {
+          type: "RCTScrollView",
+          props: { testID: "feed" },
+          children: [
+            {
+              type: CellRenderer,
+              props: { index: 1 },
+              children: [
+                {
+                  type: "RCTView",
+                  props: { testID: "row-b" },
+                  children: [{ type: "RCTText", props: { children: "B" } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const result = walkFiberRoot(makeRoot(list), "screen:root");
+    const feed = result.rootChildren[0]!;
+    expect(feed.kind).toBe("list");
+    expect(feed.total_count).toBe(3);
+    const row = feed.children?.[0]!;
+    expect(row.kind).toBe("list_item");
+    expect(row.index).toBe(1);
+    expect(row.children?.[0]?.kind).toBe("text");
+  });
 });
+
+interface AnyFiberInit {
+  type: unknown;
+  props?: Record<string, unknown>;
+  stateNode?: unknown;
+  children?: AnyFiberInit[];
+}
+
+function makeComposite(init: AnyFiberInit): AnyFiber {
+  const fiber: AnyFiber = {
+    tag: typeof init.type === "string" ? 5 : 0,
+    type: init.type,
+    elementType: init.type,
+    child: null,
+    sibling: null,
+    return: null,
+    memoizedProps: init.props ?? null,
+    pendingProps: init.props ?? null,
+    stateNode: init.stateNode ?? (typeof init.type === "string" ? { __mock: init.type } : null),
+  };
+  if (init.children && init.children.length > 0) {
+    let prev: AnyFiber | null = null;
+    for (const childInit of init.children) {
+      const child = makeComposite(childInit);
+      child.return = fiber;
+      if (!prev) fiber.child = child;
+      else prev.sibling = child;
+      prev = child;
+    }
+  }
+  return fiber;
+}

@@ -17,7 +17,7 @@ interface IncomingFrame {
   type?: string;
   id?: string;
   action?: unknown;
-  options?: { redaction?: SnapshotRedactionOptions };
+  options?: { redaction?: SnapshotRedactionOptions; measureTimeoutMs?: number };
 }
 
 let activeSocket: WebSocket | null = null;
@@ -55,7 +55,10 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
     const requestId = frame.id;
 
     if (frame.type === "snapshot.request") {
-      captureSnapshot({ redaction: frame.options?.redaction })
+      captureSnapshot({
+        redaction: frame.options?.redaction,
+        measureTimeoutMs: frame.options?.measureTimeoutMs,
+      })
         .then((snapshot) => {
           safeSend(socket, { type: "snapshot.response", id: requestId, snapshot });
         })

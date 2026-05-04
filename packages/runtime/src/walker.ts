@@ -16,6 +16,7 @@ const SCROLL_HOST_NAMES = new Set<string>([
   "AndroidHorizontalScrollView",
   "ScrollView",
 ]);
+const IMAGE_HOST_NAMES = new Set<string>(["RCTImageView", "RCTImage", "Image"]);
 
 const ROLE_TO_KIND: Record<string, NodeKind> = {
   button: "button",
@@ -69,7 +70,8 @@ function isRecognisedHost(name: string): boolean {
     TEXT_HOST_NAMES.has(name) ||
     VIEW_HOST_NAMES.has(name) ||
     INPUT_HOST_NAMES.has(name) ||
-    SCROLL_HOST_NAMES.has(name)
+    SCROLL_HOST_NAMES.has(name) ||
+    IMAGE_HOST_NAMES.has(name)
   );
 }
 
@@ -83,6 +85,7 @@ function heuristicKind(fiber: AnyFiber): NodeKind | null {
   if (TEXT_HOST_NAMES.has(name)) return "text";
   if (INPUT_HOST_NAMES.has(name)) return "input";
   if (SCROLL_HOST_NAMES.has(name)) return "list";
+  if (IMAGE_HOST_NAMES.has(name)) return "image";
   const props = readProps(fiber);
   const onResponderRelease = props.onResponderRelease;
   const onClick = props.onClick;
@@ -113,24 +116,60 @@ export function mapHostToNodeKind(fiber: AnyFiber): NodeKind | null {
 interface HostHit {
   fiber: AnyFiber;
   kind: NodeKind;
+  totalCount?: number;
+  itemIndex?: number;
 }
 
-function collectHostFibers(start: AnyFiber | null, out: HostHit[]): void {
+interface CollectContext {
+  totalCount?: number;
+  itemIndex?: number;
+  itemHostClaimed?: boolean;
+}
+
+function collectHostFibers(start: AnyFiber | null, out: HostHit[], context: CollectContext = {}): void {
   let fiber: AnyFiber | null = start;
   while (fiber) {
-    const kind = mapHostToNodeKind(fiber);
+    const fiberContext = deriveCollectContext(fiber, context);
+    const kind = mapHostToNodeKindWithContext(fiber, fiberContext);
     if (kind) {
-      const hit: HostHit = { fiber, kind };
+      const hit: HostHit = {
+        fiber,
+        kind,
+        ...(kind === "list" && fiberContext.totalCount !== undefined ? { totalCount: fiberContext.totalCount } : {}),
+        ...(kind === "list_item" && fiberContext.itemIndex !== undefined ? { itemIndex: fiberContext.itemIndex } : {}),
+      };
+      if (kind === "list_item") fiberContext.itemHostClaimed = true;
       out.push(hit);
       const children: HostHit[] = [];
-      collectHostFibers(fiber.child, children);
+      collectHostFibers(fiber.child, children, fiberContext);
       // capture for nested-text resolution; descendants belong to this host's subtree
       (hit as HostHit & { _children?: HostHit[] })._children = children;
     } else {
-      collectHostFibers(fiber.child, out);
+      collectHostFibers(fiber.child, out, fiberContext);
     }
     fiber = fiber.sibling;
   }
+}
+
+function mapHostToNodeKindWithContext(fiber: AnyFiber, context: CollectContext): NodeKind | null {
+  const kind = mapHostToNodeKind(fiber);
+  if (kind === "group" && context.itemIndex !== undefined && context.itemHostClaimed !== true) {
+    return "list_item";
+  }
+  return kind;
+}
+
+function deriveCollectContext(fiber: AnyFiber, context: CollectContext): CollectContext {
+  let next = context;
+  const totalCount = readVirtualizedListTotalCount(fiber);
+  if (totalCount !== undefined) {
+    next = { ...next, totalCount };
+  }
+  const itemIndex = readVirtualizedItemIndex(fiber);
+  if (itemIndex !== undefined && next.totalCount !== undefined) {
+    next = { ...next, itemIndex, itemHostClaimed: false };
+  }
+  return next;
 }
 
 export interface ExtractedFields {
@@ -147,6 +186,7 @@ export interface ExtractedFields {
   state?: StateFlag[];
   range?: NodeRange;
   source?: string;
+  image_source?: string;
 }
 
 const INFERRED_LABEL_MAX_WORDS = 5;
@@ -383,7 +423,89 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
   if (range) out.range = range;
   const source = extractSource(fiber, props);
   if (source) out.source = source;
+  if (hit.kind === "image") {
+    const imageSource = extractImageSource(props.source);
+    if (imageSource) out.image_source = imageSource;
+  }
   return out;
+}
+
+function extractImageSource(source: unknown): string | undefined {
+  if (typeof source === "string" && source.length > 0) return source;
+  if (typeof source === "number" && Number.isFinite(source)) return String(source);
+  if (Array.isArray(source)) {
+    for (const entry of source) {
+      const found = extractImageSource(entry);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!source || typeof source !== "object") return undefined;
+  const uri = (source as Record<string, unknown>).uri;
+  if (typeof uri === "string" && uri.length > 0) return uri;
+  const __packager_asset = (source as Record<string, unknown>).__packager_asset;
+  const name = (source as Record<string, unknown>).name;
+  const type = (source as Record<string, unknown>).type;
+  if (__packager_asset === true && typeof name === "string" && name.length > 0) {
+    return typeof type === "string" && type.length > 0 ? `${name}.${type}` : name;
+  }
+  return undefined;
+}
+
+function componentName(value: unknown): string | undefined {
+  if (typeof value === "function" && value.name.length > 0) return value.name;
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const displayName = (value as { displayName?: unknown }).displayName;
+    if (typeof displayName === "string" && displayName.length > 0) return displayName;
+    const render = (value as { render?: unknown }).render;
+    if (typeof render === "function" && render.name.length > 0) return render.name;
+  }
+  return undefined;
+}
+
+function isVirtualizedListComponent(fiber: AnyFiber): boolean {
+  const name = componentName(fiber.type) ?? componentName(fiber.elementType);
+  return name === "VirtualizedList" || name === "FlatList" || name === "SectionList";
+}
+
+function readVirtualizedListTotalCount(fiber: AnyFiber): number | undefined {
+  if (!isVirtualizedListComponent(fiber)) return undefined;
+  const props = readProps(fiber);
+  const data = props.data;
+  const getItemCount = props.getItemCount;
+  if (typeof getItemCount === "function") {
+    try {
+      const count = (getItemCount as (items: unknown) => unknown)(data);
+      if (typeof count === "number" && Number.isFinite(count) && count >= 0) return count;
+    } catch {
+      /* fall through to structural checks */
+    }
+  }
+  if (Array.isArray(data)) return data.length;
+  const sections = props.sections;
+  if (Array.isArray(sections)) {
+    let total = 0;
+    for (const section of sections) {
+      const rows = section && typeof section === "object" ? (section as Record<string, unknown>).data : undefined;
+      if (Array.isArray(rows)) total += rows.length;
+    }
+    return total;
+  }
+  const stateNodeProps = fiber.stateNode && typeof fiber.stateNode === "object"
+    ? (fiber.stateNode as { props?: Record<string, unknown> }).props
+    : undefined;
+  if (Array.isArray(stateNodeProps?.data)) return stateNodeProps.data.length;
+  return undefined;
+}
+
+function readVirtualizedItemIndex(fiber: AnyFiber): number | undefined {
+  const props = readProps(fiber);
+  for (const key of ["index", "cellIndex"]) {
+    const value = props[key];
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value;
+  }
+  return undefined;
 }
 
 function extractSource(
@@ -473,6 +595,9 @@ function buildSubtree(hits: HostHit[], parentId: string): BuildResult {
     if (fields.source !== undefined) {
       node._dev = { ...(node._dev ?? {}), source: fields.source };
     }
+    if (fields.image_source !== undefined) node.image_source = fields.image_source;
+    if (hit.totalCount !== undefined) node.total_count = hit.totalCount;
+    if (hit.itemIndex !== undefined) node.index = hit.itemIndex;
 
     measureTargets.push({ nodeId: id, hostInstance: hit.fiber.stateNode });
 

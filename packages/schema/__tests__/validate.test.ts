@@ -190,6 +190,35 @@ describe("meta.source", () => {
   });
 });
 
+describe("advanced snapshot fields", () => {
+  test("accepts meta.hash as a string", () => {
+    const base = makeSnapshot();
+    const snap = makeSnapshot({
+      meta: { ...base.meta, hash: "a1b2c3d4" },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("accepts image_source on image nodes", () => {
+    const snap = makeSnapshot({
+      tree: { id: "hero", kind: "image", image_source: "https://example.com/logo.png" },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+
+  test("accepts virtualized list metadata", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        total_count: 50,
+        children: [{ id: "row-12", kind: "list_item", index: 12 }],
+      },
+    });
+    expect(() => validateSnapshot(snap)).not.toThrow();
+  });
+});
+
 describe("node _dev.source", () => {
   test("accepts _dev.source as a string", () => {
     const snap = makeSnapshot({

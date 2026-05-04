@@ -92,6 +92,7 @@ export interface DeviceInfo {
 
 export interface SnapshotMeta {
   schema_version: SchemaVersion;
+  hash?: string;
   captured_at: string;
   app: AppInfo;
   device: DeviceInfo;
@@ -146,7 +147,9 @@ export interface Node {
   actions?: Action[];
   bounds?: Bounds;
   children?: Node[];
+  image_source?: string;
   total_count?: number;
+  index?: number;
   visible_range?: { start: number; end: number };
   url?: string;
   _dev?: DevEnrichment;

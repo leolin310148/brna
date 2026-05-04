@@ -9,6 +9,7 @@ export interface BrnaConfig {
   redact?: Array<{ match: RegExp | string; replace: string }>;
   redactSecureFields?: boolean;
   sessionDir?: string;
+  measureTimeoutMs?: number;
 }
 
 export interface LoadedConfig {
@@ -61,11 +62,20 @@ export function sessionDirFromConfig(config: BrnaConfig): string {
   return config.sessionDir ?? join(tmpdir(), "brna", "sessions");
 }
 
+export function measureTimeoutFromConfig(config: BrnaConfig): number | undefined {
+  if (config.measureTimeoutMs === undefined) return undefined;
+  if (typeof config.measureTimeoutMs !== "number" || !Number.isFinite(config.measureTimeoutMs) || config.measureTimeoutMs <= 0) {
+    throw new Error("measureTimeoutMs must be a finite positive number");
+  }
+  return config.measureTimeoutMs;
+}
+
 function defaultConfigText(): string {
   return `import type { BrnaConfig } from "@brna/cli";
 
 const config: BrnaConfig = {
   sessionDir: undefined,
+  measureTimeoutMs: undefined,
   redactSecureFields: true,
   redact: [
     { match: /[\\w.+-]+@[\\w-]+\\.[\\w.-]+/g, replace: "<email>" },

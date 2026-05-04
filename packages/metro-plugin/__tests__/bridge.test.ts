@@ -171,6 +171,19 @@ describe("BrnaBridge timeout", () => {
 });
 
 describe("BrnaBridge frame routing isolation", () => {
+  test("requestSnapshot forwards runtime options", async () => {
+    const bridge = new BrnaBridge();
+    const ws = makeMockSocket();
+    bridge.onConnection(ws as unknown as Parameters<BrnaBridge["onConnection"]>[0]);
+
+    const promise = bridge.requestSnapshot(undefined, { measureTimeoutMs: 2000 });
+    const frame = lastSentFrame(ws);
+    expect(frame.type).toBe("snapshot.request");
+    expect(frame.options).toEqual({ measureTimeoutMs: 2000 });
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "snapshot.response", id: frame.id, snapshot: {} })));
+    expect((await promise).kind).toBe("snapshot");
+  });
+
   test("snapshot pending and action pending coexist by id", async () => {
     const bridge = new BrnaBridge();
     const ws = makeMockSocket();

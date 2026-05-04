@@ -72,7 +72,7 @@ export function handleSnapshot(
   bridge: BrnaBridge,
   res: ServerResponse,
   deviceId?: string,
-  options: { redaction?: SnapshotRedactionOptions } = {},
+  options: { redaction?: SnapshotRedactionOptions; measureTimeoutMs?: number } = {},
 ): void {
   if (!bridge.hasRuntime()) {
     sendJson(res, 503, { error: "no_runtime_connected" });
@@ -132,7 +132,11 @@ export async function handleSnapshotPost(
     return;
   }
   const redaction = readRedactionOptions(parsed);
-  handleSnapshot(bridge, res, deviceId, redaction ? { redaction } : {});
+  const measureTimeoutMs = readMeasureTimeoutMs(parsed);
+  handleSnapshot(bridge, res, deviceId, {
+    ...(redaction ? { redaction } : {}),
+    ...(measureTimeoutMs !== undefined ? { measureTimeoutMs } : {}),
+  });
 }
 
 function readRedactionOptions(value: unknown): SnapshotRedactionOptions | undefined {
@@ -140,6 +144,15 @@ function readRedactionOptions(value: unknown): SnapshotRedactionOptions | undefi
   const redaction = (value as { redaction?: unknown }).redaction;
   if (!redaction || typeof redaction !== "object") return undefined;
   return redaction as SnapshotRedactionOptions;
+}
+
+function readMeasureTimeoutMs(value: unknown): number | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const measureTimeoutMs = (value as { measureTimeoutMs?: unknown }).measureTimeoutMs;
+  if (typeof measureTimeoutMs !== "number" || !Number.isFinite(measureTimeoutMs) || measureTimeoutMs <= 0) {
+    return undefined;
+  }
+  return measureTimeoutMs;
 }
 
 export async function handleAction(

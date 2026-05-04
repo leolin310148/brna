@@ -80,6 +80,61 @@ describe("brna config", () => {
     expect(captured.method).toBe("POST");
     expect(captured.body).toContain('"source":"secret"');
   });
+
+  test("snapshot sends config measurement timeout to Metro", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const prior = process.cwd();
+    let captured: { method?: string; body?: string } = {};
+    try {
+      process.chdir(cwd);
+      await writeFile(join(cwd, "brna.config.ts"), "export default { measureTimeoutMs: 2000 };\n", "utf8");
+      await runSnapshot([], {
+        fetch: async (_url, init) => {
+          captured = { method: init?.method, body: String(init?.body ?? "") };
+          return new Response(JSON.stringify(makeSnapshot()), { status: 200 });
+        },
+        writeSnapshotCache: async () => null,
+        stdout: { write: () => true },
+        stderr: { write: () => true },
+        exit: (code) => {
+          throw Object.assign(new Error("exit"), { code });
+        },
+      });
+    } catch (err) {
+      expect((err as { code?: number }).code).toBe(0);
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+    expect(captured.method).toBe("POST");
+    expect(captured.body).toContain('"measureTimeoutMs":2000');
+  });
+
+  test("invalid measurement timeout fails before contacting Metro", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const prior = process.cwd();
+    let contacted = false;
+    try {
+      process.chdir(cwd);
+      await writeFile(join(cwd, "brna.config.ts"), "export default { measureTimeoutMs: -1 };\n", "utf8");
+      await runSnapshot([], {
+        fetch: async () => {
+          contacted = true;
+          return new Response(JSON.stringify(makeSnapshot()), { status: 200 });
+        },
+        stderr: { write: () => true },
+        exit: (code) => {
+          throw Object.assign(new Error("exit"), { code });
+        },
+      });
+    } catch (err) {
+      expect((err as { code?: number }).code).toBe(4);
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
+    expect(contacted).toBe(false);
+  });
 });
 
 describe("brna trace", () => {
