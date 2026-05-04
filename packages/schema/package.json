@@ -1,6 +1,6 @@
 {
   "name": "@brna/schema",
-  "version": "0.0.7",
+  "version": "0.1.2",
   "description": "brna snapshot schema: JSON Schema, TypeScript types, version constants",
   "repository": {
     "type": "git",

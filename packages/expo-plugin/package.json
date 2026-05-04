@@ -1,6 +1,6 @@
 {
   "name": "@brna/expo-plugin",
-  "version": "0.0.7",
+  "version": "0.1.2",
   "description": "Expo Config Plugin: zero-config integration of @brna/babel-plugin and @brna/metro-plugin",
   "repository": {
     "type": "git",
