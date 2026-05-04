@@ -9,6 +9,20 @@
   "type": "module",
   "main": "./index.js",
   "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./index.js"
+    },
+    "./auto": {
+      "types": "./src/auto.ts",
+      "default": "./auto.js"
+    },
+    "./auto.js": {
+      "types": "./src/auto.ts",
+      "default": "./auto.js"
+    }
+  },
   "files": [
     "dist",
     "src",
