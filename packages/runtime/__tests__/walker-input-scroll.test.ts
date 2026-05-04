@@ -128,6 +128,27 @@ describe("input host recognition", () => {
     expect(node.value).toBeUndefined();
   });
 
+  test("TextInput numeric value is stringified", () => {
+    const f = makeFiber({
+      type: "TextInput",
+      props: { testID: "age", value: 33, keyboardType: "numeric" },
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const node = result.rootChildren[0]!;
+    expect(node.value).toBe("33");
+  });
+
+  test("TextInput reads native cached text when value prop is absent", () => {
+    const f = makeFiber({
+      type: "AndroidTextInput",
+      props: { testID: "age", keyboardType: "numeric" },
+      stateNode: { _lastNativeText: "33" },
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const node = result.rootChildren[0]!;
+    expect(node.value).toBe("33");
+  });
+
   test("TextInput without placeholder omits Node.text", () => {
     const f = makeFiber({
       type: "RCTSinglelineTextInputView",

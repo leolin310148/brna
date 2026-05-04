@@ -19,6 +19,7 @@ import { ROOT_ID } from "./constants.js";
 
 const DEFAULT_SCROLL_BY = 400;
 const DEFAULT_SWIPE_BY = 180;
+let lastFocusedTargetId: string | null = null;
 
 export type DispatchOutcome =
   | { ok: true }
@@ -108,6 +109,7 @@ function dispatchTap(roots: FiberRoot[], action: TapActionRequest): DispatchOutc
   } catch (err) {
     return fail("action_failed", (err as Error).message ?? "handler threw");
   }
+  rememberFocusedTarget(found.hit);
   return { ok: true };
 }
 
@@ -159,6 +161,7 @@ function dispatchType(roots: FiberRoot[], action: TypeActionRequest): DispatchOu
   if (stateNode && typeof stateNode === "object" && typeof stateNode.focus === "function") {
     try {
       (stateNode.focus as () => void)();
+      lastFocusedTargetId = found.hit.id;
     } catch {
       /* focus failures don't abort the type — onChangeText still runs */
     }
@@ -380,16 +383,24 @@ function nearestScrollableAncestor(roots: FiberRoot[], targetId: string): Identi
 }
 
 function dispatchKey(roots: FiberRoot[], action: KeyActionRequest): DispatchOutcome {
-  if (action.key !== "tab") {
-    return fail("invalid_action", `unsupported key '${action.key}'`);
-  }
   const all = walkLive(roots, ROOT_ID);
   const focusable: IdentifiedHit[] = [];
   for (const hit of all) if (isFocusableHit(hit)) focusable.push(hit);
+  const current = currentFocusedHit(all);
+
+  if (action.key !== "tab") {
+    if (!current) {
+      return fail("action_not_supported", "no currently focused host detected");
+    }
+    return dispatchFocusedKey(current, action.key);
+  }
+
   if (focusable.length === 0) {
     return fail("action_not_supported", "no focusable host instances available");
   }
-  const currentIndex = focusable.findIndex(isFocusedHit);
+  const currentIndex = current
+    ? focusable.findIndex((hit) => hit.id === current.id)
+    : -1;
   if (currentIndex === -1) {
     return fail("action_not_supported", "no currently focused host detected");
   }
@@ -400,10 +411,77 @@ function dispatchKey(roots: FiberRoot[], action: KeyActionRequest): DispatchOutc
   const stateNode = next.fiber.stateNode as { focus?: unknown };
   try {
     (stateNode.focus as () => void)();
+    lastFocusedTargetId = next.id;
   } catch (err) {
     return fail("action_failed", (err as Error).message ?? "focus threw");
   }
   return { ok: true };
+}
+
+function dispatchFocusedKey(hit: IdentifiedHit, key: KeyActionRequest["key"]): DispatchOutcome {
+  const props = readProps(hit);
+  const rnKey = reactNativeKeyName(key);
+  const submit = key === "enter" ? pickFn(props["onSubmitEditing"]) : null;
+  if (submit) {
+    try {
+      submit(makeKeyEvent(hit, rnKey));
+      return { ok: true };
+    } catch (err) {
+      return fail("action_failed", (err as Error).message ?? "onSubmitEditing threw");
+    }
+  }
+  const onKeyPress = pickFn(props["onKeyPress"]);
+  if (!onKeyPress) {
+    return fail(
+      "action_not_supported",
+      `focused target_id '${hit.id}' has no ${key === "enter" ? "onSubmitEditing/" : ""}onKeyPress`,
+    );
+  }
+  try {
+    onKeyPress(makeKeyEvent(hit, rnKey));
+  } catch (err) {
+    return fail("action_failed", (err as Error).message ?? "onKeyPress threw");
+  }
+  return { ok: true };
+}
+
+function makeKeyEvent(hit: IdentifiedHit, key: string): {
+  nativeEvent: { timestamp: number; target?: unknown; key: string };
+} {
+  const base = makeSyntheticEvent(hit);
+  return { nativeEvent: { ...base.nativeEvent, key } };
+}
+
+function reactNativeKeyName(key: KeyActionRequest["key"]): string {
+  switch (key) {
+    case "enter":
+      return "Enter";
+    case "escape":
+      return "Escape";
+    case "arrow_up":
+      return "ArrowUp";
+    case "arrow_down":
+      return "ArrowDown";
+    case "arrow_left":
+      return "ArrowLeft";
+    case "arrow_right":
+      return "ArrowRight";
+    case "tab":
+      return "Tab";
+  }
+}
+
+function currentFocusedHit(hits: IdentifiedHit[]): IdentifiedHit | null {
+  for (const hit of hits) {
+    if (isFocusedHit(hit)) {
+      lastFocusedTargetId = hit.id;
+      return hit;
+    }
+  }
+  if (lastFocusedTargetId) {
+    return hits.find((hit) => hit.id === lastFocusedTargetId) ?? null;
+  }
+  return null;
 }
 
 function isFocusableHit(hit: IdentifiedHit): boolean {
@@ -428,6 +506,13 @@ function isFocusedHit(hit: IdentifiedHit): boolean {
     if ((a11y as Record<string, unknown>)["focused"] === true) return true;
   }
   return false;
+}
+
+function rememberFocusedTarget(hit: IdentifiedHit): void {
+  const stateNode = hit.fiber.stateNode as { focus?: unknown } | null;
+  if (stateNode && typeof stateNode === "object" && typeof stateNode.focus === "function") {
+    lastFocusedTargetId = hit.id;
+  }
 }
 
 function pickFn(value: unknown): ((arg?: unknown) => unknown) | null {

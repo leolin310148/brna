@@ -732,4 +732,66 @@ describe("dispatchAction key tab", () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe("action_not_supported");
   });
+
+  test("tab uses focus remembered from prior type action", async () => {
+    let bFocus = 0;
+    const root = makeFiber({
+      type: "RCTView",
+      props: {},
+      children: [
+        {
+          type: "TextInput",
+          props: { testID: "remember-a", onChangeText: () => {} },
+          stateNode: { focus: () => {} },
+        },
+        {
+          type: "TextInput",
+          props: { testID: "remember-b" },
+          stateNode: { focus: () => (bFocus += 1) },
+        },
+      ],
+    });
+    const rootsProvider = rootsFor(root);
+    const typed = await dispatchAction(
+      { kind: "type", selector: "#remember-a", target_id: "remember-a", text: "x" },
+      { rootsProvider },
+    );
+    expect(typed.ok).toBe(true);
+    const tabbed = await dispatchAction({ kind: "key", key: "tab" }, { rootsProvider });
+    expect(tabbed.ok).toBe(true);
+    expect(bFocus).toBe(1);
+  });
+
+  test("enter dispatches onSubmitEditing for focused input", async () => {
+    let submitKey: string | null = null;
+    const root = makeFiber({
+      type: "TextInput",
+      props: {
+        testID: "submit-input",
+        accessibilityState: { focused: true },
+        onSubmitEditing: (event: { nativeEvent: { key: string } }) => {
+          submitKey = event.nativeEvent.key;
+        },
+      },
+      stateNode: { focus: () => {}, isFocused: () => true },
+    });
+    const out = await dispatchAction({ kind: "key", key: "enter" }, { rootsProvider: rootsFor(root) });
+    expect(out.ok).toBe(true);
+    expect(submitKey).toBe("Enter");
+  });
+
+  test("arrow keys dispatch onKeyPress for focused input", async () => {
+    const keys: string[] = [];
+    const root = makeFiber({
+      type: "TextInput",
+      props: {
+        testID: "arrow-input",
+        onKeyPress: (event: { nativeEvent: { key: string } }) => keys.push(event.nativeEvent.key),
+      },
+      stateNode: { focus: () => {}, isFocused: () => true },
+    });
+    const out = await dispatchAction({ kind: "key", key: "arrow_down" }, { rootsProvider: rootsFor(root) });
+    expect(out.ok).toBe(true);
+    expect(keys).toEqual(["ArrowDown"]);
+  });
 });

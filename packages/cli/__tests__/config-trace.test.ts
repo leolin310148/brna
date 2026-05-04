@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -46,6 +46,39 @@ describe("brna config", () => {
     });
     expect(result.status).toBe(0);
     expect(readFileSync(join(cwd, "brna.config.ts"), "utf8")).toContain("redactSecureFields");
+  });
+
+  test("config path and show report the active config", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const configPath = join(cwd, "brna.config.ts");
+    writeFileSync(
+      configPath,
+      'export default { measureTimeoutMs: 1234, redact: [{ match: /secret/g, replace: "<secret>" }] };\n',
+      "utf8",
+    );
+    const path = spawnSync("bun", ["run", CLI_PATH, "config", "path"], {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(path.status).toBe(0);
+    expect(realpathSync(path.stdout.trim())).toBe(realpathSync(configPath));
+
+    const show = spawnSync("bun", ["run", CLI_PATH, "config", "show"], {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(show.status).toBe(0);
+    const body = JSON.parse(show.stdout) as {
+      path: string;
+      config: { measureTimeoutMs?: number; redact?: Array<{ match: { source: string; flags: string } }> };
+    };
+    expect(realpathSync(body.path)).toBe(realpathSync(configPath));
+    expect(body.config.measureTimeoutMs).toBe(1234);
+    expect(body.config.redact?.[0]?.match).toEqual({ source: "secret", flags: "g" });
   });
 
   test("snapshot sends config redaction options to Metro", async () => {
@@ -150,9 +183,25 @@ describe("brna trace", () => {
       timeout: 5000,
     });
     expect(start.status).toBe(0);
-    const stop = spawnSync("bun", ["run", CLI_PATH, "trace", "stop"], {
+    const status = spawnSync("bun", ["run", CLI_PATH, "trace", "status"], {
       cwd,
       env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(status.status).toBe(0);
+    expect(status.stdout).toContain("active ");
+    const path = spawnSync("bun", ["run", CLI_PATH, "trace", "path"], {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(path.status).toBe(0);
+    expect(path.stdout.trim()).toBe(start.stdout.trim());
+    const stop = spawnSync("bun", ["run", CLI_PATH, "trace", "stop"], {
+      cwd,
+      env: { ...process.env, BRNA_SESSION_ID: "fresh-agent-subprocess", NO_COLOR: "1" },
       encoding: "utf8",
       timeout: 5000,
     });

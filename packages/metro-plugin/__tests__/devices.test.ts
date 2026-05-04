@@ -146,6 +146,7 @@ describe("multi-device registry", () => {
     expect(body.devices).toHaveLength(1);
     expect(body.devices[0]!.id).toBe("dev-a");
     expect(body.devices[0]!.platform).toBe("ios");
+    expect((body.devices[0] as { live?: boolean }).live).toBe(true);
   });
 
   test("/brna/devices includes recently disconnected runtime metadata", () => {
@@ -165,6 +166,19 @@ describe("multi-device registry", () => {
     expect(body.recent_disconnected[0]!.platform).toBe("android");
     expect(body.recent_disconnected[0]!.os_version).toBe("36");
     expect(typeof body.recent_disconnected[0]!.last_seen_at).toBe("number");
+  });
+
+  test("timed out runtime is pruned from live devices", async () => {
+    const bridge = new BrnaBridge({ snapshotTimeoutMs: 1 });
+    attach(bridge, { device_id: "dev-a", platform: "ios" });
+    const result = await bridge.requestSnapshot("dev-a");
+    expect(result.kind).toBe("timeout");
+
+    const devices = bridge.listDevices();
+    const recent = bridge.listRecentDisconnectedDevices();
+    expect(devices).toHaveLength(0);
+    expect(recent[0]!.id).toBe("dev-a");
+    expect(recent[0]!.live).toBe(false);
   });
 
   test("snapshot routes to specific device when device-id supplied", async () => {

@@ -173,6 +173,13 @@ export function mapNativeError(
       reason: `failed to spawn '${cmd.bin}': ${result.spawnError.message}`,
     };
   }
+  if (
+    cmd.platform === "ios" &&
+    result.stdout.length > 0 &&
+    isIgnorableSimctlStderr(result.stderr)
+  ) {
+    return { code: 0, reason: "" };
+  }
   if (result.status !== 0) {
     const stderrLine = firstLine(result.stderr) || `exit ${result.status ?? "unknown"}`;
     if (cmd.platform === "android") {
@@ -198,6 +205,17 @@ export function mapNativeError(
     return { code: 1, reason: `${cmd.bin} produced empty PNG output` };
   }
   return { code: 0, reason: "" };
+}
+
+function isIgnorableSimctlStderr(stderr: string): boolean {
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return true;
+  return lines.every((line) =>
+    /^Note: No display specified\. Defaulting to display:/i.test(line),
+  );
 }
 
 function firstLine(s: string): string {

@@ -104,6 +104,7 @@ export interface DeviceInfo {
   is_simulator?: boolean;
   registered_at: number;
   last_seen_at: number;
+  live?: boolean;
 }
 
 interface RuntimeEntry extends DeviceInfo {
@@ -194,6 +195,7 @@ export class BrnaBridge {
         frame = null;
       }
       if (!frame || typeof frame.type !== "string") return;
+      entry.last_seen_at = Date.now();
 
       if (frame.type === "hello") {
         this.handleHello(entry, frame);
@@ -278,24 +280,7 @@ export class BrnaBridge {
       }
     });
 
-    const removeIfMine = () => {
-      const current = this.devices.get(entry.id);
-      if (current && current.ws === ws) {
-        const now = Date.now();
-        this.recentDisconnected.set(entry.id, {
-          id: entry.id,
-          platform: entry.platform,
-          os_version: entry.os_version,
-          app_version: entry.app_version,
-          app_name: entry.app_name,
-          app_bundle_id: entry.app_bundle_id,
-          registered_at: entry.registered_at,
-          last_seen_at: now,
-          disconnected_at: now,
-        });
-        this.devices.delete(entry.id);
-      }
-    };
+    const removeIfMine = () => this.markDisconnected(entry);
     ws.on("close", removeIfMine);
     ws.on("error", removeIfMine);
   }
@@ -345,6 +330,7 @@ export class BrnaBridge {
   }
 
   hasRuntime(deviceId?: string): boolean {
+    this.pruneClosedEntries();
     if (deviceId !== undefined) {
       const entry = this.devices.get(deviceId);
       return !!entry && entry.ws.readyState === WebSocket.OPEN;
@@ -356,6 +342,7 @@ export class BrnaBridge {
   }
 
   listDevices(): DeviceInfo[] {
+    this.pruneClosedEntries();
     const out: DeviceInfo[] = [];
     for (const entry of this.devices.values()) {
       if (entry.ws.readyState !== WebSocket.OPEN) continue;
@@ -363,6 +350,7 @@ export class BrnaBridge {
         id: entry.id,
         registered_at: entry.registered_at,
         last_seen_at: entry.last_seen_at,
+        live: true,
       };
       if (entry.platform !== undefined) info.platform = entry.platform;
       if (entry.os_version !== undefined) info.os_version = entry.os_version;
@@ -392,6 +380,7 @@ export class BrnaBridge {
   }
 
   private pickEntry(deviceId?: string): RuntimeEntry | { kind: "unknown" } | null {
+    this.pruneClosedEntries();
     if (deviceId !== undefined) {
       const entry = this.devices.get(deviceId);
       if (!entry || entry.ws.readyState !== WebSocket.OPEN) {
@@ -417,6 +406,7 @@ export class BrnaBridge {
     return new Promise<SnapshotResult>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.markDisconnected(picked);
         resolve({ kind: "timeout" });
       }, this.snapshotTimeoutMs);
       this.pending.set(id, { variant: "snapshot", resolve, timer });
@@ -445,6 +435,7 @@ export class BrnaBridge {
     return new Promise<LogsResult>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.markDisconnected(picked);
         resolve({ kind: "timeout" });
       }, OBSERVABILITY_TIMEOUT_MS);
       this.pending.set(id, { variant: "logs", resolve, timer });
@@ -476,6 +467,7 @@ export class BrnaBridge {
     return new Promise<NetworkResult>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.markDisconnected(picked);
         resolve({ kind: "timeout" });
       }, OBSERVABILITY_TIMEOUT_MS);
       this.pending.set(id, { variant: "network", resolve, timer });
@@ -504,6 +496,7 @@ export class BrnaBridge {
     return new Promise<ActionResult>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        this.markDisconnected(picked);
         resolve({ kind: "timeout" });
       }, this.actionTimeoutMs);
       this.pending.set(id, { variant: "action", resolve, timer });
@@ -519,6 +512,39 @@ export class BrnaBridge {
         });
       }
     });
+  }
+
+  private pruneClosedEntries(): void {
+    for (const entry of this.devices.values()) {
+      if (entry.ws.readyState !== WebSocket.OPEN) this.markDisconnected(entry);
+    }
+  }
+
+  private markDisconnected(entry: RuntimeEntry): void {
+    const current = this.devices.get(entry.id);
+    if (!current || current.ws !== entry.ws) return;
+    const now = Date.now();
+    this.recentDisconnected.set(entry.id, {
+      id: entry.id,
+      platform: entry.platform,
+      os_version: entry.os_version,
+      app_version: entry.app_version,
+      app_name: entry.app_name,
+      app_bundle_id: entry.app_bundle_id,
+      native_device_id: entry.native_device_id,
+      device_name: entry.device_name,
+      is_simulator: entry.is_simulator,
+      registered_at: entry.registered_at,
+      last_seen_at: entry.last_seen_at || now,
+      disconnected_at: now,
+      live: false,
+    });
+    this.devices.delete(entry.id);
+    try {
+      entry.ws.close();
+    } catch {
+      /* ignore cleanup errors */
+    }
   }
 }
 

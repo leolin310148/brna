@@ -178,8 +178,13 @@ describe("validateActionRequest", () => {
     ).toThrow(/direction/);
   });
 
+  test("accepts supported key values", () => {
+    expect(validateActionRequest({ kind: "key", key: "enter" })).toEqual({ kind: "key", key: "enter" });
+    expect(validateActionRequest({ kind: "key", key: "arrow_down" })).toEqual({ kind: "key", key: "arrow_down" });
+  });
+
   test("rejects key with bad value", () => {
-    expect(() => validateActionRequest({ kind: "key", key: "enter" })).toThrow(/key/);
+    expect(() => validateActionRequest({ kind: "key", key: "space" })).toThrow(/key/);
   });
 
   test("rejects targeted action with empty selector or target_id", () => {

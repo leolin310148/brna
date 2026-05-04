@@ -37,8 +37,10 @@ export async function runTrace(rest: string[]): Promise<void> {
   const sub = rest[0];
   if (sub === "start") return traceStart(rest.slice(1));
   if (sub === "stop") return traceStop(rest.slice(1));
+  if (sub === "status") return traceStatus(rest.slice(1));
+  if (sub === "path") return tracePath(rest.slice(1));
   if (sub === "replay") return traceReplay(rest.slice(1));
-  fail(4, "usage: brna trace <start|stop|replay>");
+  fail(4, "usage: brna trace <start|stop|status|path|replay>");
 }
 
 export async function appendTraceEvent(event: TraceEvent): Promise<void> {
@@ -74,15 +76,33 @@ async function traceStart(rest: string[]): Promise<void> {
 
 async function traceStop(rest: string[]): Promise<void> {
   if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
-  const dir = await configuredSessionDir();
-  const marker = activeMarkerPath(dir);
-  if (!existsSync(marker)) fail(4, "no active trace");
-  const tracePath = (await readFile(marker, "utf8")).trim();
+  const active = await readActiveMarker();
+  if (!active) fail(4, "no active trace");
+  const { marker, tracePath } = active;
   const trace = await readTrace(tracePath);
   trace.metadata.stopped_at = new Date().toISOString();
   await writeFile(tracePath, toCanonicalYAML(trace), "utf8");
   await rm(marker, { force: true });
   process.stdout.write(`${tracePath}\n`);
+  process.exit(0);
+}
+
+async function traceStatus(rest: string[]): Promise<void> {
+  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  const active = await readActiveMarker();
+  if (!active) {
+    process.stdout.write("no active trace\n");
+    process.exit(0);
+  }
+  process.stdout.write(`active ${active.tracePath}\n`);
+  process.exit(0);
+}
+
+async function tracePath(rest: string[]): Promise<void> {
+  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  const active = await readActiveMarker();
+  if (!active) fail(4, "no active trace");
+  process.stdout.write(`${active.tracePath}\n`);
   process.exit(0);
 }
 
@@ -195,11 +215,17 @@ async function readTrace(path: string): Promise<TraceFile> {
 }
 
 async function readActivePath(): Promise<string | null> {
+  return (await readActiveMarker())?.tracePath ?? null;
+}
+
+async function readActiveMarker(): Promise<{ marker: string; tracePath: string } | null> {
   const dir = await configuredSessionDir();
-  const marker = activeMarkerPath(dir);
-  if (!existsSync(marker)) return null;
-  const path = (await readFile(marker, "utf8")).trim();
-  return path.length > 0 ? path : null;
+  for (const marker of [activeMarkerPath(dir), legacyActiveMarkerPath(dir)]) {
+    if (!existsSync(marker)) continue;
+    const tracePath = (await readFile(marker, "utf8")).trim();
+    if (tracePath.length > 0) return { marker, tracePath };
+  }
+  return null;
 }
 
 async function configuredSessionDir(): Promise<string> {
@@ -207,6 +233,10 @@ async function configuredSessionDir(): Promise<string> {
 }
 
 function activeMarkerPath(dir: string): string {
+  return join(dir, ".active-current");
+}
+
+function legacyActiveMarkerPath(dir: string): string {
   return join(dir, `.active-${getSessionId()}`);
 }
 

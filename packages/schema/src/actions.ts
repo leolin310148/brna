@@ -7,7 +7,15 @@ import { BrnaValidationError } from "./errors.js";
 export const ACTION_KINDS = ["tap", "long_press", "type", "scroll", "swipe", "key"] as const;
 export type ActionKind = (typeof ACTION_KINDS)[number];
 
-export const ACTION_KEYS = ["tab"] as const;
+export const ACTION_KEYS = [
+  "tab",
+  "enter",
+  "escape",
+  "arrow_up",
+  "arrow_down",
+  "arrow_left",
+  "arrow_right",
+] as const;
 export type ActionKey = (typeof ACTION_KEYS)[number];
 
 export const SCROLL_DIRECTIONS = ["up", "down", "left", "right"] as const;

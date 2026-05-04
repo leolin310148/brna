@@ -2,6 +2,7 @@ import {
   validateSnapshot,
   BrnaSelectorParseError,
   type ActionRequest,
+  type ActionKey,
   type ScrollDirection,
   type Snapshot,
   type Node,
@@ -25,7 +26,29 @@ const VERBS = ["tap", "click", "long-press", "type", "scroll", "key"] as const;
 type Verb = (typeof VERBS)[number];
 
 const SCROLL_DIRECTIONS = new Set<string>(["up", "down", "left", "right"]);
-const SUPPORTED_KEYS = new Set<string>(["tab"]);
+const SUPPORTED_KEYS = new Map<string, ActionKey>([
+  ["tab", "tab"],
+  ["enter", "enter"],
+  ["return", "enter"],
+  ["escape", "escape"],
+  ["esc", "escape"],
+  ["arrowup", "arrow_up"],
+  ["arrow-up", "arrow_up"],
+  ["arrow_up", "arrow_up"],
+  ["up", "arrow_up"],
+  ["arrowdown", "arrow_down"],
+  ["arrow-down", "arrow_down"],
+  ["arrow_down", "arrow_down"],
+  ["down", "arrow_down"],
+  ["arrowleft", "arrow_left"],
+  ["arrow-left", "arrow_left"],
+  ["arrow_left", "arrow_left"],
+  ["left", "arrow_left"],
+  ["arrowright", "arrow_right"],
+  ["arrow-right", "arrow_right"],
+  ["arrow_right", "arrow_right"],
+  ["right", "arrow_right"],
+]);
 
 const DEFAULT_LONG_PRESS_MS = 500;
 
@@ -215,8 +238,9 @@ async function runKey(positional: string[], shared: SharedFlags): Promise<void> 
   if (typeof key !== "string" || key.length === 0) {
     fail(4, "missing key for act key");
   }
-  if (!SUPPORTED_KEYS.has(key)) {
-    fail(4, `unsupported key '${key}' (expected tab)`);
+  const normalized = SUPPORTED_KEYS.get(key.toLowerCase());
+  if (!normalized) {
+    fail(4, `unsupported key '${key}' (expected tab|enter|escape|arrow-up|arrow-down|arrow-left|arrow-right)`);
   }
   if (positional.length > 1) {
     fail(4, `unexpected argument '${positional[1]}'`);
@@ -224,7 +248,7 @@ async function runKey(positional: string[], shared: SharedFlags): Promise<void> 
   if (await activeTracePath()) {
     shared.snapshotBefore = await fetchSnapshot(shared);
   }
-  await postAction(shared, { kind: "key", key: "tab" });
+  await postAction(shared, { kind: "key", key: normalized });
 }
 
 async function runWithSelector(

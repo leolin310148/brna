@@ -58,10 +58,10 @@ describe("act usage errors (no Metro contact)", () => {
   });
 
   test("unsupported key exits 4", () => {
-    const r = run(["act", "key", "enter"]);
+    const r = run(["act", "key", "space"]);
     expect(r.status).toBe(4);
-    expect(r.stderr).toContain("unsupported key 'enter'");
-    expect(r.stderr).toContain("expected tab");
+    expect(r.stderr).toContain("unsupported key 'space'");
+    expect(r.stderr).toContain("expected tab|enter|escape");
     expect(r.stdout).toBe("");
   });
 

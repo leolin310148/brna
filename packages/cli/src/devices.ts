@@ -16,10 +16,13 @@ interface DeviceInfo {
   app_name?: string;
   app_bundle_id?: string;
   registered_at?: number;
+  last_seen_at?: number;
+  live?: boolean;
 }
 
 interface DevicesPayload {
   devices: DeviceInfo[];
+  recent_disconnected?: DeviceInfo[];
 }
 
 interface DevicesRuntime {
@@ -97,7 +100,12 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
   const devices = Array.isArray(payload.devices) ? payload.devices : [];
 
   if (json) {
-    stdout.write(JSON.stringify({ devices }, null, 2));
+    stdout.write(JSON.stringify({
+      devices,
+      recent_disconnected: Array.isArray(payload.recent_disconnected)
+        ? payload.recent_disconnected
+        : [],
+    }, null, 2));
     stdout.write("\n");
     exit(0);
   }

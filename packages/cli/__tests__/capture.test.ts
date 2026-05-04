@@ -213,6 +213,17 @@ describe("mapNativeError", () => {
     expect(result.code).toBe(8);
     expect(result.reason).toContain("--native-device");
   });
+  test("simctl display note with PNG output is ignored", () => {
+    const result = mapNativeError(
+      { platform: "ios", bin: "xcrun", args: [] },
+      {
+        status: 1,
+        stdout: Buffer.from("png-bytes"),
+        stderr: "Note: No display specified. Defaulting to display: 11223344 (screenID: 1, name: LCD)\n",
+      },
+    );
+    expect(result.code).toBe(0);
+  });
   test("empty stdout reports empty PNG output", () => {
     const result = mapNativeError(
       { platform: "android", bin: "adb", args: [] },

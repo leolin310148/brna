@@ -23,13 +23,52 @@ export interface LoadedConfig {
 
 export async function runConfig(rest: string[]): Promise<void> {
   const sub = rest[0];
-  if (sub !== "init") fail(4, "usage: brna config init");
-  if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
-  const target = join(process.cwd(), "brna.config.ts");
-  if (existsSync(target)) fail(4, "brna.config.ts already exists");
-  await writeFile(target, defaultConfigText(), "utf8");
-  process.stdout.write(`${target}\n`);
-  process.exit(0);
+  if (sub === "init") {
+    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    const target = join(process.cwd(), "brna.config.ts");
+    if (existsSync(target)) fail(4, "brna.config.ts already exists");
+    await writeFile(target, defaultConfigText(), "utf8");
+    process.stdout.write(`${target}\n`);
+    process.exit(0);
+  }
+  if (sub === "show") {
+    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    const loaded = await loadConfig();
+    process.stdout.write(`${JSON.stringify(serializeLoadedConfig(loaded), null, 2)}\n`);
+    process.exit(0);
+  }
+  if (sub === "path") {
+    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    const loaded = await loadConfig();
+    if (!loaded.path) fail(1, "no brna.config.ts or brna.config.js found");
+    process.stdout.write(`${loaded.path}\n`);
+    process.exit(0);
+  }
+  fail(4, "usage: brna config <init|show|path>");
+}
+
+function serializeLoadedConfig(loaded: LoadedConfig): Record<string, unknown> {
+  return {
+    path: loaded.path ?? null,
+    config: serializeConfig(loaded.config),
+  };
+}
+
+function serializeConfig(config: BrnaConfig): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (config.sessionDir !== undefined) out.sessionDir = config.sessionDir;
+  if (config.measureTimeoutMs !== undefined) out.measureTimeoutMs = config.measureTimeoutMs;
+  if (config.redactSecureFields !== undefined) out.redactSecureFields = config.redactSecureFields;
+  if (config.redact !== undefined) {
+    out.redact = config.redact.map((rule) => ({
+      match:
+        typeof rule.match === "string"
+          ? rule.match
+          : { source: rule.match.source, flags: rule.match.flags },
+      replace: rule.replace,
+    }));
+  }
+  return out;
 }
 
 export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {

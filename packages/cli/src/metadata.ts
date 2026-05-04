@@ -113,14 +113,16 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   },
   {
     name: "verify",
-    description: "Validate a snapshot file against the brna schema.",
-    usage: "brna verify <snapshot.json|snapshot.yaml> [--format json|yaml]",
+    description: "Compare a freshly captured live snapshot against a golden snapshot markdown file.",
+    usage: "brna verify <golden.md> [--metro <url>] [--device <id>] [--timeout <ms>]",
     options: [
-      { name: "--format", description: "Input format. Defaults to the file extension when possible." },
+      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--device", description: "Target a connected runtime device id." },
+      { name: "--timeout", description: "Request timeout in milliseconds." },
     ],
     examples: [
-      "brna verify snapshot.json",
-      "brna verify snapshot.yaml --format yaml",
+      "brna verify snapshot.md",
+      "brna verify snapshot.md --device ios-sim",
     ],
   },
   {
@@ -197,12 +199,13 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "trace",
     description: "Record snapshot and action events for an agent session.",
-    usage: "brna trace <start|stop|status|path>",
+    usage: "brna trace <start|stop|status|path|replay>",
     options: [],
     examples: [
       "brna trace start",
       "brna trace status",
       "brna trace stop",
+      "brna trace replay trace.yaml",
     ],
   },
 ];

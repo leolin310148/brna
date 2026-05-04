@@ -14,11 +14,12 @@
     "build:packages": "bun run build:schema && bun --filter '@brna/runtime' build && bun --filter '@brna/metro-plugin' build && bun --filter '@brna/expo-plugin' build && bun --filter '@brna/cli' build && bun --filter '@brna/mcp' build",
     "build:schema": "bun --filter '@brna/schema' build:schema",
     "build:runtime": "bun --filter '@brna/runtime' build",
+    "check:dist": "node scripts/check-dist-fresh.mjs",
     "e2e:expo-sample": "bun test e2e/expo-sample.test.ts",
     "smoke:package-entrypoints": "node scripts/smoke-package-entrypoints.mjs",
     "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter '@brna/schema' test && bun --filter '@brna/core' test",
-    "verify": "bun run typecheck && bun run test && bun run build:packages && bun run smoke:package-entrypoints"
+    "verify": "bun run typecheck && bun run test && bun run build:packages && bun run check:dist && bun run smoke:package-entrypoints"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

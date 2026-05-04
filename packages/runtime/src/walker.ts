@@ -394,9 +394,8 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
     out.name = extractTextString(fiber);
   }
   if (hit.kind === "input") {
-    if (typeof props.value === "string") {
-      out.value = props.value;
-    }
+    const value = extractInputValue(fiber, props);
+    if (value !== undefined) out.value = value;
     if (typeof props.placeholder === "string" && props.placeholder.length > 0) {
       out.text = props.placeholder;
     }
@@ -440,6 +439,33 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
     if (imageSource) out.image_source = imageSource;
   }
   return out;
+}
+
+function extractInputValue(fiber: AnyFiber, props: Record<string, unknown>): string | undefined {
+  for (const value of [
+    props.value,
+    props.defaultValue,
+    readInputStateNodeValue(fiber.stateNode),
+  ]) {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return undefined;
+}
+
+function readInputStateNodeValue(stateNode: unknown): unknown {
+  if (!stateNode || typeof stateNode !== "object") return undefined;
+  const obj = stateNode as Record<string, unknown>;
+  for (const key of ["_lastNativeText", "lastNativeText", "text", "value"]) {
+    const value = obj[key];
+    if (typeof value === "string" || typeof value === "number") return value;
+  }
+  const nativeProps = obj.props;
+  if (nativeProps && typeof nativeProps === "object") {
+    const props = nativeProps as Record<string, unknown>;
+    return props.value ?? props.text ?? props.defaultValue;
+  }
+  return undefined;
 }
 
 function extractImageSource(source: unknown): string | undefined {

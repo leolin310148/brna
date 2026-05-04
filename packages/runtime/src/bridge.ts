@@ -114,9 +114,15 @@ interface IncomingFrame {
 }
 
 let activeSocket: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+const RECONNECT_DELAY_MS = 1000;
 
 export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
   if (activeSocket) return;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   const wsUrl = httpToWs(metroUrl) + "/brna/agent";
   let socket: WebSocket;
   try {
@@ -213,12 +219,27 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
   };
 
   socket.onclose = () => {
-    activeSocket = null;
+    if (activeSocket === socket) activeSocket = null;
+    scheduleReconnect(metroUrl);
   };
 
   socket.onerror = () => {
-    /* swallow — no retry in v0 */
+    if (activeSocket === socket) activeSocket = null;
+    try {
+      socket.close();
+    } catch {
+      /* ignore */
+    }
+    scheduleReconnect(metroUrl);
   };
+}
+
+export function resetBridgeForTests(): void {
+  activeSocket = null;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 }
 
 function httpToWs(url: string): string {
@@ -233,6 +254,14 @@ function safeSend(socket: WebSocket, frame: unknown): void {
   } catch {
     /* swallow — bridge errors are non-fatal */
   }
+}
+
+function scheduleReconnect(metroUrl: string): void {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!activeSocket) connectAgent({ metroUrl });
+  }, RECONNECT_DELAY_MS);
 }
 
 function handleActionRequest(socket: WebSocket, requestId: string, rawAction: unknown): void {
