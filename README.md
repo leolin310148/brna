@@ -26,6 +26,8 @@ brna act tap "#save"
 brna act type "input:Email" "leo@example.com"
 brna act scroll "#feed" --direction down --by 300
 brna capture --to screen.png
+brna logs --level warn
+brna network --method POST
 brna doctor
 brna mcp
 ```
@@ -225,6 +227,37 @@ brna doctor --fix
 
 `--fix` can register the Expo plugin or patch direct Babel and Metro config
 files after confirmation.
+
+### `logs` and `network`
+
+Read recent runtime console output and network activity captured by the brna
+runtime in development. Both commands are **development-only** and **redacted
+by default** — they are never wired into production bundles.
+
+```sh
+brna logs
+brna logs --level warn
+brna logs --since 5000 --json
+brna network
+brna network --method POST
+brna network --status 4xx --json
+```
+
+The runtime keeps a small bounded ring buffer of recent `console.*` calls,
+captured runtime errors, and `fetch` / `XMLHttpRequest` activity. Records leave
+the runtime only after redaction:
+
+- `Authorization`, `Cookie`, `Set-Cookie`, and similar sensitive headers are
+  always replaced with `<redacted>`.
+- JSON body fields whose names look like tokens, passwords, secrets, or session
+  ids are replaced with `<redacted>`.
+- Custom `redact` rules from `brna.config.ts` apply to log messages, network
+  URLs, headers, and bodies.
+- Bodies are captured as bounded text previews; binary and streamed payloads
+  (FormData, Blob, ArrayBuffer) are not captured.
+
+`--since` accepts either a duration in milliseconds (`--since 5000` returns the
+last 5 seconds) or an absolute millisecond timestamp.
 
 ### `mcp`
 

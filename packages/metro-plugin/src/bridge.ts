@@ -2,10 +2,18 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { randomUUID } from "node:crypto";
-import type { ActionRequest, SnapshotRedactionOptions } from "@brna/schema";
+import type {
+  ActionRequest,
+  LogRecord,
+  LogsRequestOptions,
+  NetworkRecord,
+  NetworkRequestOptions,
+  SnapshotRedactionOptions,
+} from "@brna/schema";
 
 export const SNAPSHOT_TIMEOUT_MS = 5000;
 export const ACTION_TIMEOUT_MS = 5000;
+export const OBSERVABILITY_TIMEOUT_MS = 5000;
 
 export type SnapshotResult =
   | { kind: "snapshot"; snapshot: unknown }
@@ -15,6 +23,18 @@ export type SnapshotResult =
 
 export type ActionResult =
   | { kind: "ok"; elapsed_ms: number }
+  | { kind: "runtime_error"; code: string; message: string }
+  | { kind: "timeout" }
+  | { kind: "unknown_device"; device_id: string };
+
+export type LogsResult =
+  | { kind: "ok"; records: LogRecord[] }
+  | { kind: "runtime_error"; code: string; message: string }
+  | { kind: "timeout" }
+  | { kind: "unknown_device"; device_id: string };
+
+export type NetworkResult =
+  | { kind: "ok"; records: NetworkRecord[] }
   | { kind: "runtime_error"; code: string; message: string }
   | { kind: "timeout" }
   | { kind: "unknown_device"; device_id: string };
@@ -29,12 +49,23 @@ type PendingAction = {
   resolve: (value: ActionResult) => void;
   timer: NodeJS.Timeout;
 };
-type Pending = PendingSnapshot | PendingAction;
+type PendingLogs = {
+  variant: "logs";
+  resolve: (value: LogsResult) => void;
+  timer: NodeJS.Timeout;
+};
+type PendingNetwork = {
+  variant: "network";
+  resolve: (value: NetworkResult) => void;
+  timer: NodeJS.Timeout;
+};
+type Pending = PendingSnapshot | PendingAction | PendingLogs | PendingNetwork;
 
 interface RuntimeFrame {
   type?: string;
   id?: string;
   snapshot?: unknown;
+  records?: unknown;
   code?: string;
   message?: string;
   elapsed_ms?: number;
@@ -190,22 +221,60 @@ export class BrnaBridge {
         return;
       }
 
-      // action pending
-      if (frame.type === "action.response") {
-        clearTimeout(pending.timer);
-        this.pending.delete(frame.id);
-        const elapsed = typeof frame.elapsed_ms === "number" && Number.isFinite(frame.elapsed_ms)
-          ? frame.elapsed_ms
-          : 0;
-        pending.resolve({ kind: "ok", elapsed_ms: elapsed });
-      } else if (frame.type === "action.error") {
-        clearTimeout(pending.timer);
-        this.pending.delete(frame.id);
-        pending.resolve({
-          kind: "runtime_error",
-          code: typeof frame.code === "string" ? frame.code : "unknown",
-          message: typeof frame.message === "string" ? frame.message : "runtime error",
-        });
+      if (pending.variant === "action") {
+        if (frame.type === "action.response") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          const elapsed = typeof frame.elapsed_ms === "number" && Number.isFinite(frame.elapsed_ms)
+            ? frame.elapsed_ms
+            : 0;
+          pending.resolve({ kind: "ok", elapsed_ms: elapsed });
+        } else if (frame.type === "action.error") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          pending.resolve({
+            kind: "runtime_error",
+            code: typeof frame.code === "string" ? frame.code : "unknown",
+            message: typeof frame.message === "string" ? frame.message : "runtime error",
+          });
+        }
+        return;
+      }
+
+      if (pending.variant === "logs") {
+        if (frame.type === "logs.response") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          const records = Array.isArray(frame.records) ? (frame.records as LogRecord[]) : [];
+          pending.resolve({ kind: "ok", records });
+        } else if (frame.type === "logs.error") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          pending.resolve({
+            kind: "runtime_error",
+            code: typeof frame.code === "string" ? frame.code : "unknown",
+            message: typeof frame.message === "string" ? frame.message : "runtime error",
+          });
+        }
+        return;
+      }
+
+      if (pending.variant === "network") {
+        if (frame.type === "network.response") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          const records = Array.isArray(frame.records) ? (frame.records as NetworkRecord[]) : [];
+          pending.resolve({ kind: "ok", records });
+        } else if (frame.type === "network.error") {
+          clearTimeout(pending.timer);
+          this.pending.delete(frame.id);
+          pending.resolve({
+            kind: "runtime_error",
+            code: typeof frame.code === "string" ? frame.code : "unknown",
+            message: typeof frame.message === "string" ? frame.message : "runtime error",
+          });
+        }
+        return;
       }
     });
 
@@ -353,6 +422,65 @@ export class BrnaBridge {
       this.pending.set(id, { variant: "snapshot", resolve, timer });
       try {
         ws.send(JSON.stringify({ type: "snapshot.request", id, options }));
+      } catch (err) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        resolve({
+          kind: "runtime_error",
+          code: "bridge_send_failed",
+          message: (err as Error).message,
+        });
+      }
+    });
+  }
+
+  async requestLogs(options: LogsRequestOptions = {}, deviceId?: string): Promise<LogsResult> {
+    const picked = this.pickEntry(deviceId);
+    if (picked && "kind" in picked) {
+      return { kind: "unknown_device", device_id: deviceId! };
+    }
+    if (!picked) throw new Error("no_runtime_connected");
+    const ws = picked.ws;
+    const id = randomUUID();
+    return new Promise<LogsResult>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({ kind: "timeout" });
+      }, OBSERVABILITY_TIMEOUT_MS);
+      this.pending.set(id, { variant: "logs", resolve, timer });
+      try {
+        ws.send(JSON.stringify({ type: "logs.request", id, options }));
+      } catch (err) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        resolve({
+          kind: "runtime_error",
+          code: "bridge_send_failed",
+          message: (err as Error).message,
+        });
+      }
+    });
+  }
+
+  async requestNetwork(
+    options: NetworkRequestOptions = {},
+    deviceId?: string,
+  ): Promise<NetworkResult> {
+    const picked = this.pickEntry(deviceId);
+    if (picked && "kind" in picked) {
+      return { kind: "unknown_device", device_id: deviceId! };
+    }
+    if (!picked) throw new Error("no_runtime_connected");
+    const ws = picked.ws;
+    const id = randomUUID();
+    return new Promise<NetworkResult>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({ kind: "timeout" });
+      }, OBSERVABILITY_TIMEOUT_MS);
+      this.pending.set(id, { variant: "network", resolve, timer });
+      try {
+        ws.send(JSON.stringify({ type: "network.request", id, options }));
       } catch (err) {
         clearTimeout(timer);
         this.pending.delete(id);

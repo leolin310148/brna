@@ -1,8 +1,18 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { SnapshotRedactionOptions } from "@brna/schema";
-import { validateActionRequest, BrnaValidationError } from "@brna/schema";
+import type {
+  LogsRequestOptions,
+  NetworkRequestOptions,
+  SnapshotRedactionOptions,
+} from "@brna/schema";
+import {
+  parseLogsRequestOptions,
+  parseNetworkRequestOptions,
+  validateActionRequest,
+  BrnaValidationError,
+} from "@brna/schema";
 import {
   ACTION_TIMEOUT_MS,
+  OBSERVABILITY_TIMEOUT_MS,
   getBridge,
   SNAPSHOT_TIMEOUT_MS,
   type BrnaBridge,
@@ -14,6 +24,8 @@ type Middleware = (req: IncomingMessage, res: ServerResponse, next: NextFn) => v
 const SNAPSHOT_PATH = "/brna/snapshot";
 const ACTION_PATH = "/brna/action";
 const DEVICES_PATH = "/brna/devices";
+const LOGS_PATH = "/brna/logs";
+const NETWORK_PATH = "/brna/network";
 const DEVICE_HEADER = "x-brna-device-id";
 const MAX_ACTION_BODY_BYTES = 64 * 1024;
 
@@ -223,6 +235,168 @@ export async function handleAction(
   }
 }
 
+function parseLogsQuery(url: string): LogsRequestOptions {
+  const idx = url.indexOf("?");
+  if (idx < 0) return {};
+  const params = new URLSearchParams(url.slice(idx + 1));
+  const out: Record<string, unknown> = {};
+  const since = params.get("since");
+  if (since !== null) {
+    const n = Number(since);
+    if (Number.isFinite(n)) out.since = n;
+  }
+  const level = params.get("level");
+  if (level) out.level = level;
+  const limit = params.get("limit");
+  if (limit !== null) {
+    const n = Number(limit);
+    if (Number.isFinite(n)) out.limit = n;
+  }
+  return parseLogsRequestOptions(out);
+}
+
+function parseNetworkQuery(url: string): NetworkRequestOptions {
+  const idx = url.indexOf("?");
+  if (idx < 0) return {};
+  const params = new URLSearchParams(url.slice(idx + 1));
+  const out: Record<string, unknown> = {};
+  const since = params.get("since");
+  if (since !== null) {
+    const n = Number(since);
+    if (Number.isFinite(n)) out.since = n;
+  }
+  const method = params.get("method");
+  if (method) out.method = method;
+  const status = params.get("status");
+  if (status !== null) {
+    const n = Number(status);
+    if (Number.isFinite(n)) out.status = n;
+  }
+  const statusMin = params.get("statusMin");
+  if (statusMin !== null) {
+    const n = Number(statusMin);
+    if (Number.isFinite(n)) out.statusMin = n;
+  }
+  const statusMax = params.get("statusMax");
+  if (statusMax !== null) {
+    const n = Number(statusMax);
+    if (Number.isFinite(n)) out.statusMax = n;
+  }
+  const limit = params.get("limit");
+  if (limit !== null) {
+    const n = Number(limit);
+    if (Number.isFinite(n)) out.limit = n;
+  }
+  return parseNetworkRequestOptions(out);
+}
+
+async function readObservabilityOptions(req: IncomingMessage): Promise<unknown> {
+  if ((req.headers["content-length"] ?? "0") === "0") return undefined;
+  try {
+    return await readJsonBody(req);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function handleLogs(
+  bridge: BrnaBridge,
+  req: IncomingMessage,
+  res: ServerResponse,
+  deviceId?: string,
+): Promise<void> {
+  if (!bridge.hasRuntime()) {
+    sendJson(res, 503, { error: "no_runtime_connected" });
+    return;
+  }
+  if (deviceId !== undefined && !bridge.hasRuntime(deviceId)) {
+    sendJson(res, 404, { error: "unknown_device", device_id: deviceId });
+    return;
+  }
+  let options: LogsRequestOptions;
+  if (req.method === "POST") {
+    const body = await readObservabilityOptions(req);
+    options = parseLogsRequestOptions(body);
+  } else {
+    options = parseLogsQuery(req.url ?? "");
+  }
+  try {
+    const result = await bridge.requestLogs(options, deviceId);
+    if (result.kind === "ok") {
+      sendJson(res, 200, { records: result.records });
+      return;
+    }
+    if (result.kind === "timeout") {
+      sendJson(res, 504, { error: "runtime_timeout", timeout_ms: OBSERVABILITY_TIMEOUT_MS });
+      return;
+    }
+    if (result.kind === "unknown_device") {
+      sendJson(res, 404, { error: "unknown_device", device_id: result.device_id });
+      return;
+    }
+    sendJson(res, 502, {
+      error: "runtime_error",
+      code: result.code,
+      message: result.message,
+    });
+  } catch (err) {
+    if ((err as Error).message === "no_runtime_connected") {
+      sendJson(res, 503, { error: "no_runtime_connected" });
+    } else {
+      sendJson(res, 500, { error: "internal", message: (err as Error).message });
+    }
+  }
+}
+
+export async function handleNetwork(
+  bridge: BrnaBridge,
+  req: IncomingMessage,
+  res: ServerResponse,
+  deviceId?: string,
+): Promise<void> {
+  if (!bridge.hasRuntime()) {
+    sendJson(res, 503, { error: "no_runtime_connected" });
+    return;
+  }
+  if (deviceId !== undefined && !bridge.hasRuntime(deviceId)) {
+    sendJson(res, 404, { error: "unknown_device", device_id: deviceId });
+    return;
+  }
+  let options: NetworkRequestOptions;
+  if (req.method === "POST") {
+    const body = await readObservabilityOptions(req);
+    options = parseNetworkRequestOptions(body);
+  } else {
+    options = parseNetworkQuery(req.url ?? "");
+  }
+  try {
+    const result = await bridge.requestNetwork(options, deviceId);
+    if (result.kind === "ok") {
+      sendJson(res, 200, { records: result.records });
+      return;
+    }
+    if (result.kind === "timeout") {
+      sendJson(res, 504, { error: "runtime_timeout", timeout_ms: OBSERVABILITY_TIMEOUT_MS });
+      return;
+    }
+    if (result.kind === "unknown_device") {
+      sendJson(res, 404, { error: "unknown_device", device_id: result.device_id });
+      return;
+    }
+    sendJson(res, 502, {
+      error: "runtime_error",
+      code: result.code,
+      message: result.message,
+    });
+  } catch (err) {
+    if ((err as Error).message === "no_runtime_connected") {
+      sendJson(res, 503, { error: "no_runtime_connected" });
+    } else {
+      sendJson(res, 500, { error: "internal", message: (err as Error).message });
+    }
+  }
+}
+
 export function handleDevices(bridge: BrnaBridge, res: ServerResponse): void {
   sendJson(res, 200, {
     devices: bridge.listDevices(),
@@ -260,6 +434,14 @@ export function brnaMiddleware(): Middleware {
     }
     if (req.method === "POST" && url.startsWith(ACTION_PATH)) {
       void handleAction(bridge, req, res, deviceId);
+      return;
+    }
+    if ((req.method === "GET" || req.method === "POST") && url.startsWith(LOGS_PATH)) {
+      void handleLogs(bridge, req, res, deviceId);
+      return;
+    }
+    if ((req.method === "GET" || req.method === "POST") && url.startsWith(NETWORK_PATH)) {
+      void handleNetwork(bridge, req, res, deviceId);
       return;
     }
     next();

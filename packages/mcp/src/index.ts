@@ -17,6 +17,8 @@ import { resolve as resolveSelector, toMarkdown } from "@brna/core";
 const SERVER_INFO = { name: "brna-mcp", version: "0.0.0" };
 const DEFAULT_METRO_URL = "http://localhost:8081";
 const SNAPSHOT_RESOURCE_URI = "brna://current/snapshot";
+const LOGS_RESOURCE_URI = "brna://current/logs";
+const NETWORK_RESOURCE_URI = "brna://current/network";
 const DEVICE_HEADER = "x-brna-device-id";
 
 interface ServerOptions {
@@ -148,24 +150,60 @@ class BrnaMcpApp {
         description: "Markdown projection of the connected runtime's current screen.",
         mimeType: "text/markdown",
       },
+      {
+        uri: LOGS_RESOURCE_URI,
+        name: "Recent runtime logs (JSON)",
+        description: "Recent console and runtime error records captured by the brna runtime.",
+        mimeType: "application/json",
+      },
+      {
+        uri: NETWORK_RESOURCE_URI,
+        name: "Recent runtime network activity (JSON)",
+        description: "Recent fetch and XHR records captured by the brna runtime.",
+        mimeType: "application/json",
+      },
     ];
   }
 
   private async readResource(params: unknown): Promise<Record<string, unknown>> {
     const uri = (params as { uri?: unknown })?.uri;
-    if (uri !== SNAPSHOT_RESOURCE_URI) {
-      throw new Error(`unknown resource uri: ${String(uri)}`);
+    if (uri === SNAPSHOT_RESOURCE_URI) {
+      const snapshot = await this.fetchSnapshot();
+      return {
+        contents: [
+          {
+            uri: SNAPSHOT_RESOURCE_URI,
+            mimeType: "text/markdown",
+            text: toMarkdown(snapshot),
+          },
+        ],
+      };
     }
-    const snapshot = await this.fetchSnapshot();
-    return {
-      contents: [
-        {
-          uri: SNAPSHOT_RESOURCE_URI,
-          mimeType: "text/markdown",
-          text: toMarkdown(snapshot),
-        },
-      ],
-    };
+    if (uri === LOGS_RESOURCE_URI) {
+      const records = await this.fetchObservability("logs", {});
+      return {
+        contents: [
+          {
+            uri: LOGS_RESOURCE_URI,
+            mimeType: "application/json",
+            text: JSON.stringify({ records }, null, 2),
+          },
+        ],
+      };
+    }
+    if (uri === NETWORK_RESOURCE_URI) {
+      const records = await this.fetchObservability("network", {});
+      return {
+        contents: [
+          {
+            uri: NETWORK_RESOURCE_URI,
+            mimeType: "application/json",
+            text: JSON.stringify({ records }, null, 2),
+          },
+        ],
+      };
+    }
+    throw new Error(`unknown resource uri: ${String(uri)}`);
   }
 
   private listTools() {
@@ -238,6 +276,31 @@ class BrnaMcpApp {
           required: ["key"],
         },
       },
+      {
+        name: "logs",
+        description: "Read recent runtime console/error log records (redacted).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            since: { type: "number" },
+            level: { type: "string", enum: ["debug", "log", "info", "warn", "error"] },
+            limit: { type: "number" },
+          },
+        },
+      },
+      {
+        name: "network",
+        description: "Read recent runtime fetch/XHR network records (redacted).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            since: { type: "number" },
+            method: { type: "string" },
+            status: { type: "number" },
+            limit: { type: "number" },
+          },
+        },
+      },
     ];
   }
 
@@ -294,6 +357,18 @@ class BrnaMcpApp {
       case "key":
         action = { kind: "key", key: stringField(a, "key") };
         break;
+      case "logs": {
+        const records = await this.fetchObservability("logs", a);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ records }, null, 2) }],
+        };
+      }
+      case "network": {
+        const records = await this.fetchObservability("network", a);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ records }, null, 2) }],
+        };
+      }
       default:
         throw new Error(`unknown tool: ${name}`);
     }
@@ -302,6 +377,28 @@ class BrnaMcpApp {
     return {
       content: [{ type: "text", text: `ok: ${name}` }],
     };
+  }
+
+  private async fetchObservability(
+    kind: "logs" | "network",
+    args: Record<string, unknown>,
+  ): Promise<unknown[]> {
+    const headers: Record<string, string> = {};
+    if (this.deps.device !== undefined) headers[DEVICE_HEADER] = this.deps.device;
+    const options: Record<string, unknown> = {};
+    for (const key of ["since", "level", "method", "status", "statusMin", "statusMax", "limit"]) {
+      if (args[key] !== undefined) options[key] = args[key];
+    }
+    const useBody = Object.keys(options).length > 0;
+    const url = `${this.deps.metroUrl}/brna/${kind}`;
+    const res = await this.deps.fetch(url, {
+      method: useBody ? "POST" : "GET",
+      headers: useBody ? { ...headers, "Content-Type": "application/json" } : headers,
+      ...(useBody ? { body: JSON.stringify(options) } : {}),
+    });
+    if (!res.ok) throw new Error(`${kind} HTTP ${res.status}`);
+    const body = (await res.json()) as { records?: unknown };
+    return Array.isArray(body.records) ? body.records : [];
   }
 
   private async resolveTarget(args: Record<string, unknown>): Promise<string> {

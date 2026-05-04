@@ -1,5 +1,6 @@
 import { AppState, NativeModules } from "react-native";
 import { connectAgent } from "./bridge.js";
+import { installObservability } from "./observability.js";
 
 function inferMetroUrl(): string | null {
   const SourceCode = (NativeModules as Record<string, unknown>).SourceCode as
@@ -18,6 +19,11 @@ function inferMetroUrl(): string | null {
 const isDev = (globalThis as { __DEV__?: boolean }).__DEV__ === true;
 
 if (isDev) {
+  try {
+    installObservability();
+  } catch {
+    /* never throw from auto-entry */
+  }
   const metroUrl = inferMetroUrl();
   if (metroUrl) {
     try {

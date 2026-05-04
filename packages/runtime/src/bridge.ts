@@ -3,10 +3,13 @@ import {
   SCHEMA_VERSION,
   validateActionRequest,
   BrnaValidationError,
+  parseLogsRequestOptions,
+  parseNetworkRequestOptions,
   type SnapshotRedactionOptions,
 } from "@brna/schema";
 import { captureSnapshot } from "./capture.js";
 import { dispatchAction } from "./dispatch.js";
+import { getLogs, getNetwork } from "./observability.js";
 import { sessionId } from "./session.js";
 
 interface ConnectAgentOptions {
@@ -105,7 +108,9 @@ interface IncomingFrame {
   type?: string;
   id?: string;
   action?: unknown;
-  options?: { redaction?: SnapshotRedactionOptions; measureTimeoutMs?: number };
+  options?:
+    | { redaction?: SnapshotRedactionOptions; measureTimeoutMs?: number }
+    | Record<string, unknown>;
 }
 
 let activeSocket: WebSocket | null = null;
@@ -144,10 +149,45 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
     if (!frame || typeof frame.type !== "string" || typeof frame.id !== "string") return;
     const requestId = frame.id;
 
+    if (frame.type === "logs.request") {
+      try {
+        const options = parseLogsRequestOptions(frame.options);
+        const records = getLogs(options);
+        safeSend(socket, { type: "logs.response", id: requestId, records });
+      } catch (err) {
+        safeSend(socket, {
+          type: "logs.error",
+          id: requestId,
+          code: "logs_failed",
+          message: (err as Error).message ?? "logs read failed",
+        });
+      }
+      return;
+    }
+
+    if (frame.type === "network.request") {
+      try {
+        const options = parseNetworkRequestOptions(frame.options);
+        const records = getNetwork(options);
+        safeSend(socket, { type: "network.response", id: requestId, records });
+      } catch (err) {
+        safeSend(socket, {
+          type: "network.error",
+          id: requestId,
+          code: "network_failed",
+          message: (err as Error).message ?? "network read failed",
+        });
+      }
+      return;
+    }
+
     if (frame.type === "snapshot.request") {
+      const snapOpts = frame.options as
+        | { redaction?: SnapshotRedactionOptions; measureTimeoutMs?: number }
+        | undefined;
       captureSnapshot({
-        redaction: frame.options?.redaction,
-        measureTimeoutMs: frame.options?.measureTimeoutMs,
+        redaction: snapOpts?.redaction,
+        measureTimeoutMs: snapOpts?.measureTimeoutMs,
       })
         .then((snapshot) => {
           safeSend(socket, { type: "snapshot.response", id: requestId, snapshot });

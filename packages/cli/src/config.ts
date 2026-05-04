@@ -2,7 +2,11 @@ import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { SerializableRedactionRule, SnapshotRedactionOptions } from "@brna/schema";
+import type {
+  ObservabilityRedactionOptions,
+  SerializableRedactionRule,
+  SnapshotRedactionOptions,
+} from "@brna/schema";
 import { fail } from "./options.js";
 
 export interface BrnaConfig {
@@ -38,7 +42,7 @@ export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {
   return { config: {} };
 }
 
-export function toRedactionOptions(config: BrnaConfig): SnapshotRedactionOptions {
+function configRedactRules(config: BrnaConfig): SerializableRedactionRule[] {
   const rules: SerializableRedactionRule[] = [];
   for (const rule of config.redact ?? []) {
     if (typeof rule.match === "string") {
@@ -50,12 +54,24 @@ export function toRedactionOptions(config: BrnaConfig): SnapshotRedactionOptions
       });
     }
   }
+  return rules;
+}
+
+export function toRedactionOptions(config: BrnaConfig): SnapshotRedactionOptions {
+  const rules = configRedactRules(config);
   return {
     ...(rules.length > 0 ? { rules } : {}),
     ...(config.redactSecureFields !== undefined
       ? { redactSecureFields: config.redactSecureFields }
       : {}),
   };
+}
+
+export function toObservabilityRedactionOptions(
+  config: BrnaConfig,
+): ObservabilityRedactionOptions {
+  const rules = configRedactRules(config);
+  return rules.length > 0 ? { rules } : {};
 }
 
 export function sessionDirFromConfig(config: BrnaConfig): string {

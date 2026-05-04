@@ -122,11 +122,11 @@ describe("MCP server", () => {
     expect(result.contents[0]!.text).toContain("# Snapshot");
   });
 
-  test("tools/list exposes tap/type/scroll/swipe/long_press/key", async () => {
+  test("tools/list exposes core action and observability tools", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
     const result = responses[0]!.result as { tools: Array<{ name: string }> };
     const names = result.tools.map((t) => t.name).sort();
-    expect(names).toEqual(["key", "long_press", "scroll", "swipe", "tap", "type"]);
+    expect(names).toEqual(["key", "logs", "long_press", "network", "scroll", "swipe", "tap", "type"]);
   });
 
   test("tools/call tap with core selector posts action", async () => {

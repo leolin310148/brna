@@ -21,4 +21,5 @@ export * from "./errors.js";
 export * from "./identity.js";
 export * from "./validate.js";
 export * from "./actions.js";
+export * from "./observability.js";
 export { JSON_SCHEMA } from "./schema-json.js";
