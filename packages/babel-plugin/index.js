@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("node:path");
+const fs = require("node:fs");
 const crypto = require("node:crypto");
 
 const RUNTIME_AUTO_SPECIFIER = "@brna/runtime/auto";
@@ -19,10 +20,68 @@ const ENTRY_BASENAMES = new Set([
 ]);
 
 const ENTRY_PARENT_PACKAGES = new Set(["expo", "expo-router"]);
+const PACKAGE_MAIN_CACHE = new Map();
+const EXTENSION_RE = /\.(mjs|cjs|js|jsx|ts|tsx)$/;
 
-function isEntryFilename(filename) {
+function normalisePath(value) {
+  return String(value).split(path.sep).join("/");
+}
+
+function withoutKnownExtension(value) {
+  return value.replace(EXTENSION_RE, "");
+}
+
+function bundlePathFromMain(main) {
+  const raw = typeof main === "string" && main.trim().length > 0 ? main.trim() : "index";
+  const withoutDot = raw.startsWith("./") ? raw.slice(2) : raw;
+  const withoutExt = withoutKnownExtension(withoutDot);
+  if (withoutExt.startsWith("node_modules/")) return withoutExt;
+  if (withoutExt === "expo-router/entry" || withoutExt.startsWith("@")) {
+    return `node_modules/${withoutExt}`;
+  }
+  if (
+    !withoutExt.startsWith(".") &&
+    withoutExt.includes("/") &&
+    !withoutExt.startsWith("src/") &&
+    !withoutExt.startsWith("app/")
+  ) {
+    return `node_modules/${withoutExt}`;
+  }
+  return withoutExt.replace(/^\/+/, "");
+}
+
+function projectRelativeFilename(filename, cwd) {
+  if (!filename || !cwd) return null;
+  let rel;
+  try {
+    rel = path.relative(cwd, filename);
+  } catch {
+    return null;
+  }
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return normalisePath(rel);
+}
+
+function packageMainForCwd(cwd) {
+  const root = cwd || process.cwd();
+  const key = path.resolve(root);
+  if (PACKAGE_MAIN_CACHE.has(key)) return PACKAGE_MAIN_CACHE.get(key);
+
+  let main;
+  try {
+    const raw = fs.readFileSync(path.join(key, "package.json"), "utf8");
+    const pkg = JSON.parse(raw);
+    if (typeof pkg.main === "string") main = pkg.main;
+  } catch {
+    main = undefined;
+  }
+  PACKAGE_MAIN_CACHE.set(key, main);
+  return main;
+}
+
+function legacyIsEntryFilename(filename) {
   if (!filename) return false;
-  const normalised = String(filename).split(path.sep).join("/");
+  const normalised = normalisePath(filename);
   const basename = path.basename(normalised);
   if (!ENTRY_BASENAMES.has(basename)) return false;
 
@@ -35,12 +94,32 @@ function isEntryFilename(filename) {
   return true;
 }
 
+function isEntryFilename(filename, options = undefined) {
+  if (!filename) return false;
+
+  const hasProjectContext = !!options && ("cwd" in options || "main" in options);
+  if (!hasProjectContext) return legacyIsEntryFilename(filename);
+
+  const rel = projectRelativeFilename(filename, options.cwd);
+  if (!rel) return false;
+
+  return withoutKnownExtension(rel) === bundlePathFromMain(options.main);
+}
+
 function getStateFilename(state) {
   return (
     (state && state.filename) ||
     (state && state.file && state.file.opts && state.file.opts.filename) ||
     undefined
   );
+}
+
+function getEntryMain(state) {
+  const opts = (state && state.opts) || {};
+  if (typeof opts.entry === "string") return opts.entry;
+  if (typeof opts.entryMain === "string") return opts.entryMain;
+  if (typeof opts.main === "string") return opts.main;
+  return packageMainForCwd(getStateCwd(state));
 }
 
 function getStateCwd(state) {
@@ -229,7 +308,7 @@ module.exports = function brnaInjectAutoEntry(api) {
 
           const filename = getStateFilename(state);
 
-          if (!isEntryFilename(filename)) return;
+          if (!isEntryFilename(filename, { cwd: getStateCwd(state), main: getEntryMain(state) })) return;
 
           const already = programPath.node.body.some(
             (n) => isRuntimeAutoImport(n) || isRuntimeAutoRequire(n),
@@ -316,5 +395,6 @@ module.exports = function brnaInjectAutoEntry(api) {
 };
 
 module.exports.isEntryFilename = isEntryFilename;
+module.exports.bundlePathFromMain = bundlePathFromMain;
 module.exports.relativeFilename = relativeFilename;
 module.exports.stableElementId = stableElementId;

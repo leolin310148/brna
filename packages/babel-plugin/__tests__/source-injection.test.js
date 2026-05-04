@@ -1,6 +1,8 @@
 "use strict";
 
 const path = require("node:path");
+const fs = require("node:fs");
+const os = require("node:os");
 const { describe, expect, test } = require("bun:test");
 const { transformSync } = require("@babel/core");
 const jsxSyntax = require("@babel/plugin-syntax-jsx");
@@ -17,6 +19,16 @@ function transform(source, opts = {}) {
     babelrc: false,
     configFile: false,
   }).code;
+}
+
+function withTempProject(packageJson, fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "brna-babel-plugin-"));
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify(packageJson), "utf8");
+  try {
+    return fn(root);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
 
 describe("__brnaSource injection in JSXOpeningElement", () => {
@@ -110,6 +122,29 @@ describe("runtime auto entry injection", () => {
       filename: entryFilename,
     });
     expect(out.match(/@brna\/runtime\/auto/g)?.length).toBe(1);
+  });
+
+  test("does not inject into nested route index files", () => {
+    const out = transform("export default function Route() { return null; }", {
+      filename: path.join(REPO_ROOT, "app", "settings", "index.tsx"),
+    });
+    expect(out).not.toContain('require("@brna/runtime/auto");');
+  });
+
+  test("uses package.json main for Expo Router projects", () => {
+    withTempProject({ main: "expo-router/entry" }, (root) => {
+      const routeOut = transform("export default function Route() { return null; }", {
+        filename: path.join(root, "app", "checkout", "index.tsx"),
+        cwd: root,
+      });
+      expect(routeOut).not.toContain('require("@brna/runtime/auto");');
+
+      const entryOut = transform("export default 1;", {
+        filename: path.join(root, "node_modules", "expo-router", "entry.js"),
+        cwd: root,
+      });
+      expect(entryOut).toContain('require("@brna/runtime/auto");');
+    });
   });
 });
 
