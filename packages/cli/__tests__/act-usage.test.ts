@@ -51,9 +51,16 @@ describe("act usage errors (no Metro contact)", () => {
   });
 
   test("unsupported verb exits 4", () => {
+    const r = run(["act", "pinch", "#x"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("unsupported action 'pinch'");
+    expect(r.stdout).toBe("");
+  });
+
+  test("missing swipe direction exits 4", () => {
     const r = run(["act", "swipe", "#x"]);
     expect(r.status).toBe(4);
-    expect(r.stderr).toContain("unsupported action 'swipe'");
+    expect(r.stderr).toContain("missing --direction for act swipe");
     expect(r.stdout).toBe("");
   });
 

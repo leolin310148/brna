@@ -44,11 +44,11 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "act",
     description: "Resolve a selector against a fresh snapshot and dispatch one runtime action.",
-    usage: "brna act <tap|click|long-press|type|scroll|key> [args] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--metro <url>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--duration", description: "Long-press duration in milliseconds." },
-      { name: "--direction", description: "Scroll direction: up, down, left, or right." },
-      { name: "--by", description: "Scroll distance for scroll actions." },
+      { name: "--direction", description: "Scroll/swipe direction: up, down, left, or right." },
+      { name: "--by", description: "Distance for scroll and swipe actions." },
       { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
       { name: "--timeout", description: "Request timeout in milliseconds." },
       { name: "--device", description: "Target a connected runtime device id." },
@@ -58,6 +58,7 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
       "brna act long-press \"#menu\" --duration 750",
       "brna act type \"input:Email\" \"leo@example.com\"",
       "brna act scroll \"#feed\" --direction down --by 300",
+      "brna act swipe \"#screen:root\" --direction up --by 600",
     ],
   },
   {

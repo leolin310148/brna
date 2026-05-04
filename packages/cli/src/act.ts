@@ -22,7 +22,7 @@ import {
 } from "./options.js";
 import { activeTracePath, appendTraceEvent } from "./trace.js";
 
-const VERBS = ["tap", "click", "long-press", "type", "scroll", "key"] as const;
+const VERBS = ["tap", "click", "long-press", "type", "scroll", "swipe", "key"] as const;
 type Verb = (typeof VERBS)[number];
 
 const SCROLL_DIRECTIONS = new Set<string>(["up", "down", "left", "right"]);
@@ -110,10 +110,23 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
       }));
     }
     case "scroll": {
-      const { selector, direction, by } = parseScrollArgs(positional);
+      const { selector, direction, by } = parseDirectionalArgs("scroll", positional);
       return runWithSelector(selector, shared, (resolvedId) => {
         const action: ActionRequest = {
           kind: "scroll",
+          selector,
+          target_id: resolvedId,
+          direction,
+        };
+        if (by !== undefined) action.by = by;
+        return action;
+      });
+    }
+    case "swipe": {
+      const { selector, direction, by } = parseDirectionalArgs("swipe", positional);
+      return runWithSelector(selector, shared, (resolvedId) => {
+        const action: ActionRequest = {
+          kind: "swipe",
           selector,
           target_id: resolvedId,
           direction,
@@ -201,14 +214,14 @@ function parseTypeArgs(positional: string[]): { selector: string; text: string }
   return { selector, text };
 }
 
-function parseScrollArgs(positional: string[]): {
+function parseDirectionalArgs(verb: "scroll" | "swipe", positional: string[]): {
   selector: string;
   direction: ScrollDirection;
   by?: number;
 } {
   const selector = positional[0];
   if (typeof selector !== "string" || selector.length === 0) {
-    fail(4, "missing selector for act scroll");
+    fail(4, `missing selector for act ${verb}`);
   }
   let direction: ScrollDirection | undefined;
   let by: number | undefined;
@@ -220,7 +233,7 @@ function parseScrollArgs(positional: string[]): {
         fail(4, "missing value for '--direction'");
       }
       if (!SCROLL_DIRECTIONS.has(value)) {
-        fail(4, `unsupported scroll direction '${value}' (expected up|down|left|right)`);
+        fail(4, `unsupported ${verb} direction '${value}' (expected up|down|left|right)`);
       }
       direction = value as ScrollDirection;
     } else if (token === "--by") {
@@ -229,7 +242,7 @@ function parseScrollArgs(positional: string[]): {
       fail(4, `unexpected argument '${token}'`);
     }
   }
-  if (!direction) fail(4, "missing --direction for act scroll");
+  if (!direction) fail(4, `missing --direction for act ${verb}`);
   return by === undefined ? { selector, direction } : { selector, direction, by };
 }
 

@@ -395,4 +395,39 @@ describe("installObservability — XMLHttpRequest", () => {
     uninstallObservability();
     expect((MockXhr.prototype as unknown as Record<string, unknown>).__brnaXhrWrapped).toBeUndefined();
   });
+
+  test("does not read responseText for non-text XHR response types", () => {
+    class BlobXhr extends MockXhr {
+      responseType = "blob";
+
+      get responseText(): string {
+        throw new Error("responseText is unavailable for blob responses");
+      }
+
+      set responseText(_value: string) {
+        // The base mock initializes this property; ignore it so the getter remains throwing.
+      }
+    }
+
+    const g = { XMLHttpRequest: BlobXhr } as Record<string, unknown>;
+    installObservability({ globalObject: g, bodyPreviewBytes: 4 });
+
+    const xhr = new BlobXhr();
+    xhr.open("GET", "https://api.test/blob");
+    xhr.send();
+    expect(() => xhr.emit("load")).not.toThrow();
+
+    const records = getNetwork();
+    expect(records[0]).toMatchObject({
+      method: "GET",
+      url: "https://api.test/blob",
+      state: "completed",
+      source: "xhr",
+      status: 202,
+    });
+    expect(records[0]!.response_body_preview).toBeUndefined();
+
+    uninstallObservability();
+    expect((BlobXhr.prototype as unknown as Record<string, unknown>).__brnaXhrWrapped).toBeUndefined();
+  });
 });

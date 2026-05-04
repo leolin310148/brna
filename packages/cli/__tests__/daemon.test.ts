@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { readFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   DAEMON_INTERNAL_ENV,
   DAEMON_SESSION_ENV,
@@ -18,13 +18,48 @@ import {
 
 const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
 
-function runCli(cwd: string, args: string[], env: Record<string, string> = {}) {
+function runCli(cwd: string, args: string[], env: Record<string, string> = {}, input?: string) {
   return spawnSync("bun", ["run", CLI_PATH, ...args], {
     cwd,
     env: { ...process.env, NO_COLOR: "1", BRNA_SESSION_ID: `daemon-test-${Date.now()}-${Math.random()}`, ...env },
     encoding: "utf8",
+    input,
     timeout: 5000,
   });
+}
+
+async function runCliInteractive(cwd: string, args: string[], env: Record<string, string>, input: string) {
+  const proc = spawn("bun", ["run", CLI_PATH, ...args], {
+    cwd,
+    env: { ...process.env, NO_COLOR: "1", ...env },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  proc.stdout.setEncoding("utf8");
+  proc.stderr.setEncoding("utf8");
+  proc.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  proc.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  proc.stdin.end(input);
+  const status = await new Promise<number | null>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      proc.kill("SIGTERM");
+      reject(new Error("timed out waiting for CLI process"));
+    }, 5000);
+    proc.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    proc.on("exit", (code) => {
+      clearTimeout(timeout);
+      resolve(code);
+    });
+  });
+  return { status, stdout, stderr };
 }
 
 describe("daemon helpers", () => {
@@ -133,6 +168,34 @@ describe("brna daemon commands", () => {
     const session = "daemon-command-help";
     const help = runCli(cwd, ["config", "--help"], { BRNA_SESSION_ID: session });
     expect(help.status).toBe(0);
+    const status = runCli(cwd, ["daemon", "status"], { BRNA_SESSION_ID: session });
+    expect(status.stdout).toContain("Daemon stopped");
+  });
+
+  test("mcp runs in the foreground and does not auto-spawn the daemon", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-daemon-mcp-"));
+    const session = "daemon-mcp";
+    const input = [
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test-client", version: "0.0.0" },
+        },
+      },
+      { jsonrpc: "2.0", method: "notifications/initialized" },
+      { jsonrpc: "2.0", id: 2, method: "tools/list" },
+    ].map((frame) => JSON.stringify(frame)).join("\n") + "\n";
+
+    const mcp = await runCliInteractive(cwd, ["mcp"], { BRNA_SESSION_ID: session }, input);
+    expect(mcp.status).toBe(0);
+    expect(mcp.stdout).toContain("\"serverInfo\":{\"name\":\"brna-mcp\"");
+    expect(mcp.stdout).toContain("\"name\":\"swipe\"");
+    expect(mcp.stderr).toBe("");
+
     const status = runCli(cwd, ["daemon", "status"], { BRNA_SESSION_ID: session });
     expect(status.stdout).toContain("Daemon stopped");
   });

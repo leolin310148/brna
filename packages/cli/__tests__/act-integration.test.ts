@@ -209,6 +209,20 @@ describe("act success paths (quiet)", () => {
     expect(JSON.parse(state.lastActionBody!).by).toBe(300);
   });
 
+  test("swipe posts a swipe action", async () => {
+    const r = await runAct(["swipe", "#feed", "--direction", "up", "--by", "600"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(state.lastActionBody!)).toEqual({
+      kind: "swipe",
+      selector: "#feed",
+      target_id: "feed",
+      direction: "up",
+      by: 600,
+    });
+  });
+
   test("key tab sends untargeted key action and skips snapshot fetch", async () => {
     let snapshotHit = false;
     state.snapshotResponder = (_req, res) => {

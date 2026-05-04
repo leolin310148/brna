@@ -1,6 +1,6 @@
 {
   "name": "@brna/babel-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Babel plugin: inject brna runtime, annotate JSX with source location, strip in production",
   "repository": {
     "type": "git",

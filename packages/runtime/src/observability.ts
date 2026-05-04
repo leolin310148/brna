@@ -505,7 +505,10 @@ function installXhr(
         const headers = parseRawHeaders(xhr.getAllResponseHeaders());
         if (headers.length > 0) record.response_headers = headers;
       }
-      if (typeof xhr.responseText === "string" && xhr.responseText.length > 0) {
+      const responseType = (xhr as { responseType?: string }).responseType;
+      const canReadResponseText =
+        responseType === undefined || responseType === "" || responseType === "text";
+      if (canReadResponseText && typeof xhr.responseText === "string" && xhr.responseText.length > 0) {
         record.response_body_preview = xhr.responseText.slice(0, s.bodyPreviewBytes);
       }
     };

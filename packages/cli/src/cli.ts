@@ -107,6 +107,7 @@ function shouldForwardToDaemon(argv: string[]): boolean {
   if (truthyEnv(process.env[NO_DAEMON_ENV])) return false;
   if (process.env[DAEMON_INTERNAL_ENV] === "1") return false;
   if (argv[0] === "daemon") return false;
+  if (argv[0] === "mcp") return false;
   return commandByName(argv[0]!) !== undefined;
 }
 

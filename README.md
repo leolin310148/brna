@@ -25,6 +25,7 @@ brna snapshot
 brna act tap "#save"
 brna act type "input:Email" "leo@example.com"
 brna act scroll "#feed" --direction down --by 300
+brna act swipe "#screen:root" --direction up --by 600
 brna capture --to screen.png
 brna logs --level warn
 brna network --method POST
@@ -156,6 +157,7 @@ brna act tap "#save"
 brna act click "button:Submit"
 brna act type "input:Email" "leo@example.com"
 brna act scroll "#feed" --direction down --by 300
+brna act swipe "#screen:root" --direction up --by 600
 brna act long-press "#menu" --duration 750
 brna act key tab
 ```
