@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Snapshot } from "@brna/schema";
 import { validateSnapshot } from "@brna/schema";
@@ -238,11 +239,23 @@ export function pickNativePlatform(args: {
 
 export function defaultSpawnNative(): SpawnNative {
   return async (cmd, timeoutMs) => {
+    let prepared: PreparedNativeSpawn;
+    try {
+      prepared = await prepareNativeSpawn(cmd);
+    } catch (err) {
+      return {
+        status: null,
+        stdout: Buffer.alloc(0),
+        stderr: "",
+        spawnError: err as NodeJS.ErrnoException,
+      };
+    }
     return await new Promise<SpawnResult>((resolve) => {
       let child: ReturnType<typeof spawn>;
       try {
-        child = spawn(cmd.bin, cmd.args, { stdio: ["ignore", "pipe", "pipe"] });
+        child = spawn(prepared.bin, prepared.args, { stdio: ["ignore", "pipe", "pipe"] });
       } catch (err) {
+        void cleanupPreparedNativeSpawn(prepared);
         resolve({ status: null, stdout: Buffer.alloc(0), stderr: "", spawnError: err as NodeJS.ErrnoException });
         return;
       }
@@ -263,18 +276,70 @@ export function defaultSpawnNative(): SpawnNative {
       });
       child.on("error", (err) => {
         clearTimeout(timer);
+        void cleanupPreparedNativeSpawn(prepared);
         resolve({ status: null, stdout: Buffer.concat(stdoutChunks), stderr, spawnError: err as NodeJS.ErrnoException });
       });
-      child.on("close", (code) => {
+      child.on("close", async (code) => {
         clearTimeout(timer);
+        const stdout = await readPreparedNativeStdout(prepared, stdoutChunks);
         if (timedOut) {
-          resolve({ status: code, stdout: Buffer.concat(stdoutChunks), stderr: stderr + `\n${cmd.bin} timed out` });
+          resolve({ status: code, stdout, stderr: stderr + `\n${cmd.bin} timed out` });
           return;
         }
-        resolve({ status: code, stdout: Buffer.concat(stdoutChunks), stderr });
+        resolve({ status: code, stdout, stderr });
       });
     });
   };
+}
+
+interface PreparedNativeSpawn {
+  bin: string;
+  args: string[];
+  outputPath?: string;
+  tempDir?: string;
+}
+
+async function prepareNativeSpawn(cmd: NativeCaptureCommand): Promise<PreparedNativeSpawn> {
+  if (cmd.platform !== "ios" || cmd.args[cmd.args.length - 1] !== "-") {
+    return { bin: cmd.bin, args: cmd.args };
+  }
+
+  // Newer simctl versions can emit display-selection notes on stderr while
+  // screenshot-to-file still succeeds. Capture to a temp PNG and read it back
+  // so stderr content is not confused with screenshot success.
+  const tempDir = await mkdtemp(join(tmpdir(), "brna-simctl-"));
+  const outputPath = join(tempDir, "capture.png");
+  return {
+    bin: cmd.bin,
+    args: [...cmd.args.slice(0, -1), outputPath],
+    outputPath,
+    tempDir,
+  };
+}
+
+async function readPreparedNativeStdout(
+  prepared: PreparedNativeSpawn,
+  stdoutChunks: Buffer[],
+): Promise<Buffer> {
+  try {
+    if (prepared.outputPath !== undefined) {
+      return await readFile(prepared.outputPath);
+    }
+    return Buffer.concat(stdoutChunks);
+  } catch {
+    return Buffer.concat(stdoutChunks);
+  } finally {
+    await cleanupPreparedNativeSpawn(prepared);
+  }
+}
+
+async function cleanupPreparedNativeSpawn(prepared: PreparedNativeSpawn): Promise<void> {
+  if (prepared.tempDir === undefined) return;
+  try {
+    await rm(prepared.tempDir, { recursive: true, force: true });
+  } catch {
+    /* ignore cleanup failures */
+  }
 }
 
 export async function runCapture(rest: string[], runtime: CaptureRuntime = {}): Promise<void> {

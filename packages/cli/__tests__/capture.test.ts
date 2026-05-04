@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildNativeCommand,
+  defaultSpawnNative,
   generateOutputPath,
   mapNativeError,
   parseCaptureArgs,
@@ -238,6 +239,32 @@ describe("mapNativeError", () => {
       { status: 0, stdout: Buffer.from("png-bytes"), stderr: "" },
     );
     expect(result.code).toBe(0);
+  });
+});
+
+describe("defaultSpawnNative", () => {
+  test("ios screenshots are read from a temp file and tolerate simctl display notes", async () => {
+    const spawnNative = defaultSpawnNative();
+    const script = [
+      "const fs = require('node:fs');",
+      "fs.writeFileSync(process.argv[1], Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]));",
+      "process.stderr.write('Note: No display specified. Defaulting to display: 11223344 (screenID: 1, name: LCD)\\n');",
+      "process.exit(1);",
+    ].join("");
+
+    const result = await spawnNative(
+      {
+        platform: "ios",
+        bin: process.execPath,
+        args: ["-e", script, "-"],
+      },
+      1000,
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stdout.equals(FAKE_PNG)).toBe(true);
+    expect(result.stderr).toContain("No display specified");
+    expect(mapNativeError({ platform: "ios", bin: "xcrun", args: [] }, result).code).toBe(0);
   });
 });
 
