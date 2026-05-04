@@ -79,6 +79,22 @@ function readProps(fiber: AnyFiber): Record<string, unknown> {
   return (fiber.memoizedProps ?? fiber.pendingProps ?? {}) as Record<string, unknown>;
 }
 
+function styleHasDisplayNone(style: unknown): boolean {
+  if (!style) return false;
+  if (Array.isArray(style)) return style.some((entry) => styleHasDisplayNone(entry));
+  if (typeof style !== "object") return false;
+  return (style as Record<string, unknown>).display === "none";
+}
+
+function isHiddenSubtreeFiber(fiber: AnyFiber): boolean {
+  const props = readProps(fiber);
+  if (props.accessibilityElementsHidden === true) return true;
+  if (props["aria-hidden"] === true) return true;
+  if (props.importantForAccessibility === "no-hide-descendants") return true;
+  if (props.activityState === 0 || props.activityState === "inactive") return true;
+  return styleHasDisplayNone(props.style);
+}
+
 function heuristicKind(fiber: AnyFiber): NodeKind | null {
   const name = hostName(fiber);
   if (!name || !isRecognisedHost(name)) return null;
@@ -136,6 +152,10 @@ interface VisibleRange {
 function collectHostFibers(start: AnyFiber | null, out: HostHit[], context: CollectContext = {}): void {
   let fiber: AnyFiber | null = start;
   while (fiber) {
+    if (isHiddenSubtreeFiber(fiber)) {
+      fiber = fiber.sibling;
+      continue;
+    }
     const fiberContext = deriveCollectContext(fiber, context);
     const kind = mapHostToNodeKindWithContext(fiber, fiberContext);
     if (kind) {
@@ -398,6 +418,7 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
     if (value !== undefined) out.value = value;
     if (typeof props.placeholder === "string" && props.placeholder.length > 0) {
       out.text = props.placeholder;
+      out.name = props.placeholder;
     }
   }
   if (typeof props.accessibilityLabel === "string") {
@@ -652,6 +673,7 @@ function identifySiblings(
   parentId: string,
 ): { siblings: IdentifiedSibling[]; warnings: SnapshotWarning[] } {
   const enriched = hits.map((hit) => ({ hit, fields: extractNodeFields(hit) }));
+  applySiblingInputLabels(enriched);
   const positionByKind = new Map<NodeKind, number>();
   const idInputs = enriched.map(({ hit, fields }) => {
     const pos = positionByKind.get(hit.kind) ?? 0;
@@ -667,6 +689,31 @@ function identifySiblings(
   const { ids, warnings } = deriveNodeIdsForSiblings(idInputs, parentId);
   const siblings = enriched.map(({ hit, fields }, i) => ({ hit, fields, id: ids[i]! }));
   return { siblings, warnings };
+}
+
+function applySiblingInputLabels(enriched: Array<{ hit: HostHit; fields: ExtractedFields }>): void {
+  for (let i = 0; i < enriched.length; i++) {
+    const current = enriched[i]!;
+    if (current.hit.kind !== "input") continue;
+    if (current.fields.name || current.fields.text || current.fields.accessibility_label) continue;
+    const label = previousTextLabel(enriched, i);
+    if (label) current.fields.name = label;
+  }
+}
+
+function previousTextLabel(
+  enriched: Array<{ hit: HostHit; fields: ExtractedFields }>,
+  index: number,
+): string | undefined {
+  for (let i = index - 1; i >= 0; i--) {
+    const previous = enriched[i]!;
+    if (previous.hit.kind !== "text") return undefined;
+    const label = previous.fields.name;
+    if (typeof label === "string" && label.trim().length > 0) {
+      return truncateToWords(label, INFERRED_LABEL_MAX_WORDS);
+    }
+  }
+  return undefined;
 }
 
 function buildSubtree(hits: HostHit[], parentId: string): BuildResult {

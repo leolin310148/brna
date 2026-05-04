@@ -164,6 +164,41 @@ function hasAttribute(openingElement, name) {
   );
 }
 
+function isReactFragmentImportBinding(binding) {
+  if (!binding || !binding.path || !binding.path.node) return false;
+  const node = binding.path.node;
+  const parent = binding.path.parent;
+  return (
+    node.type === "ImportSpecifier" &&
+    node.imported &&
+    node.imported.type === "Identifier" &&
+    node.imported.name === "Fragment" &&
+    parent &&
+    parent.type === "ImportDeclaration" &&
+    parent.source &&
+    parent.source.value === "react"
+  );
+}
+
+function isReactFragmentOpening(astPath) {
+  const name = astPath.node && astPath.node.name;
+  if (!name) return false;
+  if (
+    name.type === "JSXMemberExpression" &&
+    name.object &&
+    name.object.type === "JSXIdentifier" &&
+    name.object.name === "React" &&
+    name.property &&
+    name.property.type === "JSXIdentifier" &&
+    name.property.name === "Fragment"
+  ) {
+    return true;
+  }
+  if (name.type !== "JSXIdentifier") return false;
+  if (name.name !== "Fragment") return false;
+  return isReactFragmentImportBinding(astPath.scope.getBinding(name.name));
+}
+
 function stableElementId(sourceValue) {
   return crypto.createHash("sha256").update(sourceValue).digest("hex").slice(0, 12);
 }
@@ -365,6 +400,7 @@ module.exports = function brnaInjectAutoEntry(api) {
         if (process.env.NODE_ENV === "production") return;
 
         const node = astPath.node;
+        if (isReactFragmentOpening(astPath)) return;
         if (hasSpreadAttribute(node)) return;
 
         const loc = node.loc || (astPath.parent && astPath.parent.loc);

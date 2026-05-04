@@ -225,6 +225,47 @@ describe("extractNodeFields via walkFiberRoot", () => {
     expect(node.range).toBeUndefined();
   });
 
+  test("skips subtrees hidden from accessibility", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RCTView",
+        props: { importantForAccessibility: "no-hide-descendants" },
+        children: [
+          { type: "RCTView", props: { testID: "stale", onResponderRelease: () => {} } },
+        ],
+      }),
+    );
+    expect(walkFiberRoot(root, "screen:root").rootChildren).toEqual([]);
+  });
+
+  test("skips inactive react-native-screens subtrees", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RNSScreen",
+        props: { activityState: 0 },
+        children: [
+          { type: "RCTText", props: { children: "Old route" } },
+        ],
+      }),
+    );
+    expect(walkFiberRoot(root, "screen:root").rootChildren).toEqual([]);
+  });
+
+  test("keeps active react-native-screens subtrees", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RNSScreen",
+        props: { activityState: 2 },
+        children: [
+          { type: "RCTText", props: { children: "Current route" } },
+        ],
+      }),
+    );
+    const node = walkFiberRoot(root, "screen:root").rootChildren[0]!;
+    expect(node.kind).toBe("text");
+    expect(node.name).toBe("Current route");
+  });
+
   test("accessibilityActions and importantForAccessibility are dropped", () => {
     const root = makeRoot(
       makeFiber({

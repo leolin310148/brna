@@ -71,6 +71,7 @@ describe("input host recognition", () => {
     expect(node.kind).toBe("input");
     expect(node.value).toBe("leo@example.com");
     expect(node.text).toBe("you@example.com");
+    expect(node.name).toBe("you@example.com");
     expect(node.state).toContain("secure");
   });
 
@@ -157,6 +158,22 @@ describe("input host recognition", () => {
     const result = walkFiberRoot(makeRoot(f), "$root");
     const node = result.rootChildren[0]!;
     expect(node.text).toBeUndefined();
+  });
+
+  test("TextInput without own label uses the previous text sibling as name", () => {
+    const f = makeFiber({
+      type: "RCTView",
+      props: { testID: "form" },
+      children: [
+        { type: "RCTText", props: { children: "Email address" } },
+        { type: "RCTSinglelineTextInputView", props: { value: "leo@example.com" } },
+      ],
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const input = result.rootChildren[0]!.children![1]!;
+    expect(input.kind).toBe("input");
+    expect(input.name).toBe("Email address");
+    expect(input.id.startsWith("auto:")).toBe(true);
   });
 
   test("non-captured TextInput props are dropped", () => {

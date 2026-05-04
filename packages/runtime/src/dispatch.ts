@@ -25,6 +25,9 @@ export type DispatchOutcome =
   | { ok: true }
   | { ok: false; code: ActionErrorCode; message: string };
 
+type DispatchFailure = Extract<DispatchOutcome, { ok: false }>;
+type TargetLookup = { ok: true; hit: IdentifiedHit } | DispatchFailure;
+
 interface DispatchOptions {
   // Override for tests; production reads via devtools hook.
   rootsProvider?: () => FiberRoot[];
@@ -57,7 +60,7 @@ export async function dispatchAction(
   }
 }
 
-function fail(code: ActionErrorCode, message: string): DispatchOutcome {
+function fail(code: ActionErrorCode, message: string): DispatchFailure {
   return { ok: false, code, message };
 }
 
@@ -79,7 +82,7 @@ function makeSyntheticEvent(hit: IdentifiedHit): { nativeEvent: { timestamp: num
 function lookupOrStale(
   roots: FiberRoot[],
   action: { target_id: string; selector?: string },
-): { ok: true; hit: IdentifiedHit } | DispatchOutcome {
+): TargetLookup {
   const hit = findHostFiberById(roots, ROOT_ID, action.target_id);
   if (!hit) {
     const selector = action.selector ? ` for selector '${action.selector}'` : "";
@@ -90,6 +93,28 @@ function lookupOrStale(
   }
   if (isDisabledHit(hit)) return fail("target_disabled", `target_id '${action.target_id}' is disabled`);
   return { ok: true, hit };
+}
+
+function firstEnabledHit(
+  roots: FiberRoot[],
+  supportsAction: (hit: IdentifiedHit) => boolean,
+): IdentifiedHit | null {
+  const hits = walkLive(roots, ROOT_ID);
+  for (const hit of hits) {
+    if (isDisabledHit(hit)) continue;
+    if (supportsAction(hit)) return hit;
+  }
+  return null;
+}
+
+function lookupSyntheticRootTarget(
+  roots: FiberRoot[],
+  capability: string,
+  supportsAction: (hit: IdentifiedHit) => boolean,
+): TargetLookup {
+  const hit = firstEnabledHit(roots, supportsAction);
+  if (hit) return { ok: true, hit };
+  return fail("action_not_supported", `target_id '${ROOT_ID}' has no ${capability} descendants`);
 }
 
 function dispatchTap(roots: FiberRoot[], action: TapActionRequest): DispatchOutcome {
@@ -192,7 +217,9 @@ function dispatchType(roots: FiberRoot[], action: TypeActionRequest): DispatchOu
 }
 
 function dispatchScroll(roots: FiberRoot[], action: ScrollActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action);
+  const found = action.target_id === ROOT_ID
+    ? lookupSyntheticRootTarget(roots, "scrollable", (hit) => findScrollableInstance(hit.fiber) !== null)
+    : lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const distance = action.by ?? DEFAULT_SCROLL_BY;
   // Host fibers (RCTScrollView, AndroidHorizontalScrollView, ScrollView) have
@@ -235,7 +262,9 @@ function dispatchScroll(roots: FiberRoot[], action: ScrollActionRequest): Dispat
 }
 
 function dispatchSwipe(roots: FiberRoot[], action: SwipeActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action);
+  const found = action.target_id === ROOT_ID
+    ? lookupSyntheticRootTarget(roots, "swipe-capable", (hit) => findResponderHandlers(hit.fiber) !== null)
+    : lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const responder = findResponderHandlers(found.hit.fiber);
   if (!responder) {

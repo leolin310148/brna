@@ -450,6 +450,27 @@ describe("dispatchAction scroll", () => {
     expect(arg).toEqual({ offset: 200, animated: false });
   });
 
+  test("uses the first scrollable descendant for synthetic screen root", async () => {
+    let arg: unknown = null;
+    const root = makeFiber({
+      type: "RCTView",
+      props: { testID: "container" },
+      children: [
+        {
+          type: "RCTScrollView",
+          props: { testID: "feed" },
+          stateNode: { scrollTo: (a: unknown) => (arg = a) },
+        },
+      ],
+    });
+    const out = await dispatchAction(
+      { kind: "scroll", selector: "@screen:root", target_id: "screen:root", direction: "down", by: 300 },
+      { rootsProvider: rootsFor(root) },
+    );
+    expect(out.ok).toBe(true);
+    expect(arg).toEqual({ x: 0, y: 300, animated: false });
+  });
+
   test("returns action_not_supported when neither api exists", async () => {
     const root = makeFiber({ type: "RCTView", props: { testID: "feed" } });
     const out = await dispatchAction(
@@ -636,6 +657,31 @@ describe("dispatchAction swipe", () => {
     );
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe("action_not_supported");
+  });
+
+  test("uses the first swipe-capable descendant for synthetic screen root", async () => {
+    const calls: string[] = [];
+    const root = makeFiber({
+      type: "RCTView",
+      props: { testID: "container" },
+      children: [
+        {
+          type: "RCTView",
+          props: {
+            testID: "pane",
+            onResponderMove: () => calls.push("move"),
+            onResponderRelease: () => calls.push("release"),
+          },
+          stateNode: { __brnaBounds: { x: 0, y: 10, w: 100, h: 40 } },
+        },
+      ],
+    });
+    const out = await dispatchAction(
+      { kind: "swipe", selector: "@screen:root", target_id: "screen:root", direction: "left", by: 100 },
+      { rootsProvider: rootsFor(root) },
+    );
+    expect(out.ok).toBe(true);
+    expect(calls).toEqual(["move", "release"]);
   });
 
   test("respects disabled state", async () => {

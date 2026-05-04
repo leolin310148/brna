@@ -67,6 +67,22 @@ describe("__brnaSource injection in JSXOpeningElement", () => {
     expect(out).not.toContain("__brna_id");
   });
 
+  test("skips React.Fragment while still injecting child elements", () => {
+    const out = transform("const x = <React.Fragment><View /></React.Fragment>;");
+    expect(out).toContain("<React.Fragment>");
+    expect(out).toContain('__brnaSource="packages/babel-plugin/__tests__/App.tsx:1:26"');
+    expect(out.match(/__brnaSource="/g)?.length).toBe(1);
+    expect(out.match(/__brna_id="/g)?.length).toBe(1);
+  });
+
+  test("skips Fragment imported from React while still injecting child elements", () => {
+    const out = transform("import { Fragment } from 'react';\nconst x = <Fragment><View /></Fragment>;");
+    expect(out).toContain("<Fragment>");
+    expect(out).toContain('__brnaSource="packages/babel-plugin/__tests__/App.tsx:2:20"');
+    expect(out.match(/__brnaSource="/g)?.length).toBe(1);
+    expect(out.match(/__brna_id="/g)?.length).toBe(1);
+  });
+
   test("skips files inside node_modules", () => {
     const out = transform("const x = <View />;", {
       filename: path.join(REPO_ROOT, "node_modules", "react-native", "Libraries", "View.js"),
