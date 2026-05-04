@@ -66,11 +66,12 @@ function generateForNode(
     push(`@${node.id}`);
   }
 
-  if (node.role && node.name) {
-    push(`${node.role}:${node.name}`);
+  const roleOrKind = node.role ?? node.kind;
+  if (roleOrKind && node.name) {
+    push(`${roleOrKind}:${node.name}`);
     const ancestor = nearestStableAncestor(ancestors);
     if (ancestor) {
-      push(`${node.role}:${node.name} in #${ancestor.id}`);
+      push(`${roleOrKind}:${node.name} in #${ancestor.id}`);
     }
   }
 

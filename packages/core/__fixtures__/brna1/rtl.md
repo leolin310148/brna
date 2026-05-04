@@ -8,4 +8,4 @@ title: ברוכים הבאים
 ## tree
 - screen#screen-rtl
   - heading "ברוכים הבאים"
-  - button#submit-btn "שלח" → tap [#submit-btn]
+  - button#submit-btn "שלח" → tap #submit-btn

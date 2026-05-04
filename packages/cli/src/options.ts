@@ -1,5 +1,5 @@
 export const DEFAULT_METRO_URL = "http://localhost:8081";
-export const DEFAULT_TIMEOUT_MS = 5000;
+export const DEFAULT_TIMEOUT_MS = 10000;
 const IN_FLIGHT_RETRY_MS = 2000;
 const IN_FLIGHT_RETRY_DELAY_MS = 100;
 

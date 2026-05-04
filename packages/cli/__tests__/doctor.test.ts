@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compareSemver, patchBabelConfig, patchMetroConfig, registerPlugin, runDoctor } from "../src/doctor.js";
+import { bundlePathFromMain, compareSemver, patchBabelConfig, patchMetroConfig, registerPlugin, runDoctor } from "../src/doctor.js";
 
 interface Capture {
   code: number;
@@ -170,6 +170,29 @@ describe("brna doctor", () => {
     expect(res.stdout).toContain("fingerprint missing");
   });
 
+  test("babel fingerprint check uses package.json main for Expo Router", async () => {
+    const seen: string[] = [];
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({
+        main: "expo-router/entry",
+        dependencies: { expo: "50.0.0", react: "18.2.0", "react-native": "0.74.0" },
+      }),
+      "/proj/app.config.js": "module.exports = { plugins: ['@brna/expo-plugin'] };\n",
+    };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      seen.push(url);
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) return new Response(JSON.stringify({ devices: [{ id: "dev-a" }] }), { status: 200 });
+      if (url.includes("/node_modules/expo-router/entry.bundle")) return new Response("__brnaSource", { status: 200 });
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(0);
+    expect(seen.some((url) => url.includes("/node_modules/expo-router/entry.bundle"))).toBe(true);
+    expect(res.stdout).toContain("@brna/expo-plugin registered");
+  });
+
   test("compatibility matrix reports outdated react native", async () => {
     const fs: FsMap = {
       "/proj/package.json": JSON.stringify({
@@ -252,6 +275,21 @@ describe("brna doctor", () => {
     expect(fs["/proj/metro.config.js"]).toContain("module.exports = withBrna(config);");
   });
 
+  test("--fix falls back to direct Babel and Metro patches for dynamic Expo config", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({ dependencies: { expo: "50.0.0", react: "18.2.0", "react-native": "0.74.0" } }),
+      "/proj/app.config.js": "module.exports = ({ config }) => ({ ...config, plugins: [] });\n",
+      "/proj/babel.config.js": "module.exports = { presets: ['babel-preset-expo'] };\n",
+      "/proj/metro.config.js": "const config = {};\nmodule.exports = config;\n",
+    };
+    const res = await run(["--fix"], { fs, fetchImpl: okFetch, confirm: () => true });
+    expect(res.code).toBe(0);
+    expect(fs["/proj/babel.config.js"]).toContain("@brna/babel-plugin");
+    expect(fs["/proj/metro.config.js"]).toContain("@brna/metro-plugin");
+    expect(res.stdout).toContain("app.config.js is dynamic");
+    expect(res.stdout).toContain("manual babel + metro setup configured via --fix");
+  });
+
   test("--fix skips writes when confirmation is declined", async () => {
     const fs: FsMap = {
       "/proj/package.json": JSON.stringify({ dependencies: { react: "18.2.0", "react-native": "0.74.0" } }),
@@ -303,6 +341,18 @@ describe("patch config utilities", () => {
     const out = patchMetroConfig("const config = {};\nmodule.exports = config;\n");
     expect(out).toContain("const { withBrna } = require('@brna/metro-plugin');");
     expect(out).toContain("module.exports = withBrna(config);");
+  });
+});
+
+describe("bundlePathFromMain", () => {
+  test("maps Expo Router entry to Metro node_modules bundle path", () => {
+    expect(bundlePathFromMain("expo-router/entry")).toBe("node_modules/expo-router/entry");
+  });
+
+  test("defaults to index and strips extensions", () => {
+    expect(bundlePathFromMain(undefined)).toBe("index");
+    expect(bundlePathFromMain("./index.js")).toBe("index");
+    expect(bundlePathFromMain("./src/main.tsx")).toBe("src/main");
   });
 });
 

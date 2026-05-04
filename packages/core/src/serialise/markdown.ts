@@ -186,7 +186,7 @@ export function nodeLine(node: Node): string {
   if (node.state && node.state.length > 0) parts.push(`[${[...node.state].sort().join(", ")}]`);
   if (node.actions && node.actions.length > 0) {
     const canonical = canonicalSelectorForLine(node);
-    const ref = canonical ? ` [${canonical}]` : "";
+    const ref = canonical ? ` ${canonical}` : "";
     parts.push(`→ ${node.actions[0]}${ref}`);
   }
   const alternateSelectors = formatAlternateSelectors(node);

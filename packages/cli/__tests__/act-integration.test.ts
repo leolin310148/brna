@@ -294,6 +294,7 @@ describe("act HTTP error mapping", () => {
     expect(r.status).toBe(5);
     expect(r.stdout).toBe("");
     expect(r.stderr).toContain("action refused: target_disabled");
+    expect(r.stderr).toContain("node is disabled");
   });
 
   test("malformed 502 body exits 6", async () => {

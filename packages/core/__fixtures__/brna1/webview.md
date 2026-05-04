@@ -7,5 +7,5 @@ title: Terms of Service
 
 ## tree
 - screen#screen-tos
-  - button#back-btn "Back" → tap [#back-btn]
+  - button#back-btn "Back" → tap #back-btn
   - webview#tos-webview "Terms of Service"

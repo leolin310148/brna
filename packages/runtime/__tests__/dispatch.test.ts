@@ -128,6 +128,10 @@ describe("dispatchAction tap", () => {
       { rootsProvider: rootsFor(root) },
     );
     expect(out).toEqual({ ok: false, code: "target_stale", message: expect.any(String) as never });
+    if (!out.ok) {
+      expect(out.message).toContain("selector '#ghost'");
+      expect(out.message).toContain("re-run brna snapshot");
+    }
   });
 
   test("returns target_disabled when accessibilityState.disabled is true", async () => {
@@ -454,6 +458,30 @@ describe("dispatchAction scroll", () => {
     );
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe("action_not_supported");
+  });
+
+  test("suggests nearest scrollable ancestor when target is inside a scrollable", async () => {
+    const root = makeFiber({
+      type: "RCTScrollView",
+      props: { testID: "feed" },
+      stateNode: { scrollTo: () => {} },
+      children: [
+        {
+          type: "RCTView",
+          props: { testID: "item" },
+        },
+      ],
+    });
+    const out = await dispatchAction(
+      { kind: "scroll", selector: "#item", target_id: "item", direction: "down" },
+      { rootsProvider: rootsFor(root) },
+    );
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.code).toBe("action_not_supported");
+      expect(out.message).toContain("target_id 'item' is not scrollable");
+      expect(out.message).toContain("nearest scrollable ancestor is #feed");
+    }
   });
 
   test("walks up fiber.return to find composite scrollTo on RCTScrollView host", async () => {

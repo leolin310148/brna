@@ -12,5 +12,5 @@ modal_stack: [address-edit]
   - modal#address-edit
     - heading "Edit address"
     - input#street-input "Street" = "123 Main St"
-    - button#save-btn "Save" [disabled] → tap [#save-btn]
-    - button#cancel-btn "Cancel" → tap [#cancel-btn]
+    - button#save-btn "Save" [disabled] → tap #save-btn
+    - button#cancel-btn "Cancel" → tap #cancel-btn

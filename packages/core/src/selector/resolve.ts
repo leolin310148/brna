@@ -55,7 +55,7 @@ function matchesLeaf(ast: SelectorAST, node: Node): boolean {
     case "testid":
       return node.id === ast.testID;
     case "role-name":
-      return node.role === ast.role && node.name === ast.name;
+      return (node.role === ast.role || node.kind === ast.role) && node.name === ast.name;
     case "text": {
       const haystack = node.text ?? node.name ?? "";
       let cursor = 0;

@@ -7,9 +7,9 @@ title: Checkout
 
 ## tree
 - screen#screen-checkout selectors=[@screen-checkout]
-  - button#submit "Pay Now" → tap [#submit] selectors=[@submit, button:Pay Now]
+  - button#submit "Pay Now" → tap #submit selectors=[@submit, button:Pay Now]
   - region#form-address selectors=[@form-address]
-    - button "Save" → tap [button:Save in #form-address]
+    - button "Save" → tap button:Save in #form-address
   - region#form-payment selectors=[@form-payment]
-    - button "Save" → tap [button:Save in #form-payment]
+    - button "Save" → tap button:Save in #form-payment
   - text selectors=[By...terms, By...agree...terms]

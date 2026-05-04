@@ -45,16 +45,17 @@ const withBrna: ConfigPlugin = (config) => {
     withDangerousMod = undefined;
   }
   if (!withDangerousMod) return config;
-  return withDangerousMod(config, [
-    "ios",
-    async (cfg: ExpoConfig & { modRequest?: { projectRoot?: string } }) => {
-      const root = cfg.modRequest?.projectRoot;
-      if (typeof root === "string" && root.length > 0) {
-        ensureBabelConfig(root);
-        ensureMetroConfig(root);
-      }
-      return cfg;
-    },
+  const patchProject = async (cfg: ExpoConfig & { modRequest?: { projectRoot?: string } }) => {
+    const root = cfg.modRequest?.projectRoot;
+    if (typeof root === "string" && root.length > 0) {
+      ensureBabelConfig(root);
+      ensureMetroConfig(root);
+    }
+    return cfg;
+  };
+  return withDangerousMod(withDangerousMod(config, ["ios", patchProject]), [
+    "android",
+    patchProject,
   ]);
 };
 

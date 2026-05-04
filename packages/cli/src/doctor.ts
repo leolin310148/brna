@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import {
   DEFAULT_METRO_URL,
@@ -74,7 +75,7 @@ export async function runDoctor(rest: string[], runtime: DoctorRuntime = {}): Pr
   checks.push(await checkMetroReachable(metro, timeoutMs, runtime.fetch ?? fetch));
   if (checks[0]!.status === "ok") {
     checks.push(await checkRuntimeConnected(metro, timeoutMs, runtime.fetch ?? fetch));
-    checks.push(await checkBabelFingerprint(metro, timeoutMs, runtime.fetch ?? fetch));
+    checks.push(await checkBabelFingerprint(cwd(), metro, timeoutMs, runtime));
   } else {
     checks.push({ name: "runtime", status: "skip", message: "skipped (metro unreachable)" });
     checks.push({ name: "babel-plugin", status: "skip", message: "skipped (metro unreachable)" });
@@ -85,15 +86,20 @@ export async function runDoctor(rest: string[], runtime: DoctorRuntime = {}): Pr
   let fixed = false;
   if (fix) {
     const fixResults = await applyFixes(cwd(), runtime, stdout);
+    const patchedManualSetup =
+      fixResults.some((r) => r.name === "fix-babel" && r.status === "ok") &&
+      fixResults.some((r) => r.name === "fix-metro" && r.status === "ok");
     for (const fixResult of fixResults) {
       checks.push(fixResult);
       if (fixResult.status === "ok") {
         fixed = true;
-        // Re-mark the earlier expo-plugin check now that the fix has run.
+        // Re-mark the earlier expo-plugin check now that setup has run.
         for (const c of checks) {
           if (c.name === "expo-plugin" && c.status === "fail") {
             c.status = "ok";
-            c.message = `${EXPO_PLUGIN_NAME} registered (via --fix)`;
+            c.message = patchedManualSetup
+              ? "not used (manual babel + metro setup configured via --fix)"
+              : `${EXPO_PLUGIN_NAME} registered (via --fix)`;
           }
         }
       }
@@ -242,14 +248,17 @@ function formatDevicePlatform(device: RecentDisconnectedDevice): string {
 }
 
 async function checkBabelFingerprint(
+  projectRoot: string,
   metro: string,
   timeoutMs: number,
-  fetchImpl: typeof fetch,
+  runtime: DoctorRuntime,
 ): Promise<CheckResult> {
+  const fetchImpl = runtime.fetch ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetchImpl(`${metro}/index.bundle?platform=ios&dev=true&minify=false`, {
+    const bundlePath = await bundlePathForProject(projectRoot, runtime);
+    const res = await fetchImpl(`${metro}/${bundlePath}.bundle?platform=ios&dev=true&minify=false`, {
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -280,18 +289,39 @@ async function checkBabelFingerprint(
 }
 
 interface PackageJson {
+  main?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
 }
 
+async function bundlePathForProject(projectRoot: string, runtime: DoctorRuntime): Promise<string> {
+  const pkg = await readPackageJson(projectRoot, runtime);
+  return bundlePathFromMain(pkg?.main);
+}
+
+export function bundlePathFromMain(main: string | undefined): string {
+  const raw = typeof main === "string" && main.trim().length > 0 ? main.trim() : "index";
+  const withoutDot = raw.startsWith("./") ? raw.slice(2) : raw;
+  const withoutExt = withoutDot.replace(/\.(mjs|cjs|js|jsx|ts|tsx)$/, "");
+  if (withoutExt.startsWith("node_modules/")) return withoutExt;
+  if (withoutExt === "expo-router/entry" || withoutExt.startsWith("@")) {
+    return `node_modules/${withoutExt}`;
+  }
+  if (
+    !withoutExt.startsWith(".") &&
+    withoutExt.includes("/") &&
+    !withoutExt.startsWith("src/") &&
+    !withoutExt.startsWith("app/")
+  ) {
+    return `node_modules/${withoutExt}`;
+  }
+  return withoutExt.replace(/^\/+/, "");
+}
+
 async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promise<CheckResult[]> {
   const out: CheckResult[] = [];
-  const pkgPath = resolve(projectRoot, "package.json");
-  let pkg: PackageJson;
-  try {
-    const raw = await (runtime.readFile ?? readFile)(pkgPath, "utf8");
-    pkg = JSON.parse(raw) as PackageJson;
-  } catch {
+  const pkg = await readPackageJson(projectRoot, runtime);
+  if (!pkg) {
     out.push({ name: "package", status: "skip", message: "no package.json found in cwd" });
     return out;
   }
@@ -332,7 +362,7 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
       out.push({
         name: "expo-plugin",
         status: "warn",
-        message: "no app.json/app.config.json found",
+        message: "no Expo app config found",
       });
     } else if (hasBrnaPlugin(appConfig.parsed)) {
       out.push({ name: "expo-plugin", status: "ok", message: `${EXPO_PLUGIN_NAME} registered` });
@@ -346,6 +376,16 @@ async function checkProject(projectRoot: string, runtime: DoctorRuntime): Promis
   }
 
   return out;
+}
+
+async function readPackageJson(projectRoot: string, runtime: DoctorRuntime): Promise<PackageJson | null> {
+  const pkgPath = resolve(projectRoot, "package.json");
+  try {
+    const raw = await (runtime.readFile ?? readFile)(pkgPath, "utf8");
+    return JSON.parse(raw) as PackageJson;
+  } catch {
+    return null;
+  }
 }
 
 async function hasManualBrnaSetup(projectRoot: string, runtime: DoctorRuntime): Promise<boolean> {
@@ -380,21 +420,58 @@ async function hasPatchedConfig(
 
 interface AppConfig {
   path: string;
+  editable: boolean;
   parsed: { expo?: { plugins?: unknown[] }; plugins?: unknown[] };
 }
 
 async function readAppConfig(projectRoot: string, runtime: DoctorRuntime): Promise<AppConfig | null> {
+  const resolved = readResolvedExpoConfig(projectRoot);
+  if (resolved) return resolved;
+
   const candidates = ["app.json", "app.config.json"];
   for (const name of candidates) {
     const path = resolve(projectRoot, name);
     try {
       const raw = await (runtime.readFile ?? readFile)(path, "utf8");
-      return { path, parsed: JSON.parse(raw) as AppConfig["parsed"] };
+      return { path, editable: true, parsed: JSON.parse(raw) as AppConfig["parsed"] };
+    } catch {
+      /* try next */
+    }
+  }
+  for (const name of ["app.config.js", "app.config.cjs", "app.config.mjs", "app.config.ts"]) {
+    const path = resolve(projectRoot, name);
+    try {
+      const raw = await (runtime.readFile ?? readFile)(path, "utf8");
+      return {
+        path,
+        editable: false,
+        parsed: { plugins: raw.includes(EXPO_PLUGIN_NAME) ? [EXPO_PLUGIN_NAME] : [] },
+      };
     } catch {
       /* try next */
     }
   }
   return null;
+}
+
+function readResolvedExpoConfig(projectRoot: string): AppConfig | null {
+  try {
+    const projectRequire = createRequire(resolve(projectRoot, "package.json"));
+    const expoConfig = projectRequire("@expo/config") as {
+      getConfig?: (root: string, opts?: Record<string, unknown>) => {
+        exp?: { plugins?: unknown[] };
+        dynamicConfigPath?: string;
+        staticConfigPath?: string;
+      };
+    };
+    if (typeof expoConfig.getConfig !== "function") return null;
+    const result = expoConfig.getConfig(projectRoot, { skipSDKVersionRequirement: true });
+    const path = result.dynamicConfigPath ?? result.staticConfigPath ?? resolve(projectRoot, "app.config.js");
+    const editable = Boolean(result.staticConfigPath && !result.dynamicConfigPath);
+    return { path, editable, parsed: { expo: result.exp ?? {} } };
+  } catch {
+    return null;
+  }
 }
 
 function pluginsArray(parsed: AppConfig["parsed"]): unknown[] | undefined {
@@ -418,16 +495,10 @@ async function applyFixes(
   runtime: DoctorRuntime,
   stdout: Pick<typeof process.stdout, "write">,
 ): Promise<CheckResult[]> {
-  const pkgPath = resolve(projectRoot, "package.json");
-  let isExpo = false;
-  try {
-    const raw = await (runtime.readFile ?? readFile)(pkgPath, "utf8");
-    const pkg = JSON.parse(raw) as PackageJson;
-    const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
-    isExpo = typeof deps.expo === "string";
-  } catch {
-    return [];
-  }
+  const pkg = await readPackageJson(projectRoot, runtime);
+  if (!pkg) return [];
+  const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  const isExpo = typeof deps.expo === "string";
   if (!isExpo) {
     return applyDirectConfigFixes(projectRoot, runtime, stdout);
   }
@@ -439,7 +510,10 @@ async function applyFixes(
     }];
   }
   const result = await applyExpoFix(projectRoot, runtime, stdout);
-  return [result];
+  if (result.status === "ok") return [result];
+  if (result.message.startsWith("skipped ")) return [result];
+  const direct = await applyDirectConfigFixes(projectRoot, runtime, stdout);
+  return [result, ...direct];
 }
 
 async function applyExpoFix(
@@ -449,10 +523,17 @@ async function applyExpoFix(
 ): Promise<CheckResult> {
   const appConfig = await readAppConfig(projectRoot, runtime);
   if (!appConfig) {
-    return { name: "fix", status: "fail", message: "no app.json found to register plugin in" };
+    return { name: "fix", status: "warn", message: "no editable Expo app config found; trying direct Babel + Metro setup" };
   }
   if (hasBrnaPlugin(appConfig.parsed)) {
     return { name: "fix", status: "ok", message: `${EXPO_PLUGIN_NAME} already registered` };
+  }
+  if (!appConfig.editable) {
+    return {
+      name: "fix",
+      status: "warn",
+      message: `${appConfig.path} is dynamic; trying direct Babel + Metro setup`,
+    };
   }
   if (!(await confirmWrite(`Register ${EXPO_PLUGIN_NAME} in ${appConfig.path}?`, runtime, stdout))) {
     return { name: "fix", status: "warn", message: `skipped ${appConfig.path}` };

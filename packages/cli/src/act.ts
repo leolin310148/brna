@@ -366,7 +366,9 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
     } catch {
       fail(6, "malformed runtime error response");
     }
-    fail(5, `action refused: ${body.code ?? "unknown"}`);
+    const code = body.code ?? "unknown";
+    const detail = body.message ? ` — ${body.message}` : "";
+    fail(5, `action refused: ${code}${detail}`);
   }
   const diagnosis = await diagnoseMetroResponse(response, "action endpoint");
   fail(6, diagnosis ?? `unexpected HTTP ${response.status} from Metro`);

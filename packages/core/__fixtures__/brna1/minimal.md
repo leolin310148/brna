@@ -9,4 +9,4 @@ title: Home
 - screen#screen-home
   - region#header [role=header]
     - heading "Home"
-  - button#sign-in-btn "Sign In" → tap [#sign-in-btn]
+  - button#sign-in-btn "Sign In" → tap #sign-in-btn

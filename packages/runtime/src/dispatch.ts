@@ -77,16 +77,22 @@ function makeSyntheticEvent(hit: IdentifiedHit): { nativeEvent: { timestamp: num
 
 function lookupOrStale(
   roots: FiberRoot[],
-  targetId: string,
+  action: { target_id: string; selector?: string },
 ): { ok: true; hit: IdentifiedHit } | DispatchOutcome {
-  const hit = findHostFiberById(roots, ROOT_ID, targetId);
-  if (!hit) return fail("target_stale", `target_id '${targetId}' not found in current tree`);
-  if (isDisabledHit(hit)) return fail("target_disabled", `target_id '${targetId}' is disabled`);
+  const hit = findHostFiberById(roots, ROOT_ID, action.target_id);
+  if (!hit) {
+    const selector = action.selector ? ` for selector '${action.selector}'` : "";
+    return fail(
+      "target_stale",
+      `target_id '${action.target_id}'${selector} is not present in the current tree; re-run brna snapshot and retry with a current selector`,
+    );
+  }
+  if (isDisabledHit(hit)) return fail("target_disabled", `target_id '${action.target_id}' is disabled`);
   return { ok: true, hit };
 }
 
 function dispatchTap(roots: FiberRoot[], action: TapActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action.target_id);
+  const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const props = readProps(found.hit);
   const handler =
@@ -106,7 +112,7 @@ function dispatchTap(roots: FiberRoot[], action: TapActionRequest): DispatchOutc
 }
 
 function dispatchLongPress(roots: FiberRoot[], action: LongPressActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action.target_id);
+  const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   // Pressable / TouchableOpacity / TouchableHighlight consume `onLongPress` in
   // their composite (a hook handles the press timer and calls the prop). The
@@ -147,7 +153,7 @@ function findCompositePropFn(
 }
 
 function dispatchType(roots: FiberRoot[], action: TypeActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action.target_id);
+  const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const stateNode = found.hit.fiber.stateNode as { focus?: unknown } | null;
   if (stateNode && typeof stateNode === "object" && typeof stateNode.focus === "function") {
@@ -183,7 +189,7 @@ function dispatchType(roots: FiberRoot[], action: TypeActionRequest): DispatchOu
 }
 
 function dispatchScroll(roots: FiberRoot[], action: ScrollActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action.target_id);
+  const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const distance = action.by ?? DEFAULT_SCROLL_BY;
   // Host fibers (RCTScrollView, AndroidHorizontalScrollView, ScrollView) have
@@ -195,9 +201,13 @@ function dispatchScroll(roots: FiberRoot[], action: ScrollActionRequest): Dispat
   // host (tag=5) or HostRoot (tag=3) so we don't grab an outer container.
   const target = findScrollableInstance(found.hit.fiber);
   if (!target) {
+    const nearest = nearestScrollableAncestor(roots, action.target_id);
+    const hint = nearest
+      ? `; nearest scrollable ancestor is #${nearest.id}`
+      : "";
     return fail(
       "action_not_supported",
-      `target_id '${action.target_id}' has no scrollTo/scrollToOffset`,
+      `target_id '${action.target_id}' is not scrollable${hint}`,
     );
   }
   // `by` is passed directly to the imperative API. Callers that need exact
@@ -222,7 +232,7 @@ function dispatchScroll(roots: FiberRoot[], action: ScrollActionRequest): Dispat
 }
 
 function dispatchSwipe(roots: FiberRoot[], action: SwipeActionRequest): DispatchOutcome {
-  const found = lookupOrStale(roots, action.target_id);
+  const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const responder = findResponderHandlers(found.hit.fiber);
   if (!responder) {
@@ -351,6 +361,20 @@ function findScrollableInstance(start: AnyFiber): ScrollTarget | null {
     const found = readScrollable(current.stateNode);
     if (found) return found;
     current = current.return;
+  }
+  return null;
+}
+
+function nearestScrollableAncestor(roots: FiberRoot[], targetId: string): IdentifiedHit | null {
+  const hits = walkLive(roots, ROOT_ID);
+  const byId = new Map<string, IdentifiedHit>();
+  for (const hit of hits) byId.set(hit.id, hit);
+  let current = byId.get(targetId);
+  while (current) {
+    const parent = byId.get(current.parentId);
+    if (!parent) return null;
+    if (findScrollableInstance(parent.fiber)) return parent;
+    current = parent;
   }
   return null;
 }

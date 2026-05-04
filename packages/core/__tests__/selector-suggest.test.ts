@@ -73,6 +73,40 @@ describe("annotateSuggestedSelectors", () => {
     expect(btn.suggested_selectors).toContain("button:Sign In");
   });
 
+  test("includes kind:name when accessibility role is missing", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [{ id: "auto:sitemap", kind: "button", name: "Sitemap" }],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:sitemap");
+    expect(btn.suggested_selectors).toContain("button:Sitemap");
+    const resolved = resolve("button:Sitemap", result);
+    expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:sitemap");
+  });
+
+  test("ambiguous kind:name uses scoped selector", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "form-address",
+          kind: "region",
+          children: [{ id: "auto:save1", kind: "button", name: "Save" }],
+        },
+        {
+          id: "form-payment",
+          kind: "region",
+          children: [{ id: "auto:save2", kind: "button", name: "Save" }],
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:save1");
+    expect(btn.suggested_selectors).toContain("button:Save in #form-address");
+    expect(btn.suggested_selectors).not.toContain("button:Save");
+  });
+
   test("ambiguous role:name uses scoped selector", () => {
     const result = annotated({
       id: "root",

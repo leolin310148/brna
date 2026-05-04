@@ -44,7 +44,30 @@ npm install @brna/runtime @brna/metro-plugin @brna/babel-plugin
 
 The CLI runs on Node.js 18 or newer.
 
-Register the Expo plugin in `app.json`:
+For managed, EAS, and dev-client Expo apps, wire Babel and Metro directly:
+
+```js
+// babel.config.js
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: ["babel-preset-expo"],
+    plugins: ["@brna/babel-plugin"],
+  };
+};
+```
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require("expo/metro-config");
+const { withBrna } = require("@brna/metro-plugin");
+
+const config = getDefaultConfig(__dirname);
+module.exports = withBrna(config);
+```
+
+If you use a static `app.json` prebuild workflow, you can also register the
+Expo config plugin:
 
 ```json
 {
@@ -54,10 +77,13 @@ Register the Expo plugin in `app.json`:
 }
 ```
 
-Start Metro and your app:
+The config plugin patches Babel and Metro during `expo prebuild`. Direct wiring
+above is the reliable path for `expo start` against an existing dev client.
+
+Start Metro with a cleared cache after changing Babel or Metro config:
 
 ```sh
-npx expo start
+npx expo start --clear
 ```
 
 In another terminal, check the setup:
@@ -66,7 +92,7 @@ In another terminal, check the setup:
 npx brna doctor
 ```
 
-If `doctor` reports a missing Expo plugin, run:
+If `doctor` reports missing setup, run:
 
 ```sh
 npx brna doctor --fix
@@ -160,8 +186,8 @@ can inspect and interact with the running app through one protocol.
 
 ## Manual Expo Setup
 
-The Expo plugin is the recommended setup path. If you prefer direct config,
-add the Babel plugin:
+Manual setup is the recommended path for managed, EAS, and dev-client Expo
+apps that run `expo start` without a local prebuild. Add the Babel plugin:
 
 ```js
 module.exports = function (api) {

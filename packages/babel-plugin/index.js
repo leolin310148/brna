@@ -190,6 +190,32 @@ function collectDisplayNameTargets(programPath) {
   return targets.filter((name) => /^[A-Z]/.test(name) && !hasDisplayNameAssignment(programPath, name));
 }
 
+function isRuntimeAutoRequire(node) {
+  return (
+    node &&
+    node.type === "ExpressionStatement" &&
+    node.expression &&
+    node.expression.type === "CallExpression" &&
+    node.expression.callee &&
+    node.expression.callee.type === "Identifier" &&
+    node.expression.callee.name === "require" &&
+    node.expression.arguments &&
+    node.expression.arguments.length === 1 &&
+    node.expression.arguments[0] &&
+    node.expression.arguments[0].type === "StringLiteral" &&
+    node.expression.arguments[0].value === RUNTIME_AUTO_SPECIFIER
+  );
+}
+
+function isRuntimeAutoImport(node) {
+  return (
+    node &&
+    node.type === "ImportDeclaration" &&
+    node.source &&
+    node.source.value === RUNTIME_AUTO_SPECIFIER
+  );
+}
+
 module.exports = function brnaInjectAutoEntry(api) {
   const t = api && api.types ? api.types : require("@babel/types");
 
@@ -206,10 +232,7 @@ module.exports = function brnaInjectAutoEntry(api) {
           if (!isEntryFilename(filename)) return;
 
           const already = programPath.node.body.some(
-            (n) =>
-              n.type === "ImportDeclaration" &&
-              n.source &&
-              n.source.value === RUNTIME_AUTO_SPECIFIER,
+            (n) => isRuntimeAutoImport(n) || isRuntimeAutoRequire(n),
           );
           if (already) {
             state.brnaInjected = true;
@@ -218,14 +241,18 @@ module.exports = function brnaInjectAutoEntry(api) {
 
           try {
             programPath.node.body.unshift(
-              t.importDeclaration([], t.stringLiteral(RUNTIME_AUTO_SPECIFIER)),
+              t.expressionStatement(
+                t.callExpression(t.identifier("require"), [
+                  t.stringLiteral(RUNTIME_AUTO_SPECIFIER),
+                ]),
+              ),
             );
             state.brnaInjected = true;
           } catch (err) {
             // Surface as a Metro-visible warning but never crash the build.
             // eslint-disable-next-line no-console
             console.warn(
-              "[brna] failed to inject runtime entry import: " +
+              "[brna] failed to inject runtime entry require: " +
                 (err && err.message ? err.message : String(err)),
             );
           }

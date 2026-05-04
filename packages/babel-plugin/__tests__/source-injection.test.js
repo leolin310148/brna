@@ -87,6 +87,32 @@ describe("production mode", () => {
   });
 });
 
+describe("runtime auto entry injection", () => {
+  const entryFilename = path.join(REPO_ROOT, "index.tsx");
+
+  test("injects a CommonJS require into entry files", () => {
+    const out = transform("import App from './App';\nexport default App;", {
+      filename: entryFilename,
+    });
+    expect(out).toContain('require("@brna/runtime/auto");');
+    expect(out).not.toContain('import "@brna/runtime/auto"');
+  });
+
+  test("does not double-inject when require already exists", () => {
+    const out = transform('require("@brna/runtime/auto");\nexport default 1;', {
+      filename: entryFilename,
+    });
+    expect(out.match(/require\("@brna\/runtime\/auto"\);/g)?.length).toBe(1);
+  });
+
+  test("does not double-inject when legacy import already exists", () => {
+    const out = transform('import "@brna/runtime/auto";\nexport default 1;', {
+      filename: entryFilename,
+    });
+    expect(out.match(/@brna\/runtime\/auto/g)?.length).toBe(1);
+  });
+});
+
 describe("displayName supplementation", () => {
   test("assigns displayName for named components without one", () => {
     const out = transform("function Card() { return <View />; }");

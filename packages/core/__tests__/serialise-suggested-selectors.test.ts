@@ -161,6 +161,6 @@ describe("Markdown projection — suggested_selectors", () => {
         ],
       }),
     );
-    expect(md).toContain("[button:Save in #root]");
+    expect(md).toContain("→ tap button:Save in #root");
   });
 });
