@@ -76,8 +76,10 @@ describe("brna doctor", () => {
     expect(res.stdout).toContain("runtime:");
   });
 
-  test("missing runtime exits 1 with explicit message", async () => {
-    const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
+  test("missing Expo runtime exits 1 with explicit message", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({ dependencies: { expo: "50.0.0", "react-native": "0.74.0" } }),
+    };
     const fetchImpl: typeof fetch = async (input) => {
       const url = typeof input === "string" ? input : (input as URL).toString();
       if (url.endsWith("/status")) return new Response("ok", { status: 200 });
@@ -89,6 +91,22 @@ describe("brna doctor", () => {
     expect(res.code).toBe(1);
     expect(res.stdout).toContain("no runtime connected");
     expect(res.stdout).toContain("does not support Expo web runtimes");
+  });
+
+  test("missing bare RN runtime gives non-Expo guidance", async () => {
+    const fs: FsMap = { "/proj/package.json": JSON.stringify({}) };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) return new Response(JSON.stringify({ devices: [] }), { status: 200 });
+      if (url.includes("/index.bundle")) return new Response("__brnaSource", { status: 200 });
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("no runtime connected");
+    expect(res.stdout).not.toContain("Expo web");
+    expect(res.stdout).toContain("brna devices");
   });
 
   test("missing runtime reports last-seen disconnected device when Metro has history", async () => {
@@ -153,6 +171,33 @@ describe("brna doctor", () => {
     expect(res.code).toBe(1);
     expect(res.stdout).toContain("bundle returned HTTP 500");
     expect(res.stdout).toContain("ENOENT");
+  });
+
+  test("bundle error from foreign Metro reports project root mismatch", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({ main: "expo-router/entry" }),
+    };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.endsWith("/status")) return new Response("ok", { status: 200 });
+      if (url.endsWith("/brna/devices")) return new Response(JSON.stringify({ devices: [{ id: "dev-a" }] }), { status: 200 });
+      if (url.includes("/node_modules/expo-router/entry.bundle")) {
+        return new Response(
+          JSON.stringify({
+            type: "UnableToResolveError",
+            originModulePath: "/other/project/.",
+            message: "Unable to resolve module ./node_modules/expo-router/entry",
+          }),
+          { status: 404, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    };
+    const res = await run([], { fs, fetchImpl });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("Metro project root mismatch");
+    expect(res.stdout).toContain("/other/project");
+    expect(res.stdout).toContain("/proj");
   });
 
   test("missing babel fingerprint exits 1", async () => {

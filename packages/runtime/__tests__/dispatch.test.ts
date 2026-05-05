@@ -649,6 +649,29 @@ describe("dispatchAction swipe", () => {
     ]);
   });
 
+  test("swipe synthetic events expose React-compatible no-op helpers", async () => {
+    const calls: string[] = [];
+    const root = makeFiber({
+      type: "RCTView",
+      props: {
+        testID: "pane",
+        onResponderMove: (e: { persist?: () => void; preventDefault?: () => void; stopPropagation?: () => void }) => {
+          e.persist?.();
+          e.preventDefault?.();
+          e.stopPropagation?.();
+          calls.push("move");
+        },
+      },
+      stateNode: { __brnaBounds: { x: 0, y: 10, w: 100, h: 40 } },
+    });
+    const out = await dispatchAction(
+      { kind: "swipe", selector: "#pane", target_id: "pane", direction: "up", by: 80 },
+      { rootsProvider: rootsFor(root) },
+    );
+    expect(out.ok).toBe(true);
+    expect(calls).toEqual(["move"]);
+  });
+
   test("returns action_not_supported when no responder handlers exist", async () => {
     const root = makeFiber({ type: "RCTView", props: { testID: "pane" } });
     const out = await dispatchAction(

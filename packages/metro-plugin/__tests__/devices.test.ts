@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { BrnaBridge } from "../src/bridge.js";
+import { BrnaBridge, RUNTIME_LIVE_TTL_MS } from "../src/bridge.js";
 import { handleAction, handleDevices, handleSnapshot } from "../src/middleware.js";
 
 interface MockSocket extends EventEmitter {
@@ -177,6 +177,18 @@ describe("multi-device registry", () => {
     const devices = bridge.listDevices();
     const recent = bridge.listRecentDisconnectedDevices();
     expect(devices).toHaveLength(0);
+    expect(recent[0]!.id).toBe("dev-a");
+    expect(recent[0]!.live).toBe(false);
+  });
+
+  test("runtime without heartbeat ages out of live devices", () => {
+    const bridge = new BrnaBridge();
+    attach(bridge, { device_id: "dev-a", platform: "ios" });
+    const devices = (bridge as unknown as { devices: Map<string, { last_seen_at: number }> }).devices;
+    devices.get("dev-a")!.last_seen_at = Date.now() - RUNTIME_LIVE_TTL_MS - 1;
+
+    expect(bridge.listDevices()).toHaveLength(0);
+    const recent = bridge.listRecentDisconnectedDevices();
     expect(recent[0]!.id).toBe("dev-a");
     expect(recent[0]!.live).toBe(false);
   });

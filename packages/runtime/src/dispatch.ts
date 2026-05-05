@@ -68,10 +68,20 @@ function readProps(hit: IdentifiedHit): Record<string, unknown> {
   return (hit.fiber.memoizedProps ?? hit.fiber.pendingProps ?? {}) as Record<string, unknown>;
 }
 
-function makeSyntheticEvent(hit: IdentifiedHit): { nativeEvent: { timestamp: number; target?: unknown } } {
+interface SyntheticEventLike {
+  nativeEvent: { timestamp: number; target?: unknown };
+  persist: () => void;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}
+
+function makeSyntheticEvent(hit: IdentifiedHit): SyntheticEventLike {
   const stateNode = hit.fiber.stateNode as { _nativeTag?: unknown } | null;
-  const event: { nativeEvent: { timestamp: number; target?: unknown } } = {
+  const event: SyntheticEventLike = {
     nativeEvent: { timestamp: Date.now() },
+    persist: () => {},
+    preventDefault: () => {},
+    stopPropagation: () => {},
   };
   if (stateNode && typeof stateNode === "object" && stateNode._nativeTag !== undefined) {
     event.nativeEvent.target = stateNode._nativeTag;
@@ -334,10 +344,16 @@ function swipeEnd(start: Point, direction: SwipeActionRequest["direction"], dist
 
 function makeTouchEvent(hit: IdentifiedHit, pageX: number, pageY: number): {
   nativeEvent: { timestamp: number; target?: unknown; pageX: number; pageY: number; locationX: number; locationY: number; touches: unknown[]; changedTouches: unknown[] };
+  persist: () => void;
+  preventDefault: () => void;
+  stopPropagation: () => void;
 } {
   const base = makeSyntheticEvent(hit);
   const touch = { pageX, pageY, locationX: pageX, locationY: pageY, target: base.nativeEvent.target };
   return {
+    persist: base.persist,
+    preventDefault: base.preventDefault,
+    stopPropagation: base.stopPropagation,
     nativeEvent: {
       ...base.nativeEvent,
       pageX,

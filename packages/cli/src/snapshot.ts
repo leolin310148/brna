@@ -32,7 +32,7 @@ import { appendTraceEvent } from "./trace.js";
 import { runCapture, type NativePlatform, type SpawnNative } from "./capture.js";
 
 export type SnapshotFormat = "md" | "json" | "yaml";
-const VALID_FORMATS = new Set<string>(["md", "json", "yaml"]);
+const VALID_FORMATS = new Set<string>(["md", "markdown", "json", "yaml"]);
 
 interface ParsedArgs {
   metro: string;
@@ -87,9 +87,9 @@ function parseArgs(rest: string[]): ParsedArgs {
     } else if (token === "--format") {
       const value = rest[++i];
       if (typeof value !== "string" || !VALID_FORMATS.has(value)) {
-        fail(4, `unknown --format value '${value ?? ""}' (expected md|json|yaml)`);
+        fail(4, `unknown --format value '${value ?? ""}' (expected md|markdown|json|yaml)`);
       }
-      format = value as SnapshotFormat;
+      format = value === "markdown" ? "md" : value as SnapshotFormat;
     } else if (token === "--diff") {
       wantsDiff = true;
     } else if (token === "--active-layer") {
@@ -233,7 +233,7 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
   }
 
   if (response.status === 503) {
-    failWith(3, "no runtime connected — start the app first", stderr, exit);
+    failWith(3, `no runtime connected — start the app first${metro === DEFAULT_METRO_URL ? "" : ` with Metro at ${metro}`}, then run brna devices`, stderr, exit);
   }
   if (response.status === 404) {
     failWith(3, `unknown device '${device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);

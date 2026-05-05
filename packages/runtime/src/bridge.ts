@@ -115,7 +115,10 @@ interface IncomingFrame {
 
 let activeSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let heartbeatSocket: WebSocket | null = null;
 const RECONNECT_DELAY_MS = 1000;
+const HEARTBEAT_INTERVAL_MS = 5000;
 
 export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
   if (activeSocket) return;
@@ -143,6 +146,7 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
       ...readAppMetadata(),
       ...readNativeDeviceHints(),
     });
+    startHeartbeat(socket);
   };
 
   socket.onmessage = (event: { data: unknown }) => {
@@ -220,11 +224,13 @@ export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
 
   socket.onclose = () => {
     if (activeSocket === socket) activeSocket = null;
+    stopHeartbeat(socket);
     scheduleReconnect(metroUrl);
   };
 
   socket.onerror = () => {
     if (activeSocket === socket) activeSocket = null;
+    stopHeartbeat(socket);
     try {
       socket.close();
     } catch {
@@ -240,6 +246,11 @@ export function resetBridgeForTests(): void {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  heartbeatSocket = null;
 }
 
 function httpToWs(url: string): string {
@@ -262,6 +273,24 @@ function scheduleReconnect(metroUrl: string): void {
     reconnectTimer = null;
     if (!activeSocket) connectAgent({ metroUrl });
   }, RECONNECT_DELAY_MS);
+}
+
+function startHeartbeat(socket: WebSocket): void {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatSocket = socket;
+  heartbeatTimer = setInterval(() => {
+    if (activeSocket !== socket) return;
+    safeSend(socket, { type: "heartbeat" });
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat(socket: WebSocket): void {
+  if (heartbeatSocket !== socket) return;
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  heartbeatSocket = null;
 }
 
 function handleActionRequest(socket: WebSocket, requestId: string, rawAction: unknown): void {

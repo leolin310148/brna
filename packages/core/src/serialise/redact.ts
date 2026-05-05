@@ -40,6 +40,9 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
   if (node.range?.text !== undefined) {
     node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   }
+  if (Array.isArray(node.suggested_selectors)) {
+    node.suggested_selectors = node.suggested_selectors.map((selector) => applyRules(selector, rules));
+  }
   if (node.children) {
     for (const child of node.children) redactNode(child, rules, redactSecureFields);
   }

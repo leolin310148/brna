@@ -14,6 +14,7 @@ import type {
 export const SNAPSHOT_TIMEOUT_MS = 5000;
 export const ACTION_TIMEOUT_MS = 5000;
 export const OBSERVABILITY_TIMEOUT_MS = 5000;
+export const RUNTIME_LIVE_TTL_MS = 15_000;
 
 export type SnapshotResult =
   | { kind: "snapshot"; snapshot: unknown }
@@ -515,8 +516,11 @@ export class BrnaBridge {
   }
 
   private pruneClosedEntries(): void {
+    const now = Date.now();
     for (const entry of this.devices.values()) {
-      if (entry.ws.readyState !== WebSocket.OPEN) this.markDisconnected(entry);
+      if (entry.ws.readyState !== WebSocket.OPEN || now - entry.last_seen_at > RUNTIME_LIVE_TTL_MS) {
+        this.markDisconnected(entry);
+      }
     }
   }
 

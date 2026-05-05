@@ -170,7 +170,7 @@ describe("CLI --format flag (subprocess, never reaches Metro)", () => {
     });
     expect(result.status).toBe(4);
     expect(result.stderr).toContain("unknown --format value 'xml'");
-    expect(result.stderr).toContain("expected md|json|yaml");
+    expect(result.stderr).toContain("expected md|markdown|json|yaml");
   });
 
   test('--format "" exits 4', () => {
@@ -183,13 +183,13 @@ describe("CLI --format flag (subprocess, never reaches Metro)", () => {
     expect(result.stderr).toContain("unknown --format value");
   });
 
-  test("--format markdown alias is rejected", () => {
+  test("--format markdown alias is accepted", () => {
     const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", "markdown"], {
       env: { ...process.env, NO_COLOR: "1" },
       encoding: "utf8",
       timeout: 5000,
     });
-    expect(result.status).toBe(4);
+    expect(result.status).not.toBe(4);
   });
 
   test("--format JSON (case-different) is rejected", () => {
@@ -329,6 +329,17 @@ describe("snapshot --diff", () => {
     });
     expect(result.code).toBe(3);
     expect(result.stderr).toContain("retry this brna command after the previous command finishes");
+    expect(result.writes).toEqual([]);
+  });
+
+  test("no runtime response points to devices diagnosis", async () => {
+    const result = await runSnapshotInMemory(["--metro", "http://localhost:8091"], {
+      fetchResponse: new Response(JSON.stringify({ error: "no_runtime_connected" }), { status: 503 }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("no runtime connected");
+    expect(result.stderr).toContain("Metro at http://localhost:8091");
+    expect(result.stderr).toContain("brna devices");
     expect(result.writes).toEqual([]);
   });
 

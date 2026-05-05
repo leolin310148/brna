@@ -24,6 +24,15 @@ function snapshot(): Snapshot {
       kind: "screen",
       children: [
         { id: "email", kind: "text", name: "Contact leo@example.com" },
+        {
+          id: "session",
+          kind: "text",
+          name: "Session ready for leo@example.com",
+          suggested_selectors: [
+            "text:Session ready for leo@example.com",
+            "text:Session ready for leo@example.com in #root",
+          ],
+        },
         { id: "password", kind: "input", value: "myPassword123", text: "Secret", state: ["secure"] },
       ],
     },
@@ -36,7 +45,16 @@ describe("snapshot redaction", () => {
       rules: [{ match: { source: "[\\w.+-]+@[\\w-]+\\.[\\w.-]+" }, replace: "<email>" }],
     });
     expect(out).toContain("Contact <email>");
+    expect(out).toContain("Session ready for <email>");
     expect(out).not.toContain("leo@example.com");
+  });
+
+  test("applies regex rules to suggested selectors", () => {
+    const out = toMarkdown(snapshot(), {
+      rules: [{ match: { source: "[\\w.+-]+@[\\w-]+\\.[\\w.-]+" }, replace: "<email>" }],
+    });
+    expect(out).toContain("text:Session ready for <email>");
+    expect(out).not.toContain("text:Session ready for leo@example.com");
   });
 
   test("redacts non-empty secure field values by default", () => {

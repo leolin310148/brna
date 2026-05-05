@@ -19,9 +19,9 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     name: "snapshot",
     aliases: ["snap"],
     description: "Capture the current app snapshot from a connected brna runtime.",
-    usage: "brna snapshot [--format json|md|yaml] [--diff] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna snapshot [--format md|markdown|json|yaml] [--diff] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
     options: [
-      { name: "--format", description: "Select markdown, JSON, or YAML output." },
+      { name: "--format", description: "Select md/markdown, JSON, or YAML output." },
       { name: "--diff", description: "Compare against the rolling session baseline." },
       { name: "--active-layer", description: "Print only active modal, sheet, popover, toast, or overlay nodes in markdown output." },
       { name: "--image", description: "Also write a sidecar PNG screenshot. Requires --image-to." },

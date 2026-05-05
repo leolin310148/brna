@@ -282,7 +282,12 @@ async function runWithSelector(
 
   const snapshot = await fetchSnapshot(shared);
   shared.snapshotBefore = snapshot;
-  const result = resolve(selector, snapshot);
+  let result: ReturnType<typeof resolve>;
+  try {
+    result = resolve(selector, snapshot);
+  } catch (err) {
+    fail(6, `selector resolution failed for '${selector}': ${(err as Error).message}`);
+  }
   if ("none" in result) {
     fail(2, `selector not found: ${selector}`);
   }

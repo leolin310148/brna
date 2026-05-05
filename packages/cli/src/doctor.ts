@@ -78,7 +78,7 @@ export async function runDoctor(rest: string[], runtime: DoctorRuntime = {}): Pr
   const checks: CheckResult[] = [];
   checks.push(await checkMetroReachable(metro, timeoutMs, runtime.fetch ?? fetch));
   if (checks[0]!.status === "ok") {
-    checks.push(await checkRuntimeConnected(metro, timeoutMs, runtime.fetch ?? fetch));
+    checks.push(await checkRuntimeConnected(cwd(), metro, timeoutMs, runtime));
     checks.push(await checkBabelFingerprint(cwd(), metro, timeoutMs, runtime));
   } else {
     checks.push({ name: "runtime", status: "skip", message: "skipped (metro unreachable)" });
@@ -156,10 +156,12 @@ async function checkMetroReachable(
 }
 
 async function checkRuntimeConnected(
+  projectRoot: string,
   metro: string,
   timeoutMs: number,
-  fetchImpl: typeof fetch,
+  runtime: DoctorRuntime,
 ): Promise<CheckResult> {
+  const fetchImpl = runtime.fetch ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -198,7 +200,7 @@ async function checkRuntimeConnected(
       return {
         name: "runtime",
         status: "fail",
-        message: "no runtime connected — brna does not support Expo web runtimes; open an iOS/Android simulator or device and ensure withBrna() wraps Metro",
+        message: await noRuntimeGuidance(projectRoot, metro, runtime),
       };
     }
     return { name: "runtime", status: "ok", message: `${count} runtime(s) connected` };
@@ -210,6 +212,19 @@ async function checkRuntimeConnected(
       message: `could not query devices endpoint: ${(err as Error).message}`,
     };
   }
+}
+
+async function noRuntimeGuidance(projectRoot: string, metro: string, runtime: DoctorRuntime): Promise<string> {
+  const pkg = await readPackageJson(projectRoot, runtime);
+  const deps = { ...(pkg?.dependencies ?? {}), ...(pkg?.devDependencies ?? {}) };
+  const metroHint = metro === DEFAULT_METRO_URL ? "" : ` with --metro ${metro}`;
+  if (typeof deps.expo === "string") {
+    return `no runtime connected — brna does not support Expo web runtimes; open an Expo iOS/Android dev client or simulator${metroHint} and ensure withBrna() wraps Metro`;
+  }
+  if (typeof deps["react-native"] === "string") {
+    return `no runtime connected — start the React Native app with npm run ios or npm run android${metroHint}, then run brna devices to confirm the runtime`;
+  }
+  return "no runtime connected — start the app on an iOS/Android simulator or device, ensure withBrna() wraps Metro, then run brna devices";
 }
 
 interface RecentDisconnectedDevice {
@@ -268,6 +283,14 @@ async function checkBabelFingerprint(
     });
     clearTimeout(timer);
     if (!res.ok) {
+      const mismatch = await diagnoseProjectRootMismatch(res, projectRoot);
+      if (mismatch) {
+        return {
+          name: "babel-plugin",
+          status: "fail",
+          message: mismatch,
+        };
+      }
       return {
         name: "babel-plugin",
         status: "fail",
@@ -291,6 +314,34 @@ async function checkBabelFingerprint(
       message: `could not inspect bundle: ${(err as Error).message}`,
     };
   }
+}
+
+async function diagnoseProjectRootMismatch(response: Response, projectRoot: string): Promise<string | null> {
+  const originPath = await readOriginModulePath(response);
+  if (!originPath || !looksLikeAbsolutePath(originPath)) return null;
+  const servedRoot = resolve(originPath);
+  const currentRoot = resolve(projectRoot);
+  if (isInsideOrEqual(servedRoot, currentRoot)) return null;
+  return `Metro project root mismatch — Metro is serving ${servedRoot} but brna is running in ${currentRoot}. Stop the other Metro server or pass --metro <url>.`;
+}
+
+async function readOriginModulePath(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.clone().json()) as unknown;
+    if (!body || typeof body !== "object") return null;
+    const value = (body as Record<string, unknown>).originModulePath;
+    return typeof value === "string" && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeAbsolutePath(value: string): boolean {
+  return value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
+}
+
+function isInsideOrEqual(candidate: string, root: string): boolean {
+  return candidate === root || candidate.startsWith(root.endsWith("/") ? root : `${root}/`);
 }
 
 interface PackageJson {

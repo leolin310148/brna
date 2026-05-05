@@ -30,6 +30,7 @@ import Base from "../layouts/Base.astro";
       <li><code>#&lt;id&gt;</code> when the node has a stable id (testID or accessibilityIdentifier).</li>
       <li><code>@&lt;testID&gt;</code> as a syntactic alternate for stable-id nodes.</li>
       <li><code>&lt;role&gt;:&lt;name&gt;</code> when role and name resolve uniquely.</li>
+      <li><code>&lt;role&gt;:__&lt;name&gt;__</code> when an inferred icon/group label is also available in its raw exact form.</li>
       <li><code>&lt;role&gt;:&lt;name&gt; in #&lt;ancestor&gt;</code> when role/name needs scoping.</li>
       <li><code>&lt;text&gt;...&lt;text&gt;</code> as a readable text-fragment fallback.</li>
     </ol>
