@@ -389,8 +389,11 @@ export async function runCapture(rest: string[], runtime: CaptureRuntime = {}): 
     );
   }
 
-  const nativeDevice = parsed.nativeDevice ?? deviceRecord?.native_device_id;
-  if (parsed.nativeDevice === undefined && deviceRecord && !deviceRecord.native_device_id) {
+  let nativeDevice = parsed.nativeDevice ?? deviceRecord?.native_device_id;
+  if (parsed.nativeDevice === undefined && nativeDevice === undefined && deviceRecord) {
+    nativeDevice = await resolveSingleNativeDevice(platform, spawnNative, parsed.timeoutMs);
+  }
+  if (parsed.nativeDevice === undefined && deviceRecord && nativeDevice === undefined) {
     // best-effort mapping unavailable; emit a soft hint to stderr but still try
     // platform defaults (booted simulator / lone adb device).
     stderr.write(
@@ -446,6 +449,61 @@ export async function runCapture(rest: string[], runtime: CaptureRuntime = {}): 
     stdout.write(`${outPath}\n`);
   }
   exit(0);
+}
+
+export async function resolveSingleNativeDevice(
+  platform: NativePlatform,
+  spawnNative: SpawnNative,
+  timeoutMs: number,
+): Promise<string | undefined> {
+  if (platform === "android") {
+    const result = await spawnNative({ platform, bin: "adb", args: ["devices"] }, timeoutMs);
+    if (result.status !== 0 || result.spawnError) return undefined;
+    return parseSingleAdbDevice(result.stdout.toString("utf8"));
+  }
+
+  const result = await spawnNative(
+    { platform, bin: "xcrun", args: ["simctl", "list", "devices", "booted", "--json"] },
+    timeoutMs,
+  );
+  if (result.status !== 0 || result.spawnError) return undefined;
+  return parseSingleBootedSimulator(result.stdout.toString("utf8"));
+}
+
+export function parseSingleAdbDevice(text: string): string | undefined {
+  const serials = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.toLowerCase().startsWith("list of devices"))
+    .map((line) => line.split(/\s+/))
+    .filter((cols) => cols[1] === "device")
+    .map((cols) => cols[0]!)
+    .filter((serial) => serial.length > 0);
+  return serials.length === 1 ? serials[0] : undefined;
+}
+
+export function parseSingleBootedSimulator(text: string): string | undefined {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  const devices = (payload as { devices?: unknown }).devices;
+  if (!devices || typeof devices !== "object") return undefined;
+  const udids: string[] = [];
+  for (const list of Object.values(devices as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (!item || typeof item !== "object") continue;
+      const d = item as { state?: unknown; udid?: unknown; isAvailable?: unknown; availabilityError?: unknown };
+      const available = d.isAvailable !== false && d.availabilityError === undefined;
+      if (d.state === "Booted" && typeof d.udid === "string" && d.udid.length > 0 && available) {
+        udids.push(d.udid);
+      }
+    }
+  }
+  return udids.length === 1 ? udids[0] : undefined;
 }
 
 interface FetchedDevice {

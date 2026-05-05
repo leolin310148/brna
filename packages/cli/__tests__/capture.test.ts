@@ -4,6 +4,8 @@ import {
   defaultSpawnNative,
   generateOutputPath,
   mapNativeError,
+  parseSingleAdbDevice,
+  parseSingleBootedSimulator,
   parseCaptureArgs,
   pickNativePlatform,
   runCapture,
@@ -159,6 +161,45 @@ describe("pickNativePlatform", () => {
   test("unknown returns null", () => {
     expect(pickNativePlatform({ device: { id: "x", platform: "web" } })).toBeNull();
     expect(pickNativePlatform({})).toBeNull();
+  });
+});
+
+describe("native target discovery parsers", () => {
+  test("parseSingleAdbDevice returns the lone attached device serial", () => {
+    expect(parseSingleAdbDevice("List of devices attached\nemulator-5554\tdevice\n\n")).toBe(
+      "emulator-5554",
+    );
+  });
+
+  test("parseSingleAdbDevice ignores offline devices and rejects ambiguity", () => {
+    expect(parseSingleAdbDevice("List of devices attached\nemu-1\tdevice\nemu-2\toffline\n")).toBe(
+      "emu-1",
+    );
+    expect(parseSingleAdbDevice("List of devices attached\nemu-1\tdevice\nemu-2\tdevice\n")).toBeUndefined();
+  });
+
+  test("parseSingleBootedSimulator returns a single booted simulator udid", () => {
+    const payload = {
+      devices: {
+        "com.apple.CoreSimulator.SimRuntime.iOS-26-4": [
+          { state: "Shutdown", udid: "A" },
+          { state: "Booted", udid: "B", isAvailable: true },
+        ],
+      },
+    };
+    expect(parseSingleBootedSimulator(JSON.stringify(payload))).toBe("B");
+  });
+
+  test("parseSingleBootedSimulator rejects multiple booted simulators", () => {
+    const payload = {
+      devices: {
+        runtime: [
+          { state: "Booted", udid: "A", isAvailable: true },
+          { state: "Booted", udid: "B", isAvailable: true },
+        ],
+      },
+    };
+    expect(parseSingleBootedSimulator(JSON.stringify(payload))).toBeUndefined();
   });
 });
 
@@ -355,6 +396,31 @@ describe("runCapture (in-memory)", () => {
     expect(observedCmd).not.toBeNull();
     expect(observedCmd!.bin).toBe("adb");
     expect(observedCmd!.args).toEqual(["-s", "emu-9999", "exec-out", "screencap", "-p"]);
+  });
+
+  test("--device resolves a single adb device when runtime lacks native_device_id", async () => {
+    const observed: Array<{ bin: string; args: string[] }> = [];
+    const result = await run(["--device", "expo-2", "--to", "/tmp/w.png"], {
+      devicesPayload: { devices: [{ id: "expo-2", platform: "android" }] },
+      spawn: async (cmd) => {
+        observed.push({ bin: cmd.bin, args: cmd.args });
+        if (cmd.bin === "adb" && cmd.args.join(" ") === "devices") {
+          return {
+            status: 0,
+            stdout: Buffer.from("List of devices attached\nemulator-5554\tdevice\n"),
+            stderr: "",
+          };
+        }
+        return { status: 0, stdout: FAKE_PNG, stderr: "" };
+      },
+    });
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(observed[0]).toEqual({ bin: "adb", args: ["devices"] });
+    expect(observed[1]).toEqual({
+      bin: "adb",
+      args: ["-s", "emulator-5554", "exec-out", "screencap", "-p"],
+    });
   });
 
   test("--device unknown returns clear error", async () => {

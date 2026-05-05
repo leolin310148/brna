@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { NativeModules, Platform } from "react-native";
 import {
   SCHEMA_VERSION,
   validateActionRequest,
@@ -23,12 +23,22 @@ interface AppMetadata {
 }
 
 interface NativeDeviceHints {
+  native_device_id?: string;
   device_name?: string;
   is_simulator?: boolean;
 }
 
 function readNativeDeviceHints(): NativeDeviceHints {
   const hints: NativeDeviceHints = {};
+  const platformConstants = (Platform as unknown as { constants?: Record<string, unknown> }).constants;
+  const serial = platformConstants?.Serial;
+  if (Platform.OS === "android" && typeof serial === "string" && isUsableNativeId(serial)) {
+    hints.native_device_id = serial;
+  }
+  const model = platformConstants?.Model;
+  if (typeof model === "string" && model.length > 0) {
+    hints.device_name = model;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Constants = (require as unknown as (id: string) => unknown)("expo-constants") as
@@ -79,29 +89,113 @@ function readAppMetadata(): AppMetadata {
               ios?: { bundleIdentifier?: string };
               android?: { package?: string };
             };
-            manifest2?: { extra?: { expoClient?: { name?: string; version?: string } } };
+            manifest2?: {
+              extra?: {
+                expoClient?: {
+                  name?: string;
+                  version?: string;
+                  ios?: { bundleIdentifier?: string };
+                  android?: { package?: string };
+                };
+              };
+            };
+            expoGoConfig?: {
+              name?: string;
+              version?: string;
+              ios?: { bundleIdentifier?: string };
+              android?: { package?: string };
+            };
+            nativeAppVersion?: string;
           };
         }
       | undefined;
-    const expoConfig = Constants?.default?.expoConfig ?? Constants?.default?.manifest;
-    if (expoConfig) {
-      if (typeof expoConfig.name === "string" && expoConfig.name.length > 0) {
-        meta.app_name = expoConfig.name;
-      }
-      if (typeof expoConfig.version === "string" && expoConfig.version.length > 0) {
-        meta.app_version = expoConfig.version;
-      }
-      const bundleId = Platform.OS === "android"
-        ? expoConfig.android?.package
-        : expoConfig.ios?.bundleIdentifier;
-      if (typeof bundleId === "string" && bundleId.length > 0) {
-        meta.app_bundle_id = bundleId;
-      }
-    }
+    applyExpoConstantsMetadata(meta, Constants?.default);
   } catch {
     /* expo-constants is optional — bare RN apps will hit this branch */
   }
+  applyExpoConstantsMetadata(meta, readNativeExpoConstants());
   return meta;
+}
+
+function applyExpoConstantsMetadata(meta: AppMetadata, rawConstants: unknown): void {
+  if (!rawConstants || typeof rawConstants !== "object") return;
+  const constants = rawConstants as Record<string, unknown>;
+  const configs = [
+    constants.expoConfig,
+    constants.manifest,
+    readPath(constants, ["manifest2", "extra", "expoClient"]),
+    constants.expoGoConfig,
+  ];
+  for (const rawConfig of configs) {
+    const parsed = parseMaybeJsonObject(rawConfig);
+    if (!parsed) continue;
+    const config = unwrapExpoConfig(parsed);
+    if (meta.app_name === undefined) {
+      const name = readString(config, "name");
+      if (name) meta.app_name = name;
+    }
+    if (meta.app_version === undefined) {
+      const version = readString(config, "version");
+      if (version) meta.app_version = version;
+    }
+    if (meta.app_bundle_id === undefined) {
+      const bundleId = Platform.OS === "android"
+        ? readPathString(config, ["android", "package"])
+        : readPathString(config, ["ios", "bundleIdentifier"]);
+      if (bundleId) meta.app_bundle_id = bundleId;
+    }
+  }
+
+  if (meta.app_version === undefined) {
+    const nativeVersion = readString(constants, "nativeAppVersion");
+    if (nativeVersion) meta.app_version = nativeVersion;
+  }
+}
+
+function readNativeExpoConstants(): unknown {
+  const modules = NativeModules as Record<string, unknown>;
+  return modules.ExponentConstants ?? modules.EXConstants;
+}
+
+function parseMaybeJsonObject(value: unknown): Record<string, unknown> | null {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
+  return value && typeof value === "object" ? value as Record<string, unknown> : null;
+}
+
+function unwrapExpoConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const expo = config.expo;
+  return expo && typeof expo === "object" ? expo as Record<string, unknown> : config;
+}
+
+function readString(obj: Record<string, unknown>, key: string): string | null {
+  const value = obj[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readPath(obj: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = obj;
+  for (const part of path) {
+    if (!current || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+function readPathString(obj: Record<string, unknown>, path: string[]): string | null {
+  const value = readPath(obj, path);
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isUsableNativeId(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "unknown" && normalized !== "unavailable";
 }
 
 interface IncomingFrame {

@@ -116,12 +116,24 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
 export function normalizeMarkdown(text: string): string {
   // Strip BOM, normalize line endings, drop trailing whitespace per line, and
   // collapse trailing blank lines so cosmetic differences (CRLF vs LF, trailing
-  // spaces, missing final newline) don't cause spurious failures.
+  // spaces, missing final newline) don't cause spurious failures. Snapshot
+  // markdown also carries volatile capture metadata in the header; normalize it
+  // so unchanged trees can be used directly as goldens.
   const noBom = text.replace(/^﻿/, "");
   const lf = noBom.replace(/\r\n?/g, "\n");
-  const trimmed = lf.split("\n").map((l) => l.replace(/[ \t]+$/, ""));
+  const trimmed = lf
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+$/, ""))
+    .map(normalizeVolatileMarkdownLine);
   while (trimmed.length > 0 && trimmed[trimmed.length - 1] === "") trimmed.pop();
   return trimmed.join("\n") + "\n";
+}
+
+function normalizeVolatileMarkdownLine(line: string): string {
+  if (/^session:\s+.+\s+·\s+\d{4}-\d{2}-\d{2}T/.test(line)) {
+    return "session: <ignored> · <ignored>";
+  }
+  return line;
 }
 
 export function unifiedDiff(a: string, b: string, aLabel: string, bLabel: string): string {

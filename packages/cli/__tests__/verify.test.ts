@@ -63,6 +63,12 @@ describe("normalizeMarkdown", () => {
   test("preserves internal blank lines", () => {
     expect(normalizeMarkdown("a\n\nb\n")).toBe("a\n\nb\n");
   });
+
+  test("normalizes volatile snapshot session header metadata", () => {
+    const a = "# Snapshot · screen:root · android\nsession: abc12345... · 2026-05-05T07:18:35.082Z\n\n## screen\n";
+    const b = "# Snapshot · screen:root · android\nsession: def67890... · 2026-05-05T07:19:32.447Z\n\n## screen\n";
+    expect(normalizeMarkdown(a)).toBe(normalizeMarkdown(b));
+  });
 });
 
 describe("unifiedDiff", () => {
@@ -83,6 +89,20 @@ describe("brna verify", () => {
   test("matching golden exits 0", async () => {
     const fresh = makeSnapshot();
     const golden = toMarkdown(fresh);
+    const res = await run(["golden.md"], { golden, fresh });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("Verification passed");
+  });
+
+  test("timestamp-only markdown header changes pass", async () => {
+    const fresh = makeSnapshot({
+      meta: {
+        ...makeSnapshot().meta,
+        captured_at: "2026-05-01T12:01:00.000Z",
+        session_id: "fresh-session-id",
+      },
+    });
+    const golden = toMarkdown(makeSnapshot());
     const res = await run(["golden.md"], { golden, fresh });
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("Verification passed");
