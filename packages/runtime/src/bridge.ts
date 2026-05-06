@@ -116,6 +116,7 @@ function readAppMetadata(): AppMetadata {
     /* expo-constants is optional — bare RN apps will hit this branch */
   }
   applyExpoConstantsMetadata(meta, readNativeExpoConstants());
+  applyExpoApplicationMetadata(meta, readExpoApplication());
   return meta;
 }
 
@@ -152,11 +153,46 @@ function applyExpoConstantsMetadata(meta: AppMetadata, rawConstants: unknown): v
     const nativeVersion = readString(constants, "nativeAppVersion");
     if (nativeVersion) meta.app_version = nativeVersion;
   }
+  if (meta.app_bundle_id === undefined) {
+    const applicationId = readString(constants, "applicationId");
+    if (applicationId) meta.app_bundle_id = applicationId;
+  }
+  if (meta.app_name === undefined) {
+    const applicationName = readString(constants, "applicationName");
+    if (applicationName) meta.app_name = applicationName;
+  }
 }
 
 function readNativeExpoConstants(): unknown {
   const modules = NativeModules as Record<string, unknown>;
   return modules.ExponentConstants ?? modules.EXConstants;
+}
+
+function readExpoApplication(): unknown {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return (require as unknown as (id: string) => unknown)("expo-application");
+  } catch {
+    return undefined;
+  }
+}
+
+function applyExpoApplicationMetadata(meta: AppMetadata, rawModule: unknown): void {
+  const mod = parseMaybeJsonObject(rawModule);
+  if (!mod) return;
+  const source = parseMaybeJsonObject(mod.default) ?? mod;
+  if (meta.app_name === undefined) {
+    const name = readString(source, "applicationName");
+    if (name) meta.app_name = name;
+  }
+  if (meta.app_bundle_id === undefined) {
+    const bundleId = readString(source, "applicationId");
+    if (bundleId) meta.app_bundle_id = bundleId;
+  }
+  if (meta.app_version === undefined) {
+    const version = readString(source, "nativeApplicationVersion");
+    if (version) meta.app_version = version;
+  }
 }
 
 function parseMaybeJsonObject(value: unknown): Record<string, unknown> | null {

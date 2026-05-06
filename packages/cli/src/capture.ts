@@ -445,9 +445,7 @@ export async function runCapture(rest: string[], runtime: CaptureRuntime = {}): 
     failWith(1, `could not write '${outPath}': ${(err as Error).message}`, stderr, exit);
   }
 
-  if (parsed.to === undefined) {
-    stdout.write(`${outPath}\n`);
-  }
+  stdout.write(`${outPath}\n`);
   exit(0);
 }
 

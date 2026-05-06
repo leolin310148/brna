@@ -85,6 +85,18 @@ describe("annotateSuggestedSelectors", () => {
     expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:sitemap");
   });
 
+  test("unlabeled input fallback names produce addressable selectors", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [{ id: "auto:otp", kind: "input", name: "_unlabeled_0", value: "" }],
+    });
+    const input = findNode(result, (n) => n.id === "auto:otp");
+    expect(input.suggested_selectors).toContain("input:_unlabeled_0");
+    const resolved = resolve("input:_unlabeled_0", result);
+    expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:otp");
+  });
+
   test("ambiguous kind:name uses scoped selector", () => {
     const result = annotated({
       id: "root",

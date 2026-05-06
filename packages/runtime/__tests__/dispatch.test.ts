@@ -134,12 +134,13 @@ describe("dispatchAction tap", () => {
     }
   });
 
-  test("returns target_disabled when accessibilityState.disabled is true", async () => {
+  test("returns target_disabled when disabled prop is true", async () => {
     const root = makeFiber({
       type: "RCTView",
       props: {
         onPress: () => {},
         testID: "off",
+        disabled: true,
         accessibilityState: { disabled: true },
       },
     });
@@ -149,6 +150,24 @@ describe("dispatchAction tap", () => {
     );
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.code).toBe("target_disabled");
+  });
+
+  test("taps responder surfaces with accessibilityState.disabled but no disabled prop", async () => {
+    let called = 0;
+    const root = makeFiber({
+      type: "RCTView",
+      props: {
+        onResponderRelease: () => (called += 1),
+        testID: "backdrop",
+        accessibilityState: { disabled: true },
+      },
+    });
+    const out = await dispatchAction(
+      { kind: "tap", selector: "#backdrop", target_id: "backdrop" },
+      { rootsProvider: rootsFor(root) },
+    );
+    expect(out).toEqual({ ok: true });
+    expect(called).toBe(1);
   });
 
   test("returns action_not_supported when no handler exists", async () => {
@@ -219,6 +238,7 @@ describe("dispatchAction long_press", () => {
       type: "RCTView",
       props: {
         onLongPress: () => {},
+        disabled: true,
         accessibilityState: { disabled: true },
         testID: "m",
       },
@@ -712,6 +732,7 @@ describe("dispatchAction swipe", () => {
       type: "RCTView",
       props: {
         testID: "pane",
+        disabled: true,
         accessibilityState: { disabled: true },
         onResponderMove: () => {},
       },

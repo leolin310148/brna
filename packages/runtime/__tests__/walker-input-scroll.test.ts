@@ -176,6 +176,23 @@ describe("input host recognition", () => {
     expect(input.id.startsWith("auto:")).toBe(true);
   });
 
+  test("unlabeled TextInputs get ordinal fallback names", () => {
+    const f = makeFiber({
+      type: "RCTView",
+      props: { testID: "form" },
+      children: [
+        { type: "RCTSinglelineTextInputView", props: { value: "" } },
+        { type: "RCTSinglelineTextInputView", props: { value: "" } },
+      ],
+    });
+    const result = walkFiberRoot(makeRoot(f), "$root");
+    const inputs = result.rootChildren[0]!.children!;
+    expect(inputs[0]!.kind).toBe("input");
+    expect(inputs[0]!.name).toBe("_unlabeled_0");
+    expect(inputs[1]!.kind).toBe("input");
+    expect(inputs[1]!.name).toBe("_unlabeled_1");
+  });
+
   test("non-captured TextInput props are dropped", () => {
     const f = makeFiber({
       type: "RCTSinglelineTextInputView",

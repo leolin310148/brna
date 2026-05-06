@@ -341,6 +341,7 @@ describe("runCapture (in-memory)", () => {
     expect(result.writes).toHaveLength(1);
     expect(result.writes[0]!.path).toBe("/tmp/cap-test.png");
     expect(result.writes[0]!.bytes.equals(FAKE_PNG)).toBe(true);
+    expect(result.stdout.trim()).toBe("/tmp/cap-test.png");
     expect(result.stderr).toBe("");
   });
 

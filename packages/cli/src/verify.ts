@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { validateSnapshot, type Snapshot } from "@brna/schema";
-import { toMarkdown } from "@brna/core";
+import { toActiveLayerMarkdown, toMarkdown } from "@brna/core";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -25,6 +25,7 @@ interface ParsedArgs {
   timeoutMs: number;
   device?: string;
   goldenPath: string;
+  activeLayer: boolean;
 }
 
 function parseArgs(rest: string[]): ParsedArgs {
@@ -32,23 +33,27 @@ function parseArgs(rest: string[]): ParsedArgs {
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let device: string | undefined;
   let goldenPath: string | undefined;
+  let activeLayer = false;
   for (let i = 0; i < rest.length; i++) {
     const token = rest[i]!;
     if (token === "--metro") metro = parseMetro(rest[++i]);
     else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
     else if (token === "--device") device = parseDevice(rest[++i]);
+    else if (token === "--active-layer") activeLayer = true;
     else if (token.startsWith("--")) fail(4, `unknown flag '${token}'`);
     else if (goldenPath === undefined) goldenPath = token;
     else fail(4, `unexpected argument '${token}'`);
   }
-  if (goldenPath === undefined) fail(4, "usage: brna verify <golden-path> [--metro <url>] [--device <id>]");
-  const result: ParsedArgs = { metro, timeoutMs, goldenPath };
+  if (goldenPath === undefined) {
+    fail(4, "usage: brna verify <golden-path> [--active-layer] [--metro <url>] [--device <id>]");
+  }
+  const result: ParsedArgs = { metro, timeoutMs, goldenPath, activeLayer };
   if (device !== undefined) result.device = device;
   return result;
 }
 
 export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Promise<void> {
-  const { metro, timeoutMs, device, goldenPath } = parseArgs(rest);
+  const { metro, timeoutMs, device, goldenPath, activeLayer } = parseArgs(rest);
   const fetchImpl = runtime.fetch ?? fetch;
   const readImpl = runtime.readFile ?? readFile;
   const stdout = runtime.stdout ?? process.stdout;
@@ -97,7 +102,7 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
     failWith(3, `invalid snapshot from Metro: ${(err as Error).message}`, stderr, exit);
   }
 
-  const fresh = toMarkdown(snapshot);
+  const fresh = activeLayer ? toActiveLayerMarkdown(snapshot) : toMarkdown(snapshot);
   const goldenNorm = normalizeMarkdown(goldenText);
   const freshNorm = normalizeMarkdown(fresh);
 

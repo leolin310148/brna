@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
-import { toMarkdown } from "@brna/core";
+import { toActiveLayerMarkdown, toMarkdown } from "@brna/core";
 import { normalizeMarkdown, runVerify, unifiedDiff } from "../src/verify.js";
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
@@ -116,6 +116,23 @@ describe("brna verify", () => {
     expect(res.stdout).toContain("--- golden.md");
     expect(res.stdout).toContain("+++ current");
     expect(res.stderr).toContain("Verification failed");
+  });
+
+  test("--active-layer compares the active-layer projection", async () => {
+    const fresh = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [
+          { id: "background", kind: "button", name: "Background" },
+          { id: "checkout-modal", kind: "group", children: [{ id: "ok", kind: "button", name: "OK" }] },
+        ],
+      },
+    });
+    const golden = toActiveLayerMarkdown(fresh);
+    const res = await run(["golden.md", "--active-layer"], { golden, fresh });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("Verification passed");
   });
 
   // Missing-path arg parse failures are covered by CLI subprocess paths, not

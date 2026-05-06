@@ -173,19 +173,35 @@ describe("findHostFiberById", () => {
 });
 
 describe("isDisabledHit", () => {
-  test("true when accessibilityState.disabled is set", () => {
+  test("true when disabled prop is set", () => {
     const root = makeRoot(
       makeFiber({
         type: "RCTView",
         props: {
           onResponderRelease: () => {},
           testID: "off",
+          disabled: true,
           accessibilityState: { disabled: true },
         },
       }),
     );
     const hit = findHostFiberById([root], ROOT_ID, "off")!;
     expect(isDisabledHit(hit)).toBe(true);
+  });
+
+  test("false for tappable responder surfaces with accessibilityState.disabled only", () => {
+    const root = makeRoot(
+      makeFiber({
+        type: "RCTView",
+        props: {
+          onResponderRelease: () => {},
+          testID: "backdrop",
+          accessibilityState: { disabled: true },
+        },
+      }),
+    );
+    const hit = findHostFiberById([root], ROOT_ID, "backdrop")!;
+    expect(isDisabledHit(hit)).toBe(false);
   });
 
   test("false when no disabled flag is present", () => {

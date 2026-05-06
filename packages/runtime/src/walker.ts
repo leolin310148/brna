@@ -374,12 +374,25 @@ function extractAccessibilityState(props: Record<string, unknown>): StateFlag[] 
   if (!raw || typeof raw !== "object") return undefined;
   const obj = raw as Record<string, unknown>;
   const flags: StateFlag[] = [];
-  if (obj.disabled === true) flags.push("disabled");
+  if (obj.disabled === true && isDisabledForActions(props)) flags.push("disabled");
   if (obj.selected === true) flags.push("selected");
   if (obj.checked === true) flags.push("checked");
   if (obj.expanded === true) flags.push("expanded");
   if (obj.busy === true) flags.push("loading");
   return flags.length > 0 ? flags : undefined;
+}
+
+function isDisabledForActions(props: Record<string, unknown>): boolean {
+  if (props.disabled === true) return true;
+  return !hasTapHandler(props);
+}
+
+function hasTapHandler(props: Record<string, unknown>): boolean {
+  return (
+    typeof props.onPress === "function" ||
+    typeof props.onClick === "function" ||
+    typeof props.onResponderRelease === "function"
+  );
 }
 
 function extractAccessibilityRange(props: Record<string, unknown>): NodeRange | undefined {
@@ -692,12 +705,19 @@ function identifySiblings(
 }
 
 function applySiblingInputLabels(enriched: Array<{ hit: HostHit; fields: ExtractedFields }>): void {
+  let unlabeledInputOrdinal = 0;
   for (let i = 0; i < enriched.length; i++) {
     const current = enriched[i]!;
     if (current.hit.kind !== "input") continue;
     if (current.fields.name || current.fields.text || current.fields.accessibility_label) continue;
     const label = previousTextLabel(enriched, i);
-    if (label) current.fields.name = label;
+    if (label) {
+      current.fields.name = label;
+      continue;
+    }
+    if (!current.fields.testID && !current.fields.accessibilityIdentifier) {
+      current.fields.name = `_unlabeled_${unlabeledInputOrdinal++}`;
+    }
   }
 }
 
