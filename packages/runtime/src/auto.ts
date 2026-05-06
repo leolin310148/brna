@@ -1,4 +1,5 @@
-import { Alert, AppState, NativeModules } from "react-native";
+import * as ReactNative from "react-native";
+import { AppState, NativeModules } from "react-native";
 import { connectAgent } from "./bridge.js";
 import { installNativeAlertTracking } from "./native-alerts.js";
 import { installObservability } from "./observability.js";
@@ -18,6 +19,7 @@ function inferMetroUrl(): string | null {
 }
 
 const isDev = (globalThis as { __DEV__?: boolean }).__DEV__ === true;
+const Alert = (ReactNative as unknown as { Alert?: Parameters<typeof installNativeAlertTracking>[0] }).Alert;
 
 if (isDev) {
   try {

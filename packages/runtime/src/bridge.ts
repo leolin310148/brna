@@ -1,4 +1,5 @@
-import { Alert, NativeModules, Platform } from "react-native";
+import * as ReactNative from "react-native";
+import { NativeModules, Platform } from "react-native";
 import {
   SCHEMA_VERSION,
   validateActionRequest,
@@ -214,6 +215,7 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let heartbeatSocket: WebSocket | null = null;
 const RECONNECT_DELAY_MS = 1000;
 const HEARTBEAT_INTERVAL_MS = 5000;
+const Alert = (ReactNative as unknown as { Alert?: Parameters<typeof installNativeAlertTracking>[0] }).Alert;
 
 export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
   try {
