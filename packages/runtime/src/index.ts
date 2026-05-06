@@ -3,6 +3,10 @@ export { connectAgent } from "./bridge.js";
 export { BrnaRuntimeError } from "./errors.js";
 export type { BrnaRuntimeErrorCode } from "./errors.js";
 export {
+  installNativeAlertTracking,
+  getNativeAlertOverlays,
+} from "./native-alerts.js";
+export {
   installObservability,
   uninstallObservability,
   getLogs,

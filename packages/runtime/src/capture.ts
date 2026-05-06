@@ -11,6 +11,7 @@ import { waitForQuiescence } from "./quiescence.js";
 import { redactSnapshot } from "./redact.js";
 import { computeUsabilityWarnings } from "./usability.js";
 import { computeSnapshotHash } from "./hash.js";
+import { getNativeAlertOverlays } from "./native-alerts.js";
 
 export interface CaptureOptions {
   timeout_ms?: number;
@@ -103,6 +104,7 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
   const primarySource = findFirstSource(allChildren);
   const tree = populateSelectors(rawTree);
 
+  const overlays = getNativeAlertOverlays();
   const baseSnapshot: Snapshot = {
     meta: {
       schema_version: SCHEMA_VERSION,
@@ -114,8 +116,9 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
       ...(warnings.length > 0 ? { warnings } : {}),
       ...(primarySource ? { source: primarySource } : {}),
     },
-    screen: { modal_stack: [] },
+    screen: { modal_stack: overlays.map((overlay) => overlay.name ?? overlay.id) },
     tree,
+    ...(overlays.length > 0 ? { overlays } : {}),
   };
 
   const annotated = annotateSuggestedSelectors(baseSnapshot);

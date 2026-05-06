@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from "react-native";
+import { Alert, NativeModules, Platform } from "react-native";
 import {
   SCHEMA_VERSION,
   validateActionRequest,
@@ -9,6 +9,7 @@ import {
 } from "@brna/schema";
 import { captureSnapshot } from "./capture.js";
 import { dispatchAction } from "./dispatch.js";
+import { installNativeAlertTracking } from "./native-alerts.js";
 import { getLogs, getNetwork } from "./observability.js";
 import { sessionId } from "./session.js";
 
@@ -215,6 +216,11 @@ const RECONNECT_DELAY_MS = 1000;
 const HEARTBEAT_INTERVAL_MS = 5000;
 
 export function connectAgent({ metroUrl }: ConnectAgentOptions): void {
+  try {
+    installNativeAlertTracking(Alert);
+  } catch {
+    /* never throw from bridge setup */
+  }
   if (activeSocket) return;
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
