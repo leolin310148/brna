@@ -114,8 +114,8 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   },
   {
     name: "verify",
-    description: "Compare a freshly captured live snapshot against a golden snapshot markdown file.",
-    usage: "brna verify <golden.md> [--active-layer] [--metro <url>] [--device <id>] [--timeout <ms>]",
+    description: "Compare a freshly captured live snapshot against a golden snapshot markdown or JSON file.",
+    usage: "brna verify <golden.md|golden.json> [--active-layer] [--metro <url>] [--device <id>] [--timeout <ms>]",
     options: [
       { name: "--active-layer", description: "Compare only the currently active modal/layer projection." },
       { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
@@ -124,6 +124,7 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     ],
     examples: [
       "brna verify snapshot.md",
+      "brna verify snapshot.json",
       "brna verify modal.md --active-layer",
       "brna verify snapshot.md --device ios-sim",
     ],

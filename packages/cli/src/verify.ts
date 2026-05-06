@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { validateSnapshot, type Snapshot } from "@brna/schema";
-import { toActiveLayerMarkdown, toMarkdown } from "@brna/core";
+import { fromJSON, toActiveLayerMarkdown, toJSON, toMarkdown } from "@brna/core";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -67,6 +67,15 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
     failWith(1, `could not read golden file '${goldenPath}': ${(err as Error).message}`, stderr, exit);
   }
 
+  const format = inferGoldenFormat(goldenPath, goldenText);
+  if (format === "json" && activeLayer) {
+    failWith(4, "--active-layer is only supported for markdown golden files", stderr, exit);
+  }
+  const goldenNorm =
+    format === "json"
+      ? normalizeSnapshotJSON(parseGoldenJSON(goldenText, goldenPath, stderr, exit))
+      : normalizeMarkdown(goldenText);
+
   const headers: Record<string, string> = {};
   if (device !== undefined) headers[DEVICE_HEADER] = device;
   const controller = new AbortController();
@@ -102,9 +111,10 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
     failWith(3, `invalid snapshot from Metro: ${(err as Error).message}`, stderr, exit);
   }
 
-  const fresh = activeLayer ? toActiveLayerMarkdown(snapshot) : toMarkdown(snapshot);
-  const goldenNorm = normalizeMarkdown(goldenText);
-  const freshNorm = normalizeMarkdown(fresh);
+  const freshNorm =
+    format === "json"
+      ? normalizeSnapshotJSON(snapshot)
+      : normalizeMarkdown(activeLayer ? toActiveLayerMarkdown(snapshot) : toMarkdown(snapshot));
 
   if (goldenNorm === freshNorm) {
     stdout.write("✓ Verification passed\n");
@@ -116,6 +126,38 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
   if (!diffText.endsWith("\n")) stdout.write("\n");
   stderr.write("✗ Verification failed — snapshot does not match golden\n");
   exit(1);
+}
+
+type GoldenFormat = "md" | "json";
+
+function inferGoldenFormat(path: string, text: string): GoldenFormat {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".json")) return "json";
+  const trimmed = text.replace(/^﻿/, "").trimStart();
+  return trimmed.startsWith("{") ? "json" : "md";
+}
+
+function parseGoldenJSON(
+  text: string,
+  goldenPath: string,
+  stderr: Pick<typeof process.stderr, "write">,
+  exit: (code: number) => never,
+): Snapshot {
+  try {
+    const snapshot = fromJSON(text.replace(/^﻿/, ""));
+    validateSnapshot(snapshot);
+    return snapshot;
+  } catch (err) {
+    failWith(4, `invalid JSON golden '${goldenPath}': ${(err as Error).message}`, stderr, exit);
+  }
+}
+
+function normalizeSnapshotJSON(snapshot: Snapshot): string {
+  const normalized = JSON.parse(JSON.stringify(snapshot)) as Snapshot;
+  normalized.meta.captured_at = "<ignored>";
+  normalized.meta.session_id = "<ignored>";
+  normalized.meta.snapshot_id = "<ignored>";
+  return toJSON(normalized);
 }
 
 export function normalizeMarkdown(text: string): string {

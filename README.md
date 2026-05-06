@@ -148,6 +148,23 @@ Useful options:
 - `--device <id>` targets one connected runtime when several are available.
 - `--timeout <ms>` changes the request timeout.
 
+### `verify`
+
+Compare a freshly captured live snapshot against a saved golden.
+
+```sh
+brna snapshot > snapshot.md
+brna verify snapshot.md
+brna snapshot --format json > snapshot.json
+brna verify snapshot.json
+```
+
+Markdown goldens compare the markdown projection and ignore volatile session
+header metadata. JSON goldens compare the validated snapshot structure and
+ignore volatile capture metadata (`captured_at`, `session_id`, `snapshot_id`).
+Use `--active-layer` with markdown goldens to compare only the current modal,
+sheet, popover, toast, or overlay projection.
+
 ### `act`
 
 Resolve a selector against a fresh snapshot and dispatch one action.

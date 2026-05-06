@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
-import { toActiveLayerMarkdown, toMarkdown } from "@brna/core";
+import { toActiveLayerMarkdown, toJSON, toMarkdown } from "@brna/core";
 import { normalizeMarkdown, runVerify, unifiedDiff } from "../src/verify.js";
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
@@ -34,13 +34,14 @@ interface Capture {
 async function run(rest: string[], opts: {
   golden: string;
   fresh: Snapshot;
+  fetch?: typeof fetch;
 }): Promise<Capture> {
   let stdout = "";
   let stderr = "";
   try {
     await runVerify(rest, {
       readFile: async () => opts.golden,
-      fetch: async () => new Response(JSON.stringify(opts.fresh), { status: 200 }),
+      fetch: opts.fetch ?? (async () => new Response(JSON.stringify(opts.fresh), { status: 200 })),
       stdout: { write: (c: string | Uint8Array) => ((stdout += String(c)), true) },
       stderr: { write: (c: string | Uint8Array) => ((stderr += String(c)), true) },
       exit: (code) => {
@@ -133,6 +134,56 @@ describe("brna verify", () => {
     const res = await run(["golden.md", "--active-layer"], { golden, fresh });
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("Verification passed");
+  });
+
+  test("json golden exits 0 when only volatile snapshot metadata changed", async () => {
+    const fresh = makeSnapshot({
+      meta: {
+        ...makeSnapshot().meta,
+        captured_at: "2026-05-01T12:01:00.000Z",
+        session_id: "fresh-session-id",
+        snapshot_id: "fresh-snapshot-id",
+      },
+    });
+    const golden = toJSON(makeSnapshot());
+    const res = await run(["golden.json"], { golden, fresh });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("Verification passed");
+  });
+
+  test("json golden mismatch exits 1 and prints unified json diff", async () => {
+    const fresh = makeSnapshot({ tree: { id: "root", kind: "screen", name: "Home" } });
+    const golden = toJSON(makeSnapshot());
+    const res = await run(["golden.json"], { golden, fresh });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("--- golden.json");
+    expect(res.stdout).toContain("+++ current");
+    expect(res.stdout).toContain('"name": "Home"');
+    expect(res.stderr).toContain("Verification failed");
+  });
+
+  test("invalid json golden exits 4 with a parse error", async () => {
+    const res = await run(["golden.json"], {
+      golden: "{",
+      fresh: makeSnapshot(),
+      fetch: async () => {
+        throw new Error("should not fetch");
+      },
+    });
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("invalid JSON golden 'golden.json'");
+  });
+
+  test("--active-layer with json golden exits 4 before fetching", async () => {
+    const res = await run(["golden.json", "--active-layer"], {
+      golden: toJSON(makeSnapshot()),
+      fresh: makeSnapshot(),
+      fetch: async () => {
+        throw new Error("should not fetch");
+      },
+    });
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("--active-layer is only supported for markdown golden files");
   });
 
   // Missing-path arg parse failures are covered by CLI subprocess paths, not
