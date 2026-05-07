@@ -18,7 +18,7 @@
     "e2e:expo-sample": "bun test e2e/expo-sample.test.ts",
     "smoke:package-entrypoints": "node scripts/smoke-package-entrypoints.mjs",
     "typecheck": "bun --filter '*' typecheck",
-    "test": "bun --filter '@brna/schema' test && bun --filter '@brna/core' test",
+    "test": "bun --filter '*' test",
     "verify": "bun run build:schema && bun run typecheck && bun run test && bun run build:packages && bun run check:dist && bun run smoke:package-entrypoints"
   },
   "devDependencies": {
