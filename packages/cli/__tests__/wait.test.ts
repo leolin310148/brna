@@ -189,6 +189,13 @@ describe("brna wait", () => {
     expect(res.fetchCount).toBe(0);
   });
 
+  test("--device rejects whitespace-only values as missing", async () => {
+    const res = await run(["text:X", "--device", "   "]);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("missing value for '--device'");
+    expect(res.fetchCount).toBe(0);
+  });
+
   test("--metro accepts host:port shorthand", async () => {
     const snap = makeSnapshot({
       children: [{ id: "auto:ready", kind: "text", name: "Ready" }],

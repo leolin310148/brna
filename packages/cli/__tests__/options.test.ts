@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { diagnoseMetroResponse, normalizeMetroUrl } from "../src/options.js";
+import { diagnoseMetroResponse, normalizeMetroUrl, parseDevice } from "../src/options.js";
 
 describe("CLI option parsing", () => {
   test("normalizes Metro URL origins", () => {
@@ -23,6 +23,12 @@ describe("CLI option parsing", () => {
     expect(() => normalizeMetroUrl("brna://metro")).toThrow();
   });
 
+  test("rejects whitespace-only device ids", () => {
+    const result = captureProcessExit(() => parseDevice("   "));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("missing value for '--device'");
+  });
+
   test("diagnoses HTML responses without relying on content-type casing", async () => {
     const response = new Response("  <!doctype html><html><body>Metro</body></html>", {
       status: 404,
@@ -43,3 +49,27 @@ describe("CLI option parsing", () => {
     );
   });
 });
+
+function captureProcessExit(fn: () => unknown): { code: number; stderr: string } {
+  const originalExit = process.exit;
+  const originalStderrWrite = process.stderr.write;
+  let stderr = "";
+  process.exit = ((code?: string | number | null) => {
+    throw Object.assign(new Error("exit"), { code: typeof code === "number" ? code : 0 });
+  }) as typeof process.exit;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    fn();
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "number") return { code, stderr };
+    throw err;
+  } finally {
+    process.exit = originalExit;
+    process.stderr.write = originalStderrWrite;
+  }
+  throw new Error("expected process.exit");
+}

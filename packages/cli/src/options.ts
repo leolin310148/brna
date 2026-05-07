@@ -82,7 +82,7 @@ export function parseSince(value: string | undefined, flag = "--since"): number 
 }
 
 export function parseDevice(value: string | undefined): string {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     fail(4, "missing value for '--device'");
   }
   return value;

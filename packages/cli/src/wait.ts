@@ -42,7 +42,7 @@ function parsePositive(value: string | undefined, flag: string): number {
 }
 
 function parseDeviceValue(value: string | undefined): string {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new WaitUsageError("missing value for '--device'");
   }
   return value;
