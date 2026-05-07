@@ -114,6 +114,13 @@ describe("brna logs", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("--since rejects whitespace-only values", async () => {
+    const res = runCli(["logs", "--since", "   "]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("missing value for '--since'");
+    expect(res.stdout).toBe("");
+  });
+
   test("--level forwards the level filter", async () => {
     const res = await run(["--level", "warn"], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { level?: string };

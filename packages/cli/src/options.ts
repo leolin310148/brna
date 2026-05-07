@@ -57,7 +57,7 @@ export function parsePositiveInt(value: string | undefined, flag: string): numbe
 }
 
 export function parseNonNegativeInt(value: string | undefined, flag: string): number {
-  if (typeof value !== "string" || value.length === 0) fail(4, `missing value for '${flag}'`);
+  if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0) {
     fail(4, `'${flag}' must be a non-negative integer, got '${value}'`);
@@ -66,7 +66,7 @@ export function parseNonNegativeInt(value: string | undefined, flag: string): nu
 }
 
 export function parseSince(value: string | undefined, flag = "--since"): number {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     fail(4, `missing value for '${flag}'`);
   }
   const n = Number(value);

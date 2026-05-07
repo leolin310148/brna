@@ -148,4 +148,11 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stderr).toContain("--timeout");
     expect(r.stdout).toBe("");
   });
+
+  test("whitespace-only --at exits 4 before contacting Metro", () => {
+    const r = run(["act", "tap", "#x", "--at", "   "]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("missing value for '--at'");
+    expect(r.stdout).toBe("");
+  });
 });
