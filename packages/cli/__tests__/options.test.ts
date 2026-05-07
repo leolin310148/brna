@@ -29,6 +29,10 @@ describe("CLI option parsing", () => {
     expect(result.stderr).toContain("missing value for '--device'");
   });
 
+  test("trims surrounding whitespace from device ids", () => {
+    expect(parseDevice("  ios-sim  ")).toBe("ios-sim");
+  });
+
   test("diagnoses HTML responses without relying on content-type casing", async () => {
     const response = new Response("  <!doctype html><html><body>Metro</body></html>", {
       status: 404,

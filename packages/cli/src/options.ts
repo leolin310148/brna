@@ -82,10 +82,11 @@ export function parseSince(value: string | undefined, flag = "--since"): number 
 }
 
 export function parseDevice(value: string | undefined): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed.length === 0) {
     fail(4, "missing value for '--device'");
   }
-  return value;
+  return trimmed;
 }
 
 export const DEVICE_HEADER = "x-brna-device-id";

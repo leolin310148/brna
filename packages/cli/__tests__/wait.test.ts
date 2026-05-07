@@ -8,6 +8,7 @@ interface Capture {
   stderr: string;
   fetchCount: number;
   fetchUrls: string[];
+  fetchHeaders: Array<Record<string, string>>;
 }
 
 function makeSnapshot(over: { children?: Snapshot["tree"]["children"] } = {}): Snapshot {
@@ -42,6 +43,7 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
   let stderr = "";
   let fetchCount = 0;
   const fetchUrls: string[] = [];
+  const fetchHeaders: Array<Record<string, string>> = [];
   const responses = opts.responses ?? [];
   let nowMs = opts.now ? opts.now() : 1_000_000;
   const advance = (ms: number) => {
@@ -49,9 +51,10 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
   };
   try {
     await runWait(rest, {
-      fetch: async (input) => {
+      fetch: async (input, init) => {
         fetchCount++;
         fetchUrls.push(String(input));
+        fetchHeaders.push((init?.headers ?? {}) as Record<string, string>);
         if (opts.fetchReject) throw opts.fetchReject;
         const next = responses.shift();
         if (!next) return new Response("{}", { status: 503 });
@@ -69,7 +72,7 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
     });
   } catch (err) {
     const code = (err as { code?: unknown }).code;
-    if (typeof code === "number") return { code, stdout, stderr, fetchCount, fetchUrls };
+    if (typeof code === "number") return { code, stdout, stderr, fetchCount, fetchUrls, fetchHeaders };
     throw err;
   }
   throw new Error("expected runWait to exit");
@@ -194,6 +197,17 @@ describe("brna wait", () => {
     expect(res.code).toBe(4);
     expect(res.stderr).toContain("missing value for '--device'");
     expect(res.fetchCount).toBe(0);
+  });
+
+  test("--device trims surrounding whitespace before sending header", async () => {
+    const snap = makeSnapshot({
+      children: [{ id: "auto:ready", kind: "text", name: "Ready" }],
+    });
+    const res = await run(["text:Ready", "--device", "  ios-sim  "], {
+      responses: [snapshotResponse(snap)],
+    });
+    expect(res.code).toBe(0);
+    expect(res.fetchHeaders[0]?.["x-brna-device-id"]).toBe("ios-sim");
   });
 
   test("--metro accepts host:port shorthand", async () => {

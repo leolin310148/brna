@@ -42,10 +42,11 @@ function parsePositive(value: string | undefined, flag: string): number {
 }
 
 function parseDeviceValue(value: string | undefined): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed.length === 0) {
     throw new WaitUsageError("missing value for '--device'");
   }
-  return value;
+  return trimmed;
 }
 
 interface WaitArgs {
