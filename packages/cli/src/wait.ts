@@ -31,7 +31,9 @@ function parseUrlValue(value: string | undefined): string {
 }
 
 function parsePositive(value: string | undefined, flag: string): number {
-  if (typeof value !== "string") throw new WaitUsageError(`missing value for '${flag}'`);
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WaitUsageError(`missing value for '${flag}'`);
+  }
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
     throw new WaitUsageError(`'${flag}' must be a positive integer, got '${value}'`);

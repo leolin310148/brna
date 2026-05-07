@@ -182,6 +182,13 @@ describe("brna wait", () => {
     expect(res.stderr).toContain("--interval");
   });
 
+  test("--timeout rejects whitespace-only values as missing", async () => {
+    const res = await run(["text:X", "--timeout", "   "]);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("missing value for '--timeout'");
+    expect(res.fetchCount).toBe(0);
+  });
+
   test("--metro accepts host:port shorthand", async () => {
     const snap = makeSnapshot({
       children: [{ id: "auto:ready", kind: "text", name: "Ready" }],

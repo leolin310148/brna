@@ -39,7 +39,7 @@ export function normalizeMetroUrl(value: string): string {
 }
 
 export function parseTimeout(value: string | undefined): number {
-  if (typeof value !== "string") fail(4, "missing value for '--timeout'");
+  if (typeof value !== "string" || value.trim().length === 0) fail(4, "missing value for '--timeout'");
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
     fail(4, `'--timeout' must be a positive integer, got '${value}'`);
@@ -48,7 +48,7 @@ export function parseTimeout(value: string | undefined): number {
 }
 
 export function parsePositiveInt(value: string | undefined, flag: string): number {
-  if (typeof value !== "string") fail(4, `missing value for '${flag}'`);
+  if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
     fail(4, `'${flag}' must be a positive integer, got '${value}'`);

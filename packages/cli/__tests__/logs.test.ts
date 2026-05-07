@@ -134,6 +134,13 @@ describe("brna logs", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("--limit rejects whitespace-only values as missing", async () => {
+    const res = runCli(["logs", "--limit", "   "]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("missing value for '--limit'");
+    expect(res.stdout).toBe("");
+  });
+
   test("config forwards observability redaction defaults", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-logs-config-"));
     const prior = process.cwd();
