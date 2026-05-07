@@ -122,9 +122,16 @@ describe("brna logs", () => {
   });
 
   test("--level forwards the level filter", async () => {
-    const res = await run(["--level", "warn"], { body: { records: [] } });
+    const res = await run(["--level", " warn "], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { level?: string };
     expect(body.level).toBe("warn");
+  });
+
+  test("--level rejects whitespace-only values as missing", async () => {
+    const res = runCli(["logs", "--level", "   "]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("missing value for '--level'");
+    expect(res.stdout).toBe("");
   });
 
   test("--limit rejects fractional values", async () => {

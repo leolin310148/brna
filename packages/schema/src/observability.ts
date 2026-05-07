@@ -130,7 +130,10 @@ export function parseLogsRequestOptions(value: unknown): LogsRequestOptions {
   const v = value as Record<string, unknown>;
   const out: LogsRequestOptions = {};
   if (typeof v.since === "number" && Number.isFinite(v.since)) out.since = v.since;
-  if (isLogLevel(v.level)) out.level = v.level;
+  if (typeof v.level === "string") {
+    const level = v.level.trim();
+    if (isLogLevel(level)) out.level = level;
+  }
   if (typeof v.limit === "number" && Number.isFinite(v.limit) && v.limit > 0) {
     out.limit = Math.floor(v.limit);
   }

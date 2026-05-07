@@ -52,7 +52,7 @@ describe("observability schema helpers", () => {
     expect(parseLogsRequestOptions(null)).toEqual({});
     expect(parseLogsRequestOptions({
       since: 10,
-      level: "error",
+      level: " error ",
       limit: 2.9,
       redaction: { rules: [] },
     })).toEqual({

@@ -41,11 +41,12 @@ interface LogsResponseBody {
 }
 
 function parseLevelArg(value: string | undefined): LogLevel {
-  if (typeof value !== "string") fail(4, "missing value for '--level'");
-  if (!isLogLevel(value)) {
+  const level = typeof value === "string" ? value.trim() : "";
+  if (level.length === 0) fail(4, "missing value for '--level'");
+  if (!isLogLevel(level)) {
     fail(4, `'--level' must be one of debug|log|info|warn|error, got '${value}'`);
   }
-  return value;
+  return level;
 }
 
 function parseArgs(rest: string[]): ParsedArgs {
