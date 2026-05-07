@@ -42,7 +42,6 @@ export function withBrna<C extends MetroConfig>(config: C): C {
     resolver: {
       ...(config.resolver ?? {}),
       unstable_enablePackageExports: true,
-      unstable_enableSymlinks: true,
     },
   };
 }

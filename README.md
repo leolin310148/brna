@@ -72,6 +72,11 @@ const config = getDefaultConfig(__dirname);
 module.exports = withBrna(config);
 ```
 
+`withBrna()` preserves Expo and Metro resolver defaults. If an older custom
+monorepo setup needs Metro symlink resolution explicitly enabled, set
+`config.resolver.unstable_enableSymlinks = true` in your own Metro config before
+calling `withBrna(config)`.
+
 If you use a static `app.json` prebuild workflow, you can additionally install
 the config plugin and register it:
 
@@ -332,6 +337,11 @@ const config = getDefaultConfig(__dirname);
 
 module.exports = withBrna(config);
 ```
+
+`withBrna()` does not force Metro symlink resolver overrides. If an older custom
+monorepo setup needs that behavior, set
+`config.resolver.unstable_enableSymlinks = true` yourself before wrapping the
+config.
 
 The Babel plugin injects `@brna/runtime/auto` into development entry files. The
 runtime connects back to Metro only in development builds.
