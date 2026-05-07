@@ -52,6 +52,17 @@ describe("CLI option parsing", () => {
       "/brna/snapshot returned HTTP 500: Unable to resolve module @brna/runtime",
     );
   });
+
+  test("extracts JSON HTTP response messages", async () => {
+    const response = new Response(JSON.stringify({ error: { message: "Metro plugin failed to load" } }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: Metro plugin failed to load",
+    );
+  });
 });
 
 function captureProcessExit(fn: () => unknown): { code: number; stderr: string } {

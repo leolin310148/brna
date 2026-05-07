@@ -164,6 +164,9 @@ export async function diagnoseMetroResponse(
 }
 
 function firstUsefulDiagnosticLine(body: string): string {
+  const jsonLine = diagnosticLineFromJson(body);
+  if (jsonLine) return jsonLine.slice(0, 240);
+
   const lines = body
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -173,4 +176,35 @@ function firstUsefulDiagnosticLine(body: string): string {
     lines[0] ??
     ""
   ).slice(0, 240);
+}
+
+function diagnosticLineFromJson(body: string): string | undefined {
+  const trimmed = body.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return undefined;
+  try {
+    return pickJsonDiagnostic(JSON.parse(trimmed));
+  } catch {
+    return undefined;
+  }
+}
+
+function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
+  if (!value || typeof value !== "object" || depth > 2) return undefined;
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const picked = pickJsonDiagnostic(entry, depth + 1);
+      if (picked) return picked;
+    }
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["message", "error", "reason", "detail"]) {
+    const picked = record[key];
+    if (typeof picked === "string" && picked.trim().length > 0) return picked.trim();
+    const nested = pickJsonDiagnostic(picked, depth + 1);
+    if (nested) return nested;
+  }
+  return undefined;
 }
