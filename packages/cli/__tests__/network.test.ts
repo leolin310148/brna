@@ -147,6 +147,16 @@ describe("brna network", () => {
     expect(body.statusMax).toBe(499);
   });
 
+  test("--status range accepts spaces around dash", async () => {
+    const res = await run(["--status", " 200 - 299 "], { body: { records: [] } });
+    const body = JSON.parse(String(res.requestInit?.body)) as {
+      statusMin?: number;
+      statusMax?: number;
+    };
+    expect(body.statusMin).toBe(200);
+    expect(body.statusMax).toBe(299);
+  });
+
   test("--status rejects values outside HTTP status range", async () => {
     const tooLow = runCli(["network", "--status", "99"]);
     expect(tooLow.status).toBe(4);
@@ -157,6 +167,18 @@ describe("brna network", () => {
     expect(tooHighRange.status).toBe(4);
     expect(tooHighRange.stderr).toContain("'--status' must be a code or range");
     expect(tooHighRange.stdout).toBe("");
+  });
+
+  test("--status range rejects non-decimal numeric syntax", () => {
+    const exponentRange = runCli(["network", "--status", "2e2-299"]);
+    expect(exponentRange.status).toBe(4);
+    expect(exponentRange.stderr).toContain("'--status' must be a code or range");
+    expect(exponentRange.stdout).toBe("");
+
+    const hexRange = runCli(["network", "--status", "0xC8-299"]);
+    expect(hexRange.status).toBe(4);
+    expect(hexRange.stderr).toContain("'--status' must be a code or range");
+    expect(hexRange.stdout).toBe("");
   });
 
   test("--status rejects whitespace-only values", () => {

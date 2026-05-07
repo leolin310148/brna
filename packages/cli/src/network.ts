@@ -56,10 +56,10 @@ function parseStatusArg(value: string | undefined): {
     if (isHttpStatus(status)) return { status };
     fail(4, `'--status' must be an HTTP status code from 100 to 599, got '${value}'`);
   }
-  const dash = trimmed.indexOf("-");
-  if (dash > 0) {
-    const lo = Number(trimmed.slice(0, dash));
-    const hi = Number(trimmed.slice(dash + 1));
+  const range = /^(\d+)\s*-\s*(\d+)$/.exec(trimmed);
+  if (range) {
+    const lo = Number(range[1]);
+    const hi = Number(range[2]);
     if (isHttpStatus(lo) && isHttpStatus(hi) && lo <= hi) {
       return { statusMin: lo, statusMax: hi };
     }
