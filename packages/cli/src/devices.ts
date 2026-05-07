@@ -4,6 +4,7 @@ import {
   diagnoseMetroResponse,
   failWith,
   normalizeMetroUrl,
+  parseDecimalInteger,
 } from "./options.js";
 
 interface DeviceInfo {
@@ -57,8 +58,8 @@ function parseTimeoutValue(value: string | undefined): number {
   if (typeof value !== "string") {
     throw new DevicesUsageError("missing value for '--timeout'");
   }
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
+  const n = parseDecimalInteger(value);
+  if (n === undefined || n <= 0) {
     throw new DevicesUsageError(`'--timeout' must be a positive integer, got '${value}'`);
   }
   return n;

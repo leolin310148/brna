@@ -77,6 +77,12 @@ describe("brna devices", () => {
     expect(res.code).toBe(4);
     expect(res.stderr).toContain("'--timeout' must be a positive integer");
   });
+
+  test("--timeout rejects non-decimal numeric syntax", async () => {
+    const res = await run(["--timeout", "1e3"], []);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("'--timeout' must be a positive integer");
+  });
 });
 
 describe("formatDevicesTable", () => {

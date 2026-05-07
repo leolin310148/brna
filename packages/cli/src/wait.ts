@@ -7,6 +7,7 @@ import {
   diagnoseMetroResponse,
   failWith,
   normalizeMetroUrl,
+  parseDecimalInteger,
 } from "./options.js";
 
 export const DEFAULT_WAIT_TIMEOUT_MS = 30000;
@@ -34,8 +35,8 @@ function parsePositive(value: string | undefined, flag: string): number {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new WaitUsageError(`missing value for '${flag}'`);
   }
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
+  const n = parseDecimalInteger(value);
+  if (n === undefined || n <= 0) {
     throw new WaitUsageError(`'${flag}' must be a positive integer, got '${value}'`);
   }
   return n;

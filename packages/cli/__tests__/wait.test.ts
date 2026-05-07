@@ -192,6 +192,18 @@ describe("brna wait", () => {
     expect(res.fetchCount).toBe(0);
   });
 
+  test("integer flags reject non-decimal numeric syntax", async () => {
+    const timeout = await run(["text:X", "--timeout", "1e3"]);
+    expect(timeout.code).toBe(4);
+    expect(timeout.stderr).toContain("'--timeout' must be a positive integer");
+    expect(timeout.fetchCount).toBe(0);
+
+    const interval = await run(["text:X", "--interval", "0x10"]);
+    expect(interval.code).toBe(4);
+    expect(interval.stderr).toContain("'--interval' must be a positive integer");
+    expect(interval.fetchCount).toBe(0);
+  });
+
   test("--device rejects whitespace-only values as missing", async () => {
     const res = await run(["text:X", "--device", "   "]);
     expect(res.code).toBe(4);

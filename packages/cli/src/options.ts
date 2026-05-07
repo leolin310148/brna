@@ -126,7 +126,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseDecimalInteger(value: string): number | undefined {
+export function parseDecimalInteger(value: string): number | undefined {
   const trimmed = value.trim();
   if (!/^\d+$/.test(trimmed)) return undefined;
   const n = Number(trimmed);
