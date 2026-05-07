@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "build": "bun build src/index.ts src/auto.ts --outdir dist --target browser --format esm --external react --external react-native",
     "prepack": "bun run build"
   },
