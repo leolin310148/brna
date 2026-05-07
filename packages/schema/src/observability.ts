@@ -85,12 +85,20 @@ export function compareLogLevels(a: LogLevel, b: LogLevel): number {
   return LOG_LEVEL_RANK[a] - LOG_LEVEL_RANK[b];
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isOptionalFiniteNumber(value: unknown): boolean {
+  return value === undefined || isFiniteNumber(value);
+}
+
 export function isValidLogRecord(value: unknown): value is LogRecord {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.id === "string" &&
-    typeof v.timestamp === "number" &&
+    isFiniteNumber(v.timestamp) &&
     isLogLevel(v.level) &&
     typeof v.message === "string"
   );
@@ -101,9 +109,11 @@ export function isValidNetworkRecord(value: unknown): value is NetworkRecord {
   const v = value as Record<string, unknown>;
   return (
     typeof v.id === "string" &&
-    typeof v.timestamp === "number" &&
+    isFiniteNumber(v.timestamp) &&
     typeof v.method === "string" &&
     typeof v.url === "string" &&
+    isOptionalFiniteNumber(v.status) &&
+    isOptionalFiniteNumber(v.duration_ms) &&
     (v.state === "started" || v.state === "completed" || v.state === "errored") &&
     (v.source === "fetch" || v.source === "xhr")
   );
@@ -129,7 +139,10 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
   const v = value as Record<string, unknown>;
   const out: NetworkRequestOptions = {};
   if (typeof v.since === "number" && Number.isFinite(v.since)) out.since = v.since;
-  if (typeof v.method === "string" && v.method.length > 0) out.method = v.method.toUpperCase();
+  if (typeof v.method === "string") {
+    const method = v.method.trim();
+    if (method.length > 0) out.method = method.toUpperCase();
+  }
   if (typeof v.status === "number" && Number.isFinite(v.status)) out.status = Math.floor(v.status);
   if (typeof v.statusMin === "number" && Number.isFinite(v.statusMin)) out.statusMin = Math.floor(v.statusMin);
   if (typeof v.statusMax === "number" && Number.isFinite(v.statusMax)) out.statusMax = Math.floor(v.statusMax);

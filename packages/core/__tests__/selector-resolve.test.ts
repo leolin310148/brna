@@ -64,6 +64,29 @@ describe("resolve", () => {
     expect("ok" in r ? r.ok.id : null).toBe("save-inside");
   });
 
+  test("role names can contain in without becoming scoped selectors", () => {
+    const s = snap([
+      { id: "apple-login", kind: "button", role: "button", name: "Log in with Apple" },
+    ]);
+    const r = resolve("button:Log in with Apple", s);
+    expect("ok" in r ? r.ok.id : null).toBe("apple-login");
+  });
+
+  test("scoped resolution still works when the role name contains in", () => {
+    const s = snap([
+      {
+        id: "form",
+        kind: "region",
+        children: [
+          { id: "apple-login", kind: "button", role: "button", name: "Log in with Apple" },
+        ],
+      },
+      { id: "other-login", kind: "button", role: "button", name: "Log in with Apple" },
+    ]);
+    const r = resolve("button:Log in with Apple in #form", s);
+    expect("ok" in r ? r.ok.id : null).toBe("apple-login");
+  });
+
   test("scoped resolution propagates none from inner", () => {
     const s = snap([{ id: "btn", kind: "button", role: "button", name: "Save" }]);
     expect(resolve("button:Save in #missing-region", s)).toEqual({ none: true });

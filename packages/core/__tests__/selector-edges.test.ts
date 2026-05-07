@@ -9,6 +9,8 @@ describe("selector edge cases", () => {
     expect(() => parseSelector(42 as never)).toThrow(BrnaSelectorParseError);
     expect(() => parseSelector("...only")).toThrow(/text fragment/);
     expect(() => parseSelector("button:")).toThrow(/requires a name/);
+    expect(() => parseSelector("button:   ")).toThrow(/requires a name/);
+    expect(() => parseSelector("button:   in #form")).toThrow(/requires a name/);
     expect(parseSelector("1bad:Name")).toEqual({ kind: "xpath", path: "1bad:Name" });
     expect(parseSelector("plain/path")).toEqual({ kind: "xpath", path: "plain/path" });
   });

@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { runNetwork, formatNetworkTable } from "../src/network.js";
 import type { NetworkRecord } from "@brna/schema";
+
+const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
+
+function runCli(args: string[]) {
+  return spawnSync("bun", ["run", CLI_PATH, ...args], {
+    env: { ...process.env, NO_COLOR: "1" },
+    encoding: "utf8",
+    timeout: 5000,
+  });
+}
 
 interface RunResult {
   code: number;
@@ -116,6 +128,13 @@ describe("brna network", () => {
     };
     expect(body.statusMin).toBe(400);
     expect(body.statusMax).toBe(499);
+  });
+
+  test("--limit rejects fractional values", async () => {
+    const res = runCli(["network", "--limit", "2.5"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("'--limit' must be a positive integer");
+    expect(res.stdout).toBe("");
   });
 
   test("503 prints no-runtime message and exits 3", async () => {

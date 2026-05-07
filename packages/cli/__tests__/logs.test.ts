@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { runLogs, formatLogsTable } from "../src/logs.js";
 import type { LogRecord } from "@brna/schema";
+
+const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
+
+function runCli(args: string[]) {
+  return spawnSync("bun", ["run", CLI_PATH, ...args], {
+    env: { ...process.env, NO_COLOR: "1" },
+    encoding: "utf8",
+    timeout: 5000,
+  });
+}
 
 interface RunResult {
   code: number;
@@ -96,6 +108,13 @@ describe("brna logs", () => {
     const res = await run(["--level", "warn"], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { level?: string };
     expect(body.level).toBe("warn");
+  });
+
+  test("--limit rejects fractional values", async () => {
+    const res = runCli(["logs", "--limit", "1.5"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("'--limit' must be a positive integer");
+    expect(res.stdout).toBe("");
   });
 
   test("503 produces no_runtime helper message", async () => {

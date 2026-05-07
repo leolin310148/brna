@@ -2,6 +2,7 @@ import { BrnaSelectorParseError } from "@brna/schema";
 import type { SelectorAST } from "@brna/schema";
 
 const ROLE_RE = /^[a-z][a-z0-9_-]*$/i;
+const SCOPED_REGION_RE = /^(#|@|[a-z][a-z0-9_-]*:)/i;
 
 export function parseSelector(input: string): SelectorAST {
   if (typeof input !== "string") {
@@ -63,20 +64,32 @@ export function parseSelector(input: string): SelectorAST {
       return { kind: "xpath", path: raw };
     }
     const remainder = raw.slice(colonIndex + 1);
-    if (remainder.length === 0) {
+    const name = remainder.trim();
+    if (name.length === 0) {
       throw new BrnaSelectorParseError({
         code: "missing_name",
         column: colonIndex,
         message: "role selector requires a name after ':'",
       });
     }
-    const inMatch = remainder.match(/^(.+?)\s+in\s+(.+)$/);
+    const inMatch = remainder.match(/^(.+)\s+in\s+(.+)$/);
     if (inMatch) {
-      const [, name, regionRaw] = inMatch as unknown as [string, string, string];
+      const scopedName = inMatch[1]!.trim();
+      const regionRaw = inMatch[2]!.trim();
+      if (!SCOPED_REGION_RE.test(regionRaw)) {
+        return { kind: "role-name", role, name };
+      }
+      if (scopedName.length === 0) {
+        throw new BrnaSelectorParseError({
+          code: "missing_name",
+          column: colonIndex,
+          message: "role selector requires a name before 'in'",
+        });
+      }
       const inner = parseSelector(regionRaw);
-      return { kind: "role-name", role, name: name.trim(), in: inner };
+      return { kind: "role-name", role, name: scopedName, in: inner };
     }
-    return { kind: "role-name", role, name: remainder.trim() };
+    return { kind: "role-name", role, name };
   }
 
   return { kind: "xpath", path: raw };

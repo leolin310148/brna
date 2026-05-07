@@ -7,6 +7,7 @@ import type {
 } from "@brna/schema";
 
 const REDACTED = "<redacted>";
+const CIRCULAR = "[Circular]";
 
 const DEFAULT_SENSITIVE_HEADERS = new Set<string>([
   "authorization",
@@ -141,20 +142,26 @@ function redactBodyPreview(
   return applyRules(body, rules);
 }
 
-function redactJsonValue(value: unknown, rules: CompiledRule[]): unknown {
+function redactJsonValue(value: unknown, rules: CompiledRule[], seen = new WeakSet<object>()): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") return applyRules(value, rules);
   if (typeof value !== "object") return value;
-  if (Array.isArray(value)) return value.map((v) => redactJsonValue(v, rules));
-  const out: Record<string, unknown> = {};
-  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-    if (SENSITIVE_FIELD_PATTERN.test(key)) {
-      out[key] = REDACTED;
-    } else {
-      out[key] = redactJsonValue(v, rules);
+  if (seen.has(value)) return CIRCULAR;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) return value.map((v) => redactJsonValue(v, rules, seen));
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      if (SENSITIVE_FIELD_PATTERN.test(key)) {
+        out[key] = REDACTED;
+      } else {
+        out[key] = redactJsonValue(v, rules, seen);
+      }
     }
+    return out;
+  } finally {
+    seen.delete(value);
   }
-  return out;
 }
 
 function redactValue(value: unknown, rules: CompiledRule[]): unknown {
@@ -169,6 +176,7 @@ function redactValue(value: unknown, rules: CompiledRule[]): unknown {
 
 export const __testing = {
   REDACTED,
+  CIRCULAR,
   DEFAULT_SENSITIVE_HEADERS,
   SENSITIVE_FIELD_PATTERN,
 };

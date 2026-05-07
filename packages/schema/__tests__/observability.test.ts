@@ -21,6 +21,7 @@ describe("observability schema helpers", () => {
 
   test("validates log and network record shapes", () => {
     expect(isValidLogRecord({ id: "l", timestamp: 1, level: "warn", message: "hi" })).toBe(true);
+    expect(isValidLogRecord({ id: "l", timestamp: Number.NaN, level: "warn", message: "hi" })).toBe(false);
     expect(isValidLogRecord({ id: "l", timestamp: 1, level: "verbose", message: "hi" })).toBe(false);
     expect(isValidLogRecord(null)).toBe(false);
 
@@ -31,7 +32,18 @@ describe("observability schema helpers", () => {
       url: "https://example.test",
       state: "completed",
       source: "fetch",
+      status: 200,
+      duration_ms: 12,
     })).toBe(true);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      status: Number.POSITIVE_INFINITY,
+    })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "done", source: "fetch" })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "started", source: "socket" })).toBe(false);
   });
@@ -56,7 +68,7 @@ describe("observability schema helpers", () => {
     expect(parseNetworkRequestOptions(undefined)).toEqual({});
     expect(parseNetworkRequestOptions({
       since: 5,
-      method: "post",
+      method: " post ",
       status: 201.8,
       statusMin: 200.2,
       statusMax: 299.9,

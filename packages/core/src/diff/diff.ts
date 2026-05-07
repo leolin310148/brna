@@ -12,6 +12,10 @@ interface IndexedNode {
   parentId: string | null;
 }
 
+type ScalarModifiedField = Exclude<ModifiedFieldChange["field"], "state">;
+
+const MODIFIED_NODE_FIELDS: ScalarModifiedField[] = ["kind", "role", "name", "text", "value", "url"];
+
 export function diff(prev: Snapshot, next: Snapshot): SnapshotDiff {
   const prevIndex = indexSnapshot(prev);
   const nextIndex = indexSnapshot(next);
@@ -75,10 +79,11 @@ function walk(node: Node, parentId: string | null, map: Map<string, IndexedNode>
 
 function compareNodes(prev: Node, next: Node): ModifiedFieldChange[] {
   const out: ModifiedFieldChange[] = [];
-  const fields: ModifiedFieldChange["field"][] = ["kind", "role", "name", "text", "value", "url"];
-  for (const field of fields) {
-    if ((prev as any)[field] !== (next as any)[field]) {
-      out.push({ field, before: (prev as any)[field], after: (next as any)[field] });
+  for (const field of MODIFIED_NODE_FIELDS) {
+    const before = prev[field];
+    const after = next[field];
+    if (before !== after) {
+      out.push({ field, before, after });
     }
   }
   if (!stateEqual(prev.state, next.state)) {

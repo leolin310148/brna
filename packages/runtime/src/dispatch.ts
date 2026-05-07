@@ -16,6 +16,7 @@ import {
   type IdentifiedHit,
 } from "./walker.js";
 import { ROOT_ID } from "./constants.js";
+import { pressNativeAlertButton } from "./native-alerts.js";
 
 const DEFAULT_SCROLL_BY = 400;
 const DEFAULT_SWIPE_BY = 180;
@@ -128,6 +129,12 @@ function lookupSyntheticRootTarget(
 }
 
 function dispatchTap(roots: FiberRoot[], action: TapActionRequest): DispatchOutcome {
+  try {
+    if (pressNativeAlertButton(action.target_id)) return { ok: true };
+  } catch (err) {
+    return fail("action_failed", (err as Error).message ?? "handler threw");
+  }
+
   const found = lookupOrStale(roots, action);
   if (!("hit" in found)) return found;
   const props = readProps(found.hit);

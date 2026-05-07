@@ -4,6 +4,7 @@ import {
   getNativeAlertOverlays,
   installNativeAlertTracking,
 } from "../src/native-alerts.js";
+import { dispatchAction } from "../src/dispatch.js";
 
 afterEach(() => {
   clearNativeAlertTrackingForTests();
@@ -42,12 +43,14 @@ describe("native Alert tracking", () => {
             id: "native-alert-1-button-1",
             kind: "button",
             name: "Cancel",
+            actions: ["tap"],
             role: "cancel",
           },
           {
             id: "native-alert-1-button-2",
             kind: "button",
             name: "Discard",
+            actions: ["tap"],
           },
         ],
       },
@@ -88,6 +91,7 @@ describe("native Alert tracking", () => {
       id: "native-alert-1-button-1",
       kind: "button",
       name: "OK",
+      actions: ["tap"],
     });
     expect(wrappedButtons[0]?.text).toBe("OK");
     wrappedButtons[0]?.onPress?.();
@@ -110,6 +114,25 @@ describe("native Alert tracking", () => {
     onDismiss?.();
 
     expect(dismissed).toBe(true);
+    expect(getNativeAlertOverlays()).toEqual([]);
+  });
+
+  test("dispatches tap actions against active native Alert buttons", async () => {
+    let pressed = false;
+    const Alert = {
+      alert() {},
+    };
+
+    installNativeAlertTracking(Alert);
+    Alert.alert("Delete item?", undefined, [{ text: "Delete", onPress: () => { pressed = true; } }]);
+
+    const out = await dispatchAction(
+      { kind: "tap", selector: "#native-alert-1-button-1", target_id: "native-alert-1-button-1" },
+      { rootsProvider: () => [] },
+    );
+
+    expect(out).toEqual({ ok: true });
+    expect(pressed).toBe(true);
     expect(getNativeAlertOverlays()).toEqual([]);
   });
 });

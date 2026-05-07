@@ -28,6 +28,23 @@ describe("parseSelector", () => {
     });
   });
 
+  test("button:Log in with Apple → role-name with in in label", () => {
+    expect(parseSelector("button:Log in with Apple")).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Log in with Apple",
+    });
+  });
+
+  test("button:Log in with Apple in #form → scoped role-name", () => {
+    expect(parseSelector("button:Log in with Apple in #form")).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Log in with Apple",
+      in: { kind: "id", id: "form" },
+    });
+  });
+
   test("Forgot...password → text fragment", () => {
     expect(parseSelector("Forgot...password")).toEqual({
       kind: "text",

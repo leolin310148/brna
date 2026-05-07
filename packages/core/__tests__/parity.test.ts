@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { BrnaValidationError } from "@brna/schema";
 import { fromJSON, fromYAML, toJSON, toMarkdown, toYAML } from "../src/serialise/index.js";
 import { fromDiffJSON, fromDiffYAML, toDiffJSON, toDiffMarkdown, toDiffYAML } from "../src/diff/index.js";
 import { FIXTURES } from "../__fixtures__/brna1/index.js";
@@ -39,6 +40,17 @@ describe("round-trip", () => {
       expect(toYAML(reparsed)).toBe(first);
     });
   }
+
+  test("snapshot deserializers reject invalid snapshot shapes", () => {
+    const invalid = JSON.stringify({
+      meta: { schema_version: "wrong" },
+      screen: {},
+      tree: { id: "root", kind: "screen" },
+    });
+
+    expect(() => fromJSON(invalid)).toThrow(BrnaValidationError);
+    expect(() => fromYAML(invalid)).toThrow(BrnaValidationError);
+  });
 });
 
 describe("diff three-format parity", () => {

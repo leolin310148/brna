@@ -1,4 +1,4 @@
-import type { Snapshot } from "@brna/schema";
+import { validateSnapshot, type Snapshot } from "@brna/schema";
 import { redactSnapshot, type RedactionOptions } from "./redact.js";
 
 export function toJSON(snapshot: Snapshot, options: RedactionOptions = {}): string {
@@ -6,7 +6,9 @@ export function toJSON(snapshot: Snapshot, options: RedactionOptions = {}): stri
 }
 
 export function fromJSON(text: string): Snapshot {
-  return JSON.parse(text) as Snapshot;
+  const value = JSON.parse(text) as Snapshot;
+  validateSnapshot(value);
+  return value;
 }
 
 export function canonicalStringify(value: unknown, indent: number): string {

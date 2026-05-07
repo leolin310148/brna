@@ -27,7 +27,12 @@ interface NativeAlertRecord {
   id: string;
   title: string;
   message?: string;
-  buttons: Array<{ id: string; text: string; style?: AlertButtonStyle }>;
+  buttons: Array<{
+    id: string;
+    text: string;
+    style?: AlertButtonStyle;
+    onPress?: (value?: unknown) => void;
+  }>;
 }
 
 const DEFAULT_BUTTON_TEXT = "OK";
@@ -47,9 +52,10 @@ export function installNativeAlertTracking(alertModule: AlertModuleLike | undefi
     buttons?: AlertButtonLike[],
     options?: AlertOptionsLike,
   ): unknown {
-    const record = createNativeAlertRecord(title, message, buttons);
+    const normalizedButtons = normalizeButtons(buttons);
+    const record = createNativeAlertRecord(title, message, normalizedButtons);
     activeAlerts.set(record.id, record);
-    const wrappedButtons = normalizeButtons(buttons).map((button) => ({
+    const wrappedButtons = normalizedButtons.map((button) => ({
       ...button,
       onPress: (value?: unknown) => {
         activeAlerts.delete(record.id);
@@ -92,6 +98,7 @@ export function getNativeAlertOverlays(): Node[] {
         id: button.id,
         kind: "button",
         name: button.text,
+        actions: ["tap"],
         ...(button.style === "cancel" ? { role: "cancel" } : {}),
       })),
     );
@@ -105,6 +112,17 @@ export function getNativeAlertOverlays(): Node[] {
   });
 }
 
+export function pressNativeAlertButton(id: string): boolean {
+  for (const alert of activeAlerts.values()) {
+    const button = alert.buttons.find((candidate) => candidate.id === id);
+    if (!button) continue;
+    activeAlerts.delete(alert.id);
+    button.onPress?.();
+    return true;
+  }
+  return false;
+}
+
 export function clearNativeAlertTrackingForTests(): void {
   activeAlerts.clear();
   nextAlertId = 1;
@@ -113,7 +131,7 @@ export function clearNativeAlertTrackingForTests(): void {
 function createNativeAlertRecord(
   title: unknown,
   message: unknown,
-  buttons: AlertButtonLike[] | undefined,
+  buttons: AlertButtonLike[],
 ): NativeAlertRecord {
   const id = `native-alert-${nextAlertId++}`;
   const alertMessage = stringifyAlertText(message);
@@ -121,10 +139,11 @@ function createNativeAlertRecord(
     id,
     title: stringifyAlertText(title) ?? "Alert",
     ...(alertMessage ? { message: alertMessage } : {}),
-    buttons: normalizeButtons(buttons).map((button, index) => ({
+    buttons: buttons.map((button, index) => ({
       id: `${id}-button-${index + 1}`,
       text: stringifyAlertText(button.text) ?? DEFAULT_BUTTON_TEXT,
       ...(button.style ? { style: button.style } : {}),
+      ...(button.onPress ? { onPress: button.onPress } : {}),
     })),
   };
 }

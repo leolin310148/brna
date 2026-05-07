@@ -2,6 +2,11 @@ import type { Node, Snapshot, SnapshotRedactionOptions } from "@brna/schema";
 
 const SECURE_REPLACEMENT = "<redacted>";
 
+interface CompiledRule {
+  match: RegExp;
+  replace: string;
+}
+
 export function redactSnapshot(snapshot: Snapshot, options: SnapshotRedactionOptions = {}): Snapshot {
   const rules = compileRules(options.rules ?? []);
   const redactSecureFields = options.redactSecureFields !== false;
@@ -16,27 +21,20 @@ export function redactSnapshot(snapshot: Snapshot, options: SnapshotRedactionOpt
 
 function redactNode(
   node: Node,
-  rules: Array<{ match: RegExp; replace: string }>,
+  rules: CompiledRule[],
   redactSecureFields: boolean,
 ): void {
   const secure = redactSecureFields && node.state?.includes("secure") === true;
-  if (node.name !== undefined) {
-    node.name = secure && typeof node.value === "string" && node.name === node.value
-      ? redactSecureString(node.name)
-      : applyRules(node.name, rules);
+
+  for (const key of ["name", "text", "accessibility_label", "accessibility_hint", "url"] as const) {
+    const value = node[key];
+    if (typeof value !== "string") continue;
+    const mirrorsSecureValue =
+      secure && (key === "name" || key === "text") && typeof node.value === "string" && value === node.value;
+    node[key] = mirrorsSecureValue ? redactSecureString(value) : applyRules(value, rules);
   }
-  if (node.text !== undefined) {
-    node.text = secure && typeof node.value === "string" && node.text === node.value
-      ? redactSecureString(node.text)
-      : applyRules(node.text, rules);
-  }
+
   if (typeof node.value === "string") node.value = secure ? redactSecureString(node.value) : applyRules(node.value, rules);
-  if (node.accessibility_label !== undefined) {
-    node.accessibility_label = applyRules(node.accessibility_label, rules);
-  }
-  if (node.accessibility_hint !== undefined) {
-    node.accessibility_hint = applyRules(node.accessibility_hint, rules);
-  }
   if (node.range?.text !== undefined) node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   if (Array.isArray(node.suggested_selectors)) {
     node.suggested_selectors = node.suggested_selectors.map((selector) => applyRules(selector, rules));
@@ -50,8 +48,8 @@ function redactSecureString(value: string): string {
   return value.length === 0 ? "" : SECURE_REPLACEMENT;
 }
 
-function compileRules(rules: NonNullable<SnapshotRedactionOptions["rules"]>): Array<{ match: RegExp; replace: string }> {
-  const out: Array<{ match: RegExp; replace: string }> = [];
+function compileRules(rules: NonNullable<SnapshotRedactionOptions["rules"]>): CompiledRule[] {
+  const out: CompiledRule[] = [];
   for (const rule of rules) {
     try {
       const flags = rule.match.flags?.includes("g")
@@ -65,7 +63,7 @@ function compileRules(rules: NonNullable<SnapshotRedactionOptions["rules"]>): Ar
   return out;
 }
 
-function applyRules(value: string, rules: Array<{ match: RegExp; replace: string }>): string {
+function applyRules(value: string, rules: CompiledRule[]): string {
   let out = value;
   for (const rule of rules) {
     rule.match.lastIndex = 0;

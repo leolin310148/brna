@@ -56,6 +56,7 @@ interface SharedFlags {
   metro: string;
   timeoutMs: number;
   device?: string;
+  verifyChange: boolean;
   exit?: (code: number) => never;
   commandArgs?: string[];
   snapshotBefore?: Snapshot;
@@ -145,6 +146,7 @@ function extractSharedFlags(args: string[]): { positional: string[]; shared: Sha
   let metro = DEFAULT_METRO_URL;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let device: string | undefined;
+  let verifyChange = false;
   for (let i = 0; i < args.length; i++) {
     const token = args[i]!;
     if (token === "--metro") {
@@ -153,6 +155,8 @@ function extractSharedFlags(args: string[]): { positional: string[]; shared: Sha
       timeoutMs = parseTimeout(args[++i]);
     } else if (token === "--device") {
       device = parseDevice(args[++i]);
+    } else if (token === "--verify-change") {
+      verifyChange = true;
     } else if (token === "--duration" || token === "--by" || token === "--direction") {
       // verb-specific flags — keep them in positional order so the verb
       // parser can consume the flag/value pair.
@@ -161,7 +165,7 @@ function extractSharedFlags(args: string[]): { positional: string[]; shared: Sha
       positional.push(token);
     }
   }
-  const shared: SharedFlags = { metro, timeoutMs };
+  const shared: SharedFlags = { metro, timeoutMs, verifyChange };
   if (device !== undefined) shared.device = device;
   return { positional, shared };
 }
@@ -258,7 +262,7 @@ async function runKey(positional: string[], shared: SharedFlags): Promise<void> 
   if (positional.length > 1) {
     fail(4, `unexpected argument '${positional[1]}'`);
   }
-  if (await activeTracePath()) {
+  if (shared.verifyChange || await activeTracePath()) {
     shared.snapshotBefore = await fetchSnapshot(shared);
   }
   await postAction(shared, { kind: "key", key: normalized });
@@ -368,7 +372,8 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
   }
 
   if (response.status === 204) {
-    const snapshotAfter = (await activeTracePath()) ? await fetchSnapshot(shared) : undefined;
+    const traceActive = await activeTracePath();
+    const snapshotAfter = (traceActive || shared.verifyChange) ? await fetchSnapshot(shared) : undefined;
     let recordedDiff: ReturnType<typeof diff> | undefined;
     if (shared.snapshotBefore && snapshotAfter) {
       const full = diff(shared.snapshotBefore, snapshotAfter);
@@ -376,6 +381,9 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
         shared.targetId !== undefined
           ? filterDiffByTarget(shared.snapshotBefore, snapshotAfter, full, shared.targetId)
           : full;
+    }
+    if (shared.verifyChange && recordedDiff && recordedDiff.events.length === 0) {
+      process.stderr.write("brna: warning: action completed but no snapshot change was observed\n");
     }
     await appendTraceEvent({
       type: "act",

@@ -9,6 +9,7 @@ import {
   failWith,
   parseDevice,
   parseMetro,
+  parsePositiveInt,
   parseTimeout,
 } from "./options.js";
 import { loadConfig, toObservabilityRedactionOptions } from "./config.js";
@@ -75,10 +76,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--since") since = parseSinceArg(rest[++i]);
     else if (token === "--level") level = parseLevelArg(rest[++i]);
     else if (token === "--limit") {
-      const value = rest[++i];
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) fail(4, `'--limit' must be a positive number, got '${value ?? ""}'`);
-      limit = Math.floor(n);
+      limit = parsePositiveInt(rest[++i], "--limit");
     } else {
       fail(4, `unknown flag '${token}'`);
     }

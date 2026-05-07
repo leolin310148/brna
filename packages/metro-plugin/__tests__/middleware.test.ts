@@ -84,6 +84,8 @@ function attachRuntime(bridge: BrnaBridge): MockSocket {
   return ws;
 }
 
+const OVERSIZED_JSON_BODY = JSON.stringify({ text: "x".repeat(65 * 1024) });
+
 describe("handleAction", () => {
   test("returns 204 with empty body on action.response", async () => {
     const bridge = new BrnaBridge();
@@ -161,6 +163,19 @@ describe("handleAction", () => {
     expect(res.statusCode).toBe(400);
     const body = JSON.parse(res.body) as { error: string };
     expect(body.error).toBe("malformed_action_request");
+  });
+
+  test("returns 413 when action body exceeds the JSON body limit", async () => {
+    const bridge = new BrnaBridge();
+    attachRuntime(bridge);
+    const req = makeMockReq();
+    const res = makeMockRes();
+
+    const promise = handleAction(bridge, req as never, res as never);
+    feedBody(req, OVERSIZED_JSON_BODY);
+    await promise;
+    expect(res.statusCode).toBe(413);
+    expect(JSON.parse(res.body)).toEqual({ error: "request_body_too_large", max_bytes: 64 * 1024 });
   });
 
   test("returns 400 on schema-invalid action body", async () => {
@@ -332,6 +347,17 @@ describe("handleSnapshotPost", () => {
     await promise;
     expect(res.statusCode).toBe(400);
     expect(JSON.parse(res.body).error).toBe("malformed_snapshot_request");
+  });
+
+  test("returns 413 when snapshot POST body exceeds the JSON body limit", async () => {
+    const bridge = {} as BrnaBridge;
+    const req = makeMockReq();
+    const res = makeMockRes();
+    const promise = handleSnapshotPost(bridge, req as never, res as never);
+    feedBody(req, OVERSIZED_JSON_BODY);
+    await promise;
+    expect(res.statusCode).toBe(413);
+    expect(JSON.parse(res.body)).toEqual({ error: "request_body_too_large", max_bytes: 64 * 1024 });
   });
 });
 

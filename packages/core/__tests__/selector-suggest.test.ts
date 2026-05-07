@@ -141,6 +141,30 @@ describe("annotateSuggestedSelectors", () => {
     expect(btn.suggested_selectors).not.toContain("button:Save");
   });
 
+  test("labels containing in still produce resolvable suggestions", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "form",
+          kind: "region",
+          children: [
+            {
+              id: "auto:apple-login",
+              kind: "button",
+              role: "button",
+              name: "Log in with Apple",
+            },
+          ],
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:apple-login");
+    expect(btn.suggested_selectors).toContain("button:Log in with Apple");
+    expect(btn.suggested_selectors).toContain("button:Log in with Apple in #form");
+  });
+
   test("text fragment fallback resolves uniquely", () => {
     const result = annotated({
       id: "root",

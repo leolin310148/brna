@@ -152,6 +152,47 @@ describe("act success paths (quiet)", () => {
     });
   });
 
+  test("--verify-change warns when action leaves the snapshot tree unchanged", async () => {
+    const r = await runAct(["tap", "#save", "--verify-change"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("action completed but no snapshot change was observed");
+    expect(JSON.parse(state.lastActionBody!)).toEqual({
+      kind: "tap",
+      selector: "#save",
+      target_id: "save",
+    });
+  });
+
+  test("--verify-change stays quiet when the post-action snapshot changes", async () => {
+    let snapshots = 0;
+    state.snapshotResponder = (_req, res) => {
+      snapshots += 1;
+      jsonReply(
+        res,
+        200,
+        makeSnapshot({
+          tree: {
+            id: "screen:root",
+            kind: "screen",
+            children: [
+              {
+                id: "save",
+                kind: "button",
+                name: snapshots === 1 ? "Save" : "Saved",
+              },
+            ],
+          },
+        }),
+      );
+    };
+    const r = await runAct(["tap", "#save", "--verify-change"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toBe("");
+    expect(snapshots).toBe(2);
+  });
+
   test("click is normalized to tap on the wire", async () => {
     const r = await runAct(["click", "#save"]);
     expect(r.status).toBe(0);

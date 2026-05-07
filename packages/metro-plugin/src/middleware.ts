@@ -27,7 +27,7 @@ const DEVICES_PATH = "/brna/devices";
 const LOGS_PATH = "/brna/logs";
 const NETWORK_PATH = "/brna/network";
 const DEVICE_HEADER = "x-brna-device-id";
-const MAX_ACTION_BODY_BYTES = 64 * 1024;
+const MAX_JSON_BODY_BYTES = 64 * 1024;
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const text = JSON.stringify(body);
@@ -60,7 +60,7 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     req.on("data", (chunk: Buffer) => {
       if (aborted) return;
       total += chunk.length;
-      if (total > MAX_ACTION_BODY_BYTES) {
+      if (total > MAX_JSON_BODY_BYTES) {
         aborted = true;
         reject(new Error("body_too_large"));
         return;
@@ -78,6 +78,14 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     });
     req.on("error", reject);
   });
+}
+
+function isBodyTooLargeError(err: unknown): boolean {
+  return err instanceof Error && err.message === "body_too_large";
+}
+
+function sendBodyTooLarge(res: ServerResponse): void {
+  sendJson(res, 413, { error: "request_body_too_large", max_bytes: MAX_JSON_BODY_BYTES });
 }
 
 export function handleSnapshot(
@@ -139,7 +147,11 @@ export async function handleSnapshotPost(
   let parsed: unknown;
   try {
     parsed = await readJsonBody(req);
-  } catch {
+  } catch (err) {
+    if (isBodyTooLargeError(err)) {
+      sendBodyTooLarge(res);
+      return;
+    }
     sendJson(res, 400, { error: "malformed_snapshot_request" });
     return;
   }
@@ -176,7 +188,11 @@ export async function handleAction(
   let parsed: unknown;
   try {
     parsed = await readJsonBody(req);
-  } catch {
+  } catch (err) {
+    if (isBodyTooLargeError(err)) {
+      sendBodyTooLarge(res);
+      return;
+    }
     sendJson(res, 400, { error: "malformed_action_request" });
     return;
   }

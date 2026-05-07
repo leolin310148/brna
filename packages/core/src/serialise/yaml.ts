@@ -1,5 +1,5 @@
 import { parse, stringify } from "yaml";
-import type { Snapshot } from "@brna/schema";
+import { validateSnapshot, type Snapshot } from "@brna/schema";
 import { redactSnapshot, type RedactionOptions } from "./redact.js";
 
 const EMIT_OPTIONS = {
@@ -14,7 +14,9 @@ export function toYAML(snapshot: Snapshot, options: RedactionOptions = {}): stri
 }
 
 export function fromYAML(text: string): Snapshot {
-  return parse(text) as Snapshot;
+  const value = parse(text) as Snapshot;
+  validateSnapshot(value);
+  return value;
 }
 
 export function toCanonicalYAML(value: unknown): string {

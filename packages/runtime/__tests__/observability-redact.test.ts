@@ -52,6 +52,16 @@ describe("redactLogRecord", () => {
     expect(arg.id).toBe(7);
   });
 
+  test("redacts sensitive fields in circular object args", () => {
+    const arg: Record<string, unknown> = { access_token: "abc", id: 7 };
+    arg.self = arg;
+    const out = redactLogRecord(baseLog({ args: [arg] }), {});
+    const redactedArg = (out.args as Array<Record<string, unknown>>)[0]!;
+    expect(redactedArg.access_token).toBe("<redacted>");
+    expect(redactedArg.id).toBe(7);
+    expect(redactedArg.self).toBe("[Circular]");
+  });
+
   test("preserves message when no rules match", () => {
     const out = redactLogRecord(baseLog({ message: "ok" }), {});
     expect(out.message).toBe("ok");

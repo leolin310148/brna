@@ -63,7 +63,7 @@
   {
     "name": "act",
     "description": "Resolve a selector against a fresh snapshot and dispatch one runtime action.",
-    "usage": "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--verify-change] [--metro <url>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--duration",
@@ -76,6 +76,10 @@
       {
         "name": "--by",
         "description": "Distance for scroll and swipe actions."
+      },
+      {
+        "name": "--verify-change",
+        "description": "Warn when the action succeeds but the next snapshot has no tree diff."
       },
       {
         "name": "--metro",
@@ -95,6 +99,7 @@
       "brna act long-press \"#menu\" --duration 750",
       "brna act type \"input:Email\" \"leo@example.com\"",
       "brna act scroll \"#feed\" --direction down --by 300",
+      "brna act tap \"#save\" --verify-change",
       "brna act swipe \"#screen:root\" --direction up --by 600"
     ]
   },
