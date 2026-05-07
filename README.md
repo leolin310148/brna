@@ -142,6 +142,7 @@ brna snapshot
 brna snap --format json
 brna snapshot --format yaml
 brna snapshot --diff
+brna snapshot --diff --target "#submit"
 brna snapshot --device ios-sim
 ```
 
@@ -149,6 +150,7 @@ Useful options:
 
 - `--format json|md|yaml` selects the output format.
 - `--diff` compares against the rolling session baseline.
+- `--target <selector>` focuses diff output to one selector's region.
 - `--metro <url>` points at a non-default Metro server.
 - `--device <id>` targets one connected runtime when several are available.
 - `--timeout <ms>` changes the request timeout.

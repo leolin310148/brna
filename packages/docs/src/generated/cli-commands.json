@@ -5,7 +5,7 @@
       "snap"
     ],
     "description": "Capture the current app snapshot from a connected brna runtime.",
-    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--format",
@@ -14,6 +14,10 @@
       {
         "name": "--diff",
         "description": "Compare against the rolling session baseline."
+      },
+      {
+        "name": "--target",
+        "description": "Focus --diff output to one selector's region."
       },
       {
         "name": "--active-layer",
@@ -57,6 +61,7 @@
       "brna snapshot --active-layer",
       "brna snapshot --image --image-to screen.png",
       "brna snap --format json",
+      "brna snapshot --diff --target \"#submit\"",
       "brna snapshot --diff --device ios-sim"
     ]
   },
