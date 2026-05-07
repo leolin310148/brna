@@ -99,32 +99,20 @@ describe("parseCaptureArgs", () => {
     expect(args.timeoutMs).toBe(20000);
   });
 
+  test("trims surrounding whitespace from native device ids", () => {
+    expect(parseCaptureArgs(["--native-device", "  booted  "]).nativeDevice).toBe("booted");
+  });
+
+  test("rejects whitespace-only native device ids", () => {
+    const result = captureProcessExit(() => parseCaptureArgs(["--native-device", "   "]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("missing value for '--native-device'");
+  });
+
   test("rejects unknown flag via fail", () => {
-    const original = process.exit;
-    let exitCode: unknown = null;
-    // @ts-expect-error replace process.exit for test
-    process.exit = (code: number) => {
-      exitCode = code;
-      throw new Error("fail-exit");
-    };
-    let stderrBuf = "";
-    const originalWrite = process.stderr.write.bind(process.stderr);
-    // @ts-expect-error capture stderr
-    process.stderr.write = (chunk: string | Uint8Array) => {
-      stderrBuf += String(chunk);
-      return true;
-    };
-    try {
-      parseCaptureArgs(["--bogus"]);
-    } catch {
-      /* expected */
-    } finally {
-      process.exit = original;
-      // @ts-expect-error restore
-      process.stderr.write = originalWrite;
-    }
-    expect(exitCode).toBe(4);
-    expect(stderrBuf).toContain("unknown flag '--bogus'");
+    const result = captureProcessExit(() => parseCaptureArgs(["--bogus"]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("unknown flag '--bogus'");
   });
 });
 
@@ -441,3 +429,27 @@ describe("runCapture (in-memory)", () => {
     expect(result.stderr).toContain("--native-device");
   });
 });
+
+function captureProcessExit(fn: () => unknown): { code: number; stderr: string } {
+  const originalExit = process.exit;
+  const originalStderrWrite = process.stderr.write;
+  let stderr = "";
+  process.exit = ((code?: string | number | null) => {
+    throw Object.assign(new Error("exit"), { code: typeof code === "number" ? code : 0 });
+  }) as typeof process.exit;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    stderr += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    fn();
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "number") return { code, stderr };
+    throw err;
+  } finally {
+    process.exit = originalExit;
+    process.stderr.write = originalStderrWrite;
+  }
+  throw new Error("expected process.exit");
+}

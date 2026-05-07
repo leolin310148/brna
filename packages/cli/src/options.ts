@@ -89,6 +89,14 @@ export function parseDevice(value: string | undefined): string {
   return trimmed;
 }
 
+export function parseNativeDevice(value: string | undefined): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed.length === 0) {
+    fail(4, "missing value for '--native-device'");
+  }
+  return trimmed;
+}
+
 export const DEVICE_HEADER = "x-brna-device-id";
 
 export async function fetchWithInFlightRetry(

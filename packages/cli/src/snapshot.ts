@@ -24,6 +24,7 @@ import {
   fetchWithInFlightRetry,
   parseDevice,
   parseMetro,
+  parseNativeDevice,
   parseTimeout,
 } from "./options.js";
 import { readSnapshotCache, snapshotSessionId, writeSnapshotCache } from "./session.js";
@@ -107,11 +108,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     } else if (token === "--device") {
       device = parseDevice(rest[++i]);
     } else if (token === "--native-device") {
-      const value = rest[++i];
-      if (typeof value !== "string" || value.length === 0) {
-        fail(4, "missing value for '--native-device'");
-      }
-      nativeDevice = value;
+      nativeDevice = parseNativeDevice(rest[++i]);
     } else if (token === "--native-platform") {
       const value = rest[++i];
       if (value !== "android" && value !== "ios") {

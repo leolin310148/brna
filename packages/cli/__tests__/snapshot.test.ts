@@ -447,7 +447,7 @@ describe("snapshot --image", () => {
       "/tmp/overlay.png",
       "--overlay",
       "--native-device",
-      "SIM-2",
+      "  SIM-2  ",
       "--native-platform",
       "ios",
     ]);
