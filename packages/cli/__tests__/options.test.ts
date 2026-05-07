@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { diagnoseMetroResponse, normalizeMetroUrl, parseDevice } from "../src/options.js";
+import {
+  diagnoseMetroResponse,
+  normalizeMetroUrl,
+  parseDevice,
+  parseNonNegativeInt,
+  parsePositiveInt,
+  parseTimeout,
+} from "../src/options.js";
 
 describe("CLI option parsing", () => {
   test("normalizes Metro URL origins", () => {
@@ -31,6 +38,22 @@ describe("CLI option parsing", () => {
 
   test("trims surrounding whitespace from device ids", () => {
     expect(parseDevice("  ios-sim  ")).toBe("ios-sim");
+  });
+
+  test("integer flags reject non-decimal numeric syntax", () => {
+    expect(captureProcessExit(() => parsePositiveInt("0x10", "--limit")).stderr).toContain(
+      "'--limit' must be a positive integer",
+    );
+    expect(captureProcessExit(() => parseTimeout("1e3")).stderr).toContain(
+      "'--timeout' must be a positive integer",
+    );
+  });
+
+  test("non-negative integer flags still accept zero", () => {
+    expect(parseNonNegativeInt("0", "--at")).toBe(0);
+    expect(captureProcessExit(() => parseNonNegativeInt("-0", "--at")).stderr).toContain(
+      "'--at' must be a non-negative integer",
+    );
   });
 
   test("diagnoses HTML responses without relying on content-type casing", async () => {

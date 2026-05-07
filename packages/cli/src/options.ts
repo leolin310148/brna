@@ -40,8 +40,8 @@ export function normalizeMetroUrl(value: string): string {
 
 export function parseTimeout(value: string | undefined): number {
   if (typeof value !== "string" || value.trim().length === 0) fail(4, "missing value for '--timeout'");
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
+  const n = parseDecimalInteger(value);
+  if (n === undefined || n <= 0) {
     fail(4, `'--timeout' must be a positive integer, got '${value}'`);
   }
   return n;
@@ -49,8 +49,8 @@ export function parseTimeout(value: string | undefined): number {
 
 export function parsePositiveInt(value: string | undefined, flag: string): number {
   if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
+  const n = parseDecimalInteger(value);
+  if (n === undefined || n <= 0) {
     fail(4, `'${flag}' must be a positive integer, got '${value}'`);
   }
   return n;
@@ -58,8 +58,8 @@ export function parsePositiveInt(value: string | undefined, flag: string): numbe
 
 export function parseNonNegativeInt(value: string | undefined, flag: string): number {
   if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  const n = parseDecimalInteger(value);
+  if (n === undefined) {
     fail(4, `'${flag}' must be a non-negative integer, got '${value}'`);
   }
   return n;
@@ -124,6 +124,13 @@ export async function fetchWithInFlightRetry(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseDecimalInteger(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return undefined;
+  const n = Number(trimmed);
+  return Number.isSafeInteger(n) ? n : undefined;
 }
 
 export function failWith(
