@@ -91,8 +91,11 @@ export function pickLabel(node: Node, maxLabelLength: number): string {
   const canonical = candidates.find((s) => typeof s === "string" && s.startsWith("#"));
   const chosen = canonical ?? candidates.find((s): s is string => typeof s === "string" && s.length > 0) ?? "";
   if (chosen.length === 0) return "";
-  if (chosen.length <= maxLabelLength) return chosen;
-  return chosen.slice(0, Math.max(1, maxLabelLength - 1)) + "…";
+  const limit = Math.floor(maxLabelLength);
+  if (!Number.isFinite(limit) || limit <= 0) return "";
+  if (chosen.length <= limit) return chosen;
+  if (limit === 1) return "…";
+  return chosen.slice(0, limit - 1) + "…";
 }
 
 // ---------------- PNG codec (8-bit RGB / RGBA) ----------------

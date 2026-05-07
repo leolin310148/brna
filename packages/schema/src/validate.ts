@@ -1,12 +1,13 @@
 import Ajv, { type ValidateFunction } from "ajv";
 import { BrnaValidationError } from "./errors.js";
 import { JSON_SCHEMA } from "./schema-json.js";
-import { NODE_KINDS, STATE_FLAGS, SCHEMA_VERSION } from "./types.js";
+import { ACTIONS, NODE_KINDS, STATE_FLAGS, SCHEMA_VERSION } from "./types.js";
 import type { ModifiedFieldChange, Node, Snapshot, SnapshotDiff } from "./types.js";
 
 const SENTINEL_PATTERN = /^__.+__$/;
 const NODE_KIND_SET = new Set<string>(NODE_KINDS);
 const STATE_FLAG_SET = new Set<string>(STATE_FLAGS);
+const ACTION_SET = new Set<string>(ACTIONS);
 
 let ajvValidator: ValidateFunction | null = null;
 function getJsonSchemaValidator(): ValidateFunction {
@@ -223,7 +224,14 @@ function walkNode(node: Node, path: string): void {
       message: `unknown kind '${String(node.kind)}'`,
     });
   }
-  if (node.state) {
+  if (node.state !== undefined) {
+    if (!Array.isArray(node.state)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.state`,
+        message: "node.state must be an array",
+      });
+    }
     for (const flag of node.state) {
       if (!STATE_FLAG_SET.has(flag as string)) {
         throw new BrnaValidationError({
@@ -233,6 +241,27 @@ function walkNode(node: Node, path: string): void {
         });
       }
     }
+  }
+  if (node.actions !== undefined) {
+    if (!Array.isArray(node.actions)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.actions`,
+        message: "node.actions must be an array",
+      });
+    }
+    node.actions.forEach((action, i) => {
+      if (typeof action !== "string" || !ACTION_SET.has(action)) {
+        throw new BrnaValidationError({
+          code: "shape",
+          path: `${path}.actions[${i}]`,
+          message: `unknown action '${String(action)}'`,
+        });
+      }
+    });
+  }
+  if (node.bounds !== undefined) {
+    validateBounds(node.bounds, `${path}.bounds`);
   }
   if (node.range !== undefined) {
     validateRange(node.range, `${path}.range`);
@@ -267,8 +296,45 @@ function walkNode(node: Node, path: string): void {
       });
     }
   }
-  if (node.children) {
+  if (node.children !== undefined) {
+    if (!Array.isArray(node.children)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.children`,
+        message: "node.children must be an array",
+      });
+    }
     node.children.forEach((child, i) => walkNode(child, `${path}.children[${i}]`));
+  }
+}
+
+function validateBounds(bounds: unknown, path: string): void {
+  if (!bounds || typeof bounds !== "object" || Array.isArray(bounds)) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "bounds must be an object",
+    });
+  }
+  const obj = bounds as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (key !== "x" && key !== "y" && key !== "w" && key !== "h") {
+      throw new BrnaValidationError({
+        code: "unknown_property",
+        path: `${path}.${key}`,
+        message: `unknown property '${key}' on bounds`,
+      });
+    }
+  }
+  for (const key of ["x", "y", "w", "h"] as const) {
+    const value = obj[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.${key}`,
+        message: `bounds.${key} must be a finite number`,
+      });
+    }
   }
 }
 

@@ -472,6 +472,11 @@ describe("diff validation", () => {
       { type: "added", id: "x", node: null },
       { type: "added", id: "x", node: { kind: "button" } },
       { type: "added", id: "x", node: { id: "x", kind: "button", state: ["mystery"] } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", state: "disabled" } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", actions: "tap" } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", actions: ["fly"] } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", bounds: { x: 0, y: 0, w: 10 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "button", bounds: { x: 0, y: 0, w: 10, h: Number.NaN } } },
       { type: "added", id: "x", node: { id: "x", kind: "View" } },
       { type: "added", id: "x", node: { id: "x", kind: "button", custom: true } },
       { type: "added", id: "x", node: { id: "x", kind: "slider", range: null } },
@@ -482,6 +487,7 @@ describe("diff validation", () => {
       { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: 0, extra: 1 } } },
       { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: "0", end: 1 } } },
       { type: "added", id: "x", node: { id: "x", kind: "button", suggested_selectors: "bad" } },
+      { type: "added", id: "x", node: { id: "x", kind: "group", children: "bad" } },
     ];
     for (const event of cases) {
       expect(() => validateSnapshotDiff({ events: [event] })).toThrow(BrnaValidationError);

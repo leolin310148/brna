@@ -161,6 +161,13 @@ describe("brna wait", () => {
     expect(res.stderr).toContain("could not connect to Metro");
   });
 
+  test("aborted snapshot request exits 2 as a wait timeout", async () => {
+    const abort = Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
+    const res = await run(["text:Confirmed", "--timeout", "1"], { fetchReject: abort });
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("wait timed out after 1ms");
+  });
+
   test("no runtime exits 3 with snapshot-style diagnostic", async () => {
     const res = await run(["text:Ready"], {
       responses: [() => new Response(JSON.stringify({ error: "no_runtime_connected" }), { status: 503 })],

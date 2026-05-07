@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Readable, Writable } from "node:stream";
-import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
+import { ACTION_KEYS, SCHEMA_VERSION, type Snapshot } from "@brna/schema";
 import { runMcpServer } from "../src/index.js";
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
@@ -124,9 +124,13 @@ describe("MCP server", () => {
 
   test("tools/list exposes core action and observability tools", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
-    const result = responses[0]!.result as { tools: Array<{ name: string }> };
+    const result = responses[0]!.result as {
+      tools: Array<{ name: string; inputSchema?: { properties?: Record<string, { enum?: readonly string[] }> } }>;
+    };
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual(["key", "logs", "long_press", "network", "scroll", "swipe", "tap", "type"]);
+    const keyTool = result.tools.find((t) => t.name === "key");
+    expect(keyTool?.inputSchema?.properties?.key?.enum).toEqual(ACTION_KEYS);
   });
 
   test("tools/call tap with core selector posts action", async () => {
@@ -227,6 +231,21 @@ describe("MCP server", () => {
     const result = responses[0]!.result as { content: Array<{ text: string }> };
     expect(result.content[0]!.text).toContain("ok: long_press");
     expect(actions[0]).toEqual({ kind: "long_press", selector: "#btn", target_id: "btn", duration_ms: 500 });
+  });
+
+  test("tools/call key posts supported non-tab keys", async () => {
+    const actions: unknown[] = [];
+    const responses = await exchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "key", arguments: { key: "enter" } },
+      },
+    ], { actions });
+    const result = responses[0]!.result as { content: Array<{ text: string }> };
+    expect(result.content[0]!.text).toContain("ok: key");
+    expect(actions[0]).toEqual({ kind: "key", key: "enter" });
   });
 
   test("unknown selector returns error", async () => {

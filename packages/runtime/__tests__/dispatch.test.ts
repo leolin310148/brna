@@ -884,4 +884,29 @@ describe("dispatchAction key tab", () => {
     expect(out.ok).toBe(true);
     expect(keys).toEqual(["ArrowDown"]);
   });
+
+  test("key synthetic events expose React-compatible no-op helpers", async () => {
+    const calls: string[] = [];
+    const root = makeFiber({
+      type: "TextInput",
+      props: {
+        testID: "key-input",
+        onKeyPress: (event: {
+          persist?: () => void;
+          preventDefault?: () => void;
+          stopPropagation?: () => void;
+          nativeEvent: { key: string };
+        }) => {
+          event.persist?.();
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          calls.push(event.nativeEvent.key);
+        },
+      },
+      stateNode: { focus: () => {}, isFocused: () => true },
+    });
+    const out = await dispatchAction({ kind: "key", key: "escape" }, { rootsProvider: rootsFor(root) });
+    expect(out.ok).toBe(true);
+    expect(calls).toEqual(["Escape"]);
+  });
 });

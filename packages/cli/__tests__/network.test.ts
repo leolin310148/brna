@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { runNetwork, formatNetworkTable } from "../src/network.js";
 import type { NetworkRecord } from "@brna/schema";
 
@@ -142,6 +145,24 @@ describe("brna network", () => {
     expect(res.status).toBe(4);
     expect(res.stderr).toContain("'--limit' must be a positive integer");
     expect(res.stdout).toBe("");
+  });
+
+  test("config forwards observability redaction defaults", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-network-config-"));
+    const prior = process.cwd();
+    try {
+      writeFileSync(join(cwd, "brna.config.ts"), "export default { redactSecureFields: false };\n");
+      process.chdir(cwd);
+      const res = await run([], { body: { records: [] } });
+      expect(res.requestInit?.method).toBe("POST");
+      const body = JSON.parse(String(res.requestInit?.body)) as {
+        redaction?: { redactSensitiveDefaults?: boolean };
+      };
+      expect(body.redaction?.redactSensitiveDefaults).toBe(false);
+    } finally {
+      process.chdir(prior);
+      await rm(cwd, { recursive: true, force: true });
+    }
   });
 
   test("503 prints no-runtime message and exits 3", async () => {

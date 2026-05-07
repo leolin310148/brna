@@ -256,18 +256,12 @@ function parseLogsQuery(url: string): LogsRequestOptions {
   if (idx < 0) return {};
   const params = new URLSearchParams(url.slice(idx + 1));
   const out: Record<string, unknown> = {};
-  const since = params.get("since");
-  if (since !== null) {
-    const n = Number(since);
-    if (Number.isFinite(n)) out.since = n;
-  }
+  const since = readNumericQueryParam(params, "since");
+  if (since !== undefined) out.since = since;
   const level = params.get("level");
   if (level) out.level = level;
-  const limit = params.get("limit");
-  if (limit !== null) {
-    const n = Number(limit);
-    if (Number.isFinite(n)) out.limit = n;
-  }
+  const limit = readNumericQueryParam(params, "limit");
+  if (limit !== undefined) out.limit = limit;
   return parseLogsRequestOptions(out);
 }
 
@@ -276,34 +270,28 @@ function parseNetworkQuery(url: string): NetworkRequestOptions {
   if (idx < 0) return {};
   const params = new URLSearchParams(url.slice(idx + 1));
   const out: Record<string, unknown> = {};
-  const since = params.get("since");
-  if (since !== null) {
-    const n = Number(since);
-    if (Number.isFinite(n)) out.since = n;
-  }
+  const since = readNumericQueryParam(params, "since");
+  if (since !== undefined) out.since = since;
   const method = params.get("method");
   if (method) out.method = method;
-  const status = params.get("status");
-  if (status !== null) {
-    const n = Number(status);
-    if (Number.isFinite(n)) out.status = n;
-  }
-  const statusMin = params.get("statusMin");
-  if (statusMin !== null) {
-    const n = Number(statusMin);
-    if (Number.isFinite(n)) out.statusMin = n;
-  }
-  const statusMax = params.get("statusMax");
-  if (statusMax !== null) {
-    const n = Number(statusMax);
-    if (Number.isFinite(n)) out.statusMax = n;
-  }
-  const limit = params.get("limit");
-  if (limit !== null) {
-    const n = Number(limit);
-    if (Number.isFinite(n)) out.limit = n;
-  }
+  const status = readNumericQueryParam(params, "status");
+  if (status !== undefined) out.status = status;
+  const statusMin = readNumericQueryParam(params, "statusMin");
+  if (statusMin !== undefined) out.statusMin = statusMin;
+  const statusMax = readNumericQueryParam(params, "statusMax");
+  if (statusMax !== undefined) out.statusMax = statusMax;
+  const limit = readNumericQueryParam(params, "limit");
+  if (limit !== undefined) out.limit = limit;
   return parseNetworkRequestOptions(out);
+}
+
+function readNumericQueryParam(params: URLSearchParams, name: string): number | undefined {
+  const raw = params.get(name);
+  if (raw === null) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 async function readObservabilityOptions(req: IncomingMessage): Promise<unknown> {

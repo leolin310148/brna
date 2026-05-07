@@ -80,6 +80,8 @@ describe("annotateSuggestedSelectors", () => {
       children: [{ id: "auto:sitemap", kind: "button", name: "Sitemap" }],
     });
     const btn = findNode(result, (n) => n.id === "auto:sitemap");
+    expect(btn.selector).toBe("button:Sitemap in #root");
+    expect(btn.suggested_selectors?.[0]).toBe("button:Sitemap in #root");
     expect(btn.suggested_selectors).toContain("button:Sitemap");
     const resolved = resolve("button:Sitemap", result);
     expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:sitemap");

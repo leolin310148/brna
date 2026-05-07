@@ -110,7 +110,18 @@ export function toObservabilityRedactionOptions(
   config: BrnaConfig,
 ): ObservabilityRedactionOptions {
   const rules = configRedactRules(config);
-  return rules.length > 0 ? { rules } : {};
+  return {
+    ...(rules.length > 0 ? { rules } : {}),
+    ...(config.redactSecureFields !== undefined
+      ? { redactSensitiveDefaults: config.redactSecureFields }
+      : {}),
+  };
+}
+
+export function hasObservabilityRedactionOptions(
+  options: ObservabilityRedactionOptions,
+): boolean {
+  return options.rules !== undefined || options.redactSensitiveDefaults !== undefined;
 }
 
 export function sessionDirFromConfig(config: BrnaConfig): string {

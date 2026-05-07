@@ -5,5 +5,5 @@ export function formatRoleName(name: string): string {
 }
 
 export function formatRoleSelector(role: string, name: string): string {
-  return `${role}:${formatRoleName(name)}`;
+  return `${role.toLowerCase()}:${formatRoleName(name)}`;
 }

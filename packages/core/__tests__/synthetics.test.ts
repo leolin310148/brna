@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Node } from "@brna/schema";
-import { collapseLoadingSkeleton, synthesiseListPlaceholder } from "../src/serialise/synthetics.js";
+import {
+  collapseLoadingSkeleton,
+  synthesiseListPlaceholder,
+  synthesiseListPlaceholders,
+} from "../src/serialise/synthetics.js";
 
 describe("synthetic serialisation helpers", () => {
   test("synthesises list placeholders from omitted items", () => {
@@ -14,7 +18,17 @@ describe("synthetic serialisation helpers", () => {
       total_count: 5,
       visible_range: { start: 2, end: 3 },
       children: [{ id: "c", kind: "text" }],
-    })).toEqual({ position: "above", count: 4 });
+    })).toEqual({ position: "above", count: 2 });
+    expect(synthesiseListPlaceholders({
+      id: "l",
+      kind: "list",
+      total_count: 5,
+      visible_range: { start: 2, end: 3 },
+      children: [{ id: "c", kind: "text" }],
+    })).toEqual([
+      { position: "above", count: 2 },
+      { position: "below", count: 1 },
+    ]);
   });
 
   test("collapses consecutive anonymous loading nodes", () => {

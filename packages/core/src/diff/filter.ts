@@ -71,10 +71,13 @@ export function filterDiffByTarget(
   for (const a of ancestorChain(targetId, baseIdx.parentOf)) keep.add(a);
 
   // Immediate siblings: children of the target's parent in either snapshot.
-  const freshParent = freshIdx.parentOf.get(targetId) ?? null;
-  const baseParent = baseIdx.parentOf.get(targetId) ?? null;
-  for (const sib of freshIdx.childrenOf.get(freshParent) ?? []) keep.add(sib);
-  for (const sib of baseIdx.childrenOf.get(baseParent) ?? []) keep.add(sib);
+  const addSiblings = (idx: ParentIndex): void => {
+    if (!idx.parentOf.has(targetId)) return;
+    const parent = idx.parentOf.get(targetId) ?? null;
+    for (const sib of idx.childrenOf.get(parent) ?? []) keep.add(sib);
+  };
+  addSiblings(freshIdx);
+  addSiblings(baseIdx);
 
   // Overlays — keep the union from both snapshots.
   const overlays = new Set<string>([...baseIdx.overlayIds, ...freshIdx.overlayIds]);

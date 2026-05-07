@@ -11,7 +11,7 @@ import {
   ReadResourceRequestSchema,
   type JSONRPCMessage,
 } from "@modelcontextprotocol/sdk/types.js";
-import { validateActionRequest, validateSnapshot, type Node, type Snapshot } from "@brna/schema";
+import { ACTION_KEYS, validateActionRequest, validateSnapshot, type Node, type Snapshot } from "@brna/schema";
 import { resolve as resolveSelector, toMarkdown } from "@brna/core";
 
 const SERVER_INFO = { name: "brna-mcp", version: "0.0.0" };
@@ -276,7 +276,7 @@ class BrnaMcpApp {
         description: "Send a hardware key event.",
         inputSchema: {
           type: "object",
-          properties: { key: { type: "string", enum: ["tab"] } },
+          properties: { key: { type: "string", enum: ACTION_KEYS } },
           required: ["key"],
         },
       },

@@ -1,6 +1,7 @@
 import type { Node, Snapshot } from "@brna/schema";
 import { redactSnapshot, type RedactionOptions } from "./redact.js";
 import { displayLabel } from "../selector/inferred-label.js";
+import { synthesiseListPlaceholders } from "./synthetics.js";
 
 export function toMarkdown(snapshot: Snapshot, options: RedactionOptions = {}): string {
   snapshot = redactSnapshot(snapshot, options);
@@ -132,21 +133,18 @@ function dedupeNodes(nodes: Node[]): Node[] {
 function renderNode(node: Node, depth: number, lines: string[]): void {
   const indent = "  ".repeat(depth);
   lines.push(`${indent}- ${nodeLine(node)}`);
+  const listPlaceholders = synthesiseListPlaceholders(node);
+  const innerIndent = "  ".repeat(depth + 1);
+  const above = listPlaceholders.find((placeholder) => placeholder.position === "above");
+  if (above) lines.push(`${innerIndent}- …${above.count} items above…`);
 
   if (node.children) {
     const collapsed = collapseLoadingSkeletonInline(node.children);
     for (const child of collapsed) renderNode(child, depth + 1, lines);
   }
 
-  if (node.kind === "list" && node.total_count != null) {
-    const visible = node.children?.length ?? 0;
-    const omitted = node.total_count - visible;
-    if (omitted > 0) {
-      const innerIndent = "  ".repeat(depth + 1);
-      const position = node.visible_range && node.visible_range.start > 0 ? "above" : "below";
-      lines.push(`${innerIndent}- …${omitted} items ${position}…`);
-    }
-  }
+  const below = listPlaceholders.find((placeholder) => placeholder.position === "below");
+  if (below) lines.push(`${innerIndent}- …${below.count} items below…`);
 }
 
 // When the runtime upgraded NodeKind from accessibilityRole, rendering the
@@ -180,7 +178,7 @@ export function nodeLine(node: Node): string {
   if (node.role && node.role !== node.kind && !roleIsRedundant(node.role, node.kind)) {
     parts.push(`[role=${node.role}]`);
   }
-  if (node.name) parts.push(`"${displayLabel(node) ?? node.name}"`);
+  if (node.name) parts.push(formatMarkdownString(displayLabel(node) ?? node.name));
   if (node.value !== undefined) parts.push(`= ${JSON.stringify(node.value)}`);
   const rangeAnnotation = formatRangeAnnotation(node.range);
   if (rangeAnnotation) parts.push(rangeAnnotation);
@@ -232,6 +230,10 @@ function formatRangeAnnotation(range: Node["range"]): string | null {
     return `[${range.now}]`;
   }
   return null;
+}
+
+function formatMarkdownString(value: string): string {
+  return JSON.stringify(value);
 }
 
 function collapseLoadingSkeletonInline(children: Node[]): Node[] {

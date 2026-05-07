@@ -46,6 +46,12 @@ describe("resolve", () => {
     expect("ambiguous" in r ? r.ambiguous.map((n) => n.id) : null).toEqual(["a", "b", "c"]);
   });
 
+  test("role selectors resolve when typed with uppercase role names", () => {
+    const s = snap([{ id: "btn", kind: "button", role: "button", name: "Save" }]);
+    const r = resolve("Button:Save", s);
+    expect("ok" in r ? r.ok.id : null).toBe("btn");
+  });
+
   test("auto-prefers one interactive match over container wrappers", () => {
     const s = snap([
       { id: "check", kind: "group", bounds: { x: 350, y: 57, w: 24, h: 24 } },

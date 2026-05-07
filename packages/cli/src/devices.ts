@@ -2,10 +2,8 @@ import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
   diagnoseMetroResponse,
-  fail,
   failWith,
-  parseMetro,
-  parseTimeout,
+  normalizeMetroUrl,
 } from "./options.js";
 
 interface DeviceInfo {
@@ -38,26 +36,63 @@ interface ParsedArgs {
   json: boolean;
 }
 
+class DevicesUsageError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
+
+function parseMetroValue(value: string | undefined): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new DevicesUsageError("missing value for '--metro'");
+  }
+  try {
+    return normalizeMetroUrl(value);
+  } catch {
+    throw new DevicesUsageError(`malformed URL for '--metro': ${value}`);
+  }
+}
+
+function parseTimeoutValue(value: string | undefined): number {
+  if (typeof value !== "string") {
+    throw new DevicesUsageError("missing value for '--timeout'");
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new DevicesUsageError(`'--timeout' must be a positive integer, got '${value}'`);
+  }
+  return n;
+}
+
 function parseArgs(rest: string[]): ParsedArgs {
   let metro = DEFAULT_METRO_URL;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let json = false;
   for (let i = 0; i < rest.length; i++) {
     const token = rest[i]!;
-    if (token === "--metro") metro = parseMetro(rest[++i]);
-    else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
+    if (token === "--metro") metro = parseMetroValue(rest[++i]);
+    else if (token === "--timeout") timeoutMs = parseTimeoutValue(rest[++i]);
     else if (token === "--json") json = true;
-    else fail(4, `unknown flag '${token}'`);
+    else throw new DevicesUsageError(`unknown flag '${token}'`);
   }
   return { metro, timeoutMs, json };
 }
 
 export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): Promise<void> {
-  const { metro, timeoutMs, json } = parseArgs(rest);
-  const fetchImpl = runtime.fetch ?? fetch;
   const stdout = runtime.stdout ?? process.stdout;
   const stderr = runtime.stderr ?? process.stderr;
   const exit = runtime.exit ?? process.exit;
+  let parsed: ParsedArgs;
+  try {
+    parsed = parseArgs(rest);
+  } catch (err) {
+    if (err instanceof DevicesUsageError) {
+      failWith(4, err.reason, stderr, exit);
+    }
+    throw err;
+  }
+  const { metro, timeoutMs, json } = parsed;
+  const fetchImpl = runtime.fetch ?? fetch;
 
   const url = `${metro}/brna/devices`;
   const controller = new AbortController();

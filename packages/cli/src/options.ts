@@ -142,10 +142,11 @@ export async function diagnoseMetroResponse(
   const contentType = response.headers.get("content-type") ?? "";
   const body = await response.clone().text().catch(() => "");
   const trimmed = body.trimStart();
+  const lowerTrimmed = trimmed.toLowerCase();
   const isHtml =
     contentType.toLowerCase().includes("text/html") ||
-    trimmed.startsWith("<!DOCTYPE html") ||
-    trimmed.startsWith("<html");
+    lowerTrimmed.startsWith("<!doctype html") ||
+    lowerTrimmed.startsWith("<html");
 
   if (isHtml) {
     return `${endpoint} returned HTML instead of brna JSON; brna Metro middleware is not mounted. Wrap metro.config.js with withBrna() and restart Metro.`;

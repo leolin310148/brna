@@ -499,9 +499,17 @@ function dispatchFocusedKey(hit: IdentifiedHit, key: KeyActionRequest["key"]): D
 
 function makeKeyEvent(hit: IdentifiedHit, key: string): {
   nativeEvent: { timestamp: number; target?: unknown; key: string };
+  persist: () => void;
+  preventDefault: () => void;
+  stopPropagation: () => void;
 } {
   const base = makeSyntheticEvent(hit);
-  return { nativeEvent: { ...base.nativeEvent, key } };
+  return {
+    persist: base.persist,
+    preventDefault: base.preventDefault,
+    stopPropagation: base.stopPropagation,
+    nativeEvent: { ...base.nativeEvent, key },
+  };
 }
 
 function reactNativeKeyName(key: KeyActionRequest["key"]): string {

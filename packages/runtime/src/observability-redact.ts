@@ -60,6 +60,7 @@ export function redactLogRecord(
   options: ObservabilityRedactionOptions = {},
 ): LogRecord {
   const rules = compileRules(options.rules);
+  const sensitiveDefaults = options.redactSensitiveDefaults !== false;
   const out: LogRecord = {
     id: record.id,
     timestamp: record.timestamp,
@@ -69,7 +70,7 @@ export function redactLogRecord(
   if (record.source !== undefined) out.source = record.source;
   if (record.stack !== undefined) out.stack = applyRules(record.stack, rules);
   if (record.args !== undefined) {
-    out.args = record.args.map((a) => redactValue(a, rules));
+    out.args = record.args.map((a) => redactValue(a, rules, sensitiveDefaults));
   }
   return out;
 }
@@ -142,20 +143,27 @@ function redactBodyPreview(
   return applyRules(body, rules);
 }
 
-function redactJsonValue(value: unknown, rules: CompiledRule[], seen = new WeakSet<object>()): unknown {
+function redactJsonValue(
+  value: unknown,
+  rules: CompiledRule[],
+  sensitiveDefaults = true,
+  seen = new WeakSet<object>(),
+): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") return applyRules(value, rules);
   if (typeof value !== "object") return value;
   if (seen.has(value)) return CIRCULAR;
   seen.add(value);
   try {
-    if (Array.isArray(value)) return value.map((v) => redactJsonValue(v, rules, seen));
+    if (Array.isArray(value)) {
+      return value.map((v) => redactJsonValue(v, rules, sensitiveDefaults, seen));
+    }
     const out: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-      if (SENSITIVE_FIELD_PATTERN.test(key)) {
+      if (sensitiveDefaults && SENSITIVE_FIELD_PATTERN.test(key)) {
         out[key] = REDACTED;
       } else {
-        out[key] = redactJsonValue(v, rules, seen);
+        out[key] = redactJsonValue(v, rules, sensitiveDefaults, seen);
       }
     }
     return out;
@@ -164,11 +172,11 @@ function redactJsonValue(value: unknown, rules: CompiledRule[], seen = new WeakS
   }
 }
 
-function redactValue(value: unknown, rules: CompiledRule[]): unknown {
+function redactValue(value: unknown, rules: CompiledRule[], sensitiveDefaults: boolean): unknown {
   if (typeof value === "string") return applyRules(value, rules);
   if (value === null || typeof value !== "object") return value;
   try {
-    return redactJsonValue(value, rules);
+    return redactJsonValue(value, rules, sensitiveDefaults);
   } catch {
     return value;
   }

@@ -36,6 +36,16 @@ describe("deriveNodeId priority order", () => {
     );
   });
 
+  test("whitespace-only explicit ids fall through to positional hash", () => {
+    const id = deriveNodeId({
+      ...baseInput,
+      testID: "   ",
+      accessibilityIdentifier: "\t",
+    });
+
+    expect(id).toMatch(/^auto:[0-9a-f]{8}$/);
+  });
+
   test("falls through to positional hash", () => {
     const id = deriveNodeId(baseInput);
     expect(id).toMatch(/^auto:[0-9a-f]{8}$/);

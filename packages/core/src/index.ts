@@ -10,7 +10,7 @@
  * - toJSON / fromJSON          deterministic JSON serialisation; round-trips byte-identically.
  * - toYAML / fromYAML          YAML serialisation backed by the `yaml` package with pinned options.
  * - toMarkdown                 deterministic one-way projection for LLM consumers (no fromMarkdown).
- * - synthesiseListPlaceholder  computes `…N items above|below…` for virtualised lists.
+ * - synthesiseListPlaceholder(s) computes `…N items above|below…` for virtualised lists.
  * - collapseLoadingSkeleton    folds runs of shimmer placeholders into a single synthetic group.
  * - diff                       O(n+m) id-keyed diff producing added/removed/modified/moved events.
  * - filterDiffByTarget         retain only events touching the target, its ancestors,

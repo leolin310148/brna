@@ -19,6 +19,14 @@ describe("parseSelector", () => {
     });
   });
 
+  test("role selector syntax is case-insensitive", () => {
+    expect(parseSelector("Button:Sign In")).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Sign In",
+    });
+  });
+
   test("button:Save in #form-address → scoped role-name", () => {
     expect(parseSelector("button:Save in #form-address")).toEqual({
       kind: "role-name",

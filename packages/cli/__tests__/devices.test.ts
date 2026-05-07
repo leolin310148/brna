@@ -54,6 +54,29 @@ describe("brna devices", () => {
     expect(parsed.devices).toHaveLength(1);
     expect(parsed.devices[0]!.id).toBe("dev-a");
   });
+
+  test("unknown flag exits 4 via injected runtime", async () => {
+    const res = await run(["--bogus"], []);
+    expect(res.code).toBe(4);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toContain("unknown flag '--bogus'");
+  });
+
+  test("--metro validates missing and malformed values via injected runtime", async () => {
+    const missing = await run(["--metro"], []);
+    expect(missing.code).toBe(4);
+    expect(missing.stderr).toContain("missing value for '--metro'");
+
+    const malformed = await run(["--metro", "not-a-url"], []);
+    expect(malformed.code).toBe(4);
+    expect(malformed.stderr).toContain("malformed URL for '--metro': not-a-url");
+  });
+
+  test("--timeout validates positive integer values via injected runtime", async () => {
+    const res = await run(["--timeout", "0"], []);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("'--timeout' must be a positive integer");
+  });
 });
 
 describe("formatDevicesTable", () => {

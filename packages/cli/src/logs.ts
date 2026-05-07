@@ -13,7 +13,11 @@ import {
   parseSince,
   parseTimeout,
 } from "./options.js";
-import { loadConfig, toObservabilityRedactionOptions } from "./config.js";
+import {
+  hasObservabilityRedactionOptions,
+  loadConfig,
+  toObservabilityRedactionOptions,
+} from "./config.js";
 
 interface LogsRuntime {
   fetch?: typeof fetch;
@@ -87,7 +91,7 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
   if (parsed.since !== undefined) requestOptions.since = parsed.since;
   if (parsed.level !== undefined) requestOptions.level = parsed.level;
   if (parsed.limit !== undefined) requestOptions.limit = parsed.limit;
-  if (redaction.rules !== undefined) requestOptions.redaction = redaction;
+  if (hasObservabilityRedactionOptions(redaction)) requestOptions.redaction = redaction;
 
   const headers: Record<string, string> = {};
   if (parsed.device !== undefined) headers[DEVICE_HEADER] = parsed.device;

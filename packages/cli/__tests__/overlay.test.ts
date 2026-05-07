@@ -108,6 +108,12 @@ describe("pickLabel", () => {
     expect(label.length).toBe(10);
     expect(label.endsWith("…")).toBe(true);
   });
+  test("honors tiny label caps", () => {
+    const node = { id: "x", kind: "button", suggested_selectors: ["#save"] };
+    expect(pickLabel(node, 1)).toBe("…");
+    expect(pickLabel(node, 0)).toBe("");
+    expect(pickLabel(node, -1)).toBe("");
+  });
   test("returns empty when no selectors", () => {
     expect(pickLabel({ id: "x", kind: "view" }, 20)).toBe("");
   });

@@ -52,6 +52,19 @@ describe("redactLogRecord", () => {
     expect(arg.id).toBe(7);
   });
 
+  test("redactSensitiveDefaults=false preserves sensitive object args", () => {
+    const out = redactLogRecord(
+      baseLog({ args: [{ access_token: "abc", note: "order_99" }] }),
+      {
+        redactSensitiveDefaults: false,
+        rules: [{ match: { source: "order_\\d+", flags: "g" }, replace: "<order>" }],
+      },
+    );
+    const arg = (out.args as Array<Record<string, unknown>>)[0]!;
+    expect(arg.access_token).toBe("abc");
+    expect(arg.note).toBe("<order>");
+  });
+
   test("redacts sensitive fields in circular object args", () => {
     const arg: Record<string, unknown> = { access_token: "abc", id: 7 };
     arg.self = arg;

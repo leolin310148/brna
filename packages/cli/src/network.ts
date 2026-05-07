@@ -12,7 +12,11 @@ import {
   parseSince,
   parseTimeout,
 } from "./options.js";
-import { loadConfig, toObservabilityRedactionOptions } from "./config.js";
+import {
+  hasObservabilityRedactionOptions,
+  loadConfig,
+  toObservabilityRedactionOptions,
+} from "./config.js";
 
 interface NetworkRuntime {
   fetch?: typeof fetch;
@@ -126,7 +130,7 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
   if (parsed.statusMin !== undefined) requestOptions.statusMin = parsed.statusMin;
   if (parsed.statusMax !== undefined) requestOptions.statusMax = parsed.statusMax;
   if (parsed.limit !== undefined) requestOptions.limit = parsed.limit;
-  if (redaction.rules !== undefined) requestOptions.redaction = redaction;
+  if (hasObservabilityRedactionOptions(redaction)) requestOptions.redaction = redaction;
 
   const headers: Record<string, string> = {};
   if (parsed.device !== undefined) headers[DEVICE_HEADER] = parsed.device;

@@ -145,6 +145,80 @@ describe("filterDiffByTarget", () => {
     expect(ids).toContain("cancel");
   });
 
+  test("does not retain unrelated root changes when target only exists in fresh", () => {
+    const withoutSubmit = snap({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "header",
+          kind: "group",
+          children: [{ id: "title", kind: "text", name: "Hello" }],
+        },
+        {
+          id: "form",
+          kind: "group",
+          children: [{ id: "email", kind: "input" }],
+        },
+        {
+          id: "footer",
+          kind: "group",
+          children: [{ id: "clock", kind: "text", name: "12:00" }],
+        },
+      ],
+    });
+    const fresh = snap({
+      id: "root",
+      kind: "screen",
+      children: [
+        withoutSubmit.tree.children![0]!,
+        {
+          id: "form",
+          kind: "group",
+          children: [
+            { id: "email", kind: "input" },
+            { id: "submit", kind: "button", name: "Save" },
+          ],
+        },
+        {
+          id: "footer",
+          kind: "group",
+          children: [{ id: "clock", kind: "text", name: "12:01" }],
+        },
+      ],
+    });
+    const full = diff(withoutSubmit, fresh);
+    const filtered = filterDiffByTarget(withoutSubmit, fresh, full, "submit");
+    const ids = filtered.events.map((e) => e.id);
+    expect(ids).toContain("submit");
+    expect(ids).not.toContain("clock");
+  });
+
+  test("does not retain unrelated root changes when target only exists in baseline", () => {
+    const fresh = snap({
+      id: "root",
+      kind: "screen",
+      children: [
+        baseline.tree.children![0]!,
+        {
+          id: "form",
+          kind: "group",
+          children: [{ id: "email", kind: "input" }],
+        },
+        {
+          id: "footer",
+          kind: "group",
+          children: [{ id: "clock", kind: "text", name: "12:01" }],
+        },
+      ],
+    });
+    const full = diff(baseline, fresh);
+    const filtered = filterDiffByTarget(baseline, fresh, full, "submit");
+    const ids = filtered.events.map((e) => e.id);
+    expect(ids).toContain("submit");
+    expect(ids).not.toContain("clock");
+  });
+
   test("retains added overlays even though they live outside the tree", () => {
     const fresh = snap(
       baseline.tree,

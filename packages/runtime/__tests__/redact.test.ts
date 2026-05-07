@@ -73,4 +73,28 @@ describe("redactSnapshot", () => {
     expect(password?.text).toBe("<redacted>");
     expect(password?.value).toBe("<redacted>");
   });
+
+  test("redacts secure non-string values", () => {
+    const out = redactSnapshot(
+      makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            {
+              id: "pin",
+              kind: "input",
+              name: "PIN",
+              value: 1234,
+              state: ["secure"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const pin = out.tree.children?.[0];
+    expect(pin?.name).toBe("PIN");
+    expect(pin?.value).toBe("<redacted>");
+  });
 });

@@ -34,7 +34,9 @@ function redactNode(
     node[key] = mirrorsSecureValue ? redactSecureString(value) : applyRules(value, rules);
   }
 
-  if (typeof node.value === "string") node.value = secure ? redactSecureString(node.value) : applyRules(node.value, rules);
+  if (node.value !== undefined) {
+    node.value = secure ? redactSecureScalar(node.value) : redactScalar(node.value, rules);
+  }
   if (node.range?.text !== undefined) node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   if (Array.isArray(node.suggested_selectors)) {
     node.suggested_selectors = node.suggested_selectors.map((selector) => applyRules(selector, rules));
@@ -46,6 +48,14 @@ function redactNode(
 
 function redactSecureString(value: string): string {
   return value.length === 0 ? "" : SECURE_REPLACEMENT;
+}
+
+function redactSecureScalar(value: NonNullable<Node["value"]>): string {
+  return typeof value === "string" ? redactSecureString(value) : SECURE_REPLACEMENT;
+}
+
+function redactScalar(value: NonNullable<Node["value"]>, rules: CompiledRule[]): NonNullable<Node["value"]> {
+  return typeof value === "string" ? applyRules(value, rules) : value;
 }
 
 function compileRules(rules: NonNullable<SnapshotRedactionOptions["rules"]>): CompiledRule[] {

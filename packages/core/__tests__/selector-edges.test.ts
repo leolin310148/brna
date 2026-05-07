@@ -33,5 +33,10 @@ describe("selector edge cases", () => {
       name: "__Save__",
       _dev: { inferred_label: true },
     })).toBe("button:Save");
+    expect(canonicalSelectorFor({
+      id: "auto:button",
+      kind: "button",
+      name: "Save",
+    })).toBe("button:Save");
   });
 });

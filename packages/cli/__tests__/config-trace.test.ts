@@ -9,6 +9,7 @@ import type { AddressInfo } from "node:net";
 import { diff, fromCanonicalYAML, toCanonicalYAML } from "@brna/core";
 import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
 import {
+  hasObservabilityRedactionOptions,
   loadConfig,
   measureTimeoutFromConfig,
   runConfig,
@@ -257,11 +258,14 @@ describe("brna config", () => {
         ],
       });
       expect(toObservabilityRedactionOptions(loaded.config)).toEqual({
+        redactSensitiveDefaults: false,
         rules: [
           { match: { source: "token\\.value", flags: "g" }, replace: "<token>" },
           { match: { source: "secret", flags: "gi" }, replace: "<secret>" },
         ],
       });
+      expect(hasObservabilityRedactionOptions(toObservabilityRedactionOptions(loaded.config))).toBe(true);
+      expect(hasObservabilityRedactionOptions({})).toBe(false);
       expect(() => measureTimeoutFromConfig({ measureTimeoutMs: Number.NaN })).toThrow(/finite positive/);
     } finally {
       await rm(cwd, { recursive: true, force: true });

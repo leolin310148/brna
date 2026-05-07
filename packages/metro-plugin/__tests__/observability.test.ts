@@ -127,6 +127,25 @@ describe("handleLogs", () => {
     await promise;
   });
 
+  test("ignores blank numeric query filters", async () => {
+    const bridge = new BrnaBridge();
+    const ws = attachRuntime(bridge);
+    const req = makeMockReq("GET", "/brna/logs?since=&limit=+&level=warn");
+    const res = makeMockRes();
+    const promise = handleLogs(bridge, req as never, res as never);
+    await new Promise((r) => setImmediate(r));
+    const frame = lastSent(ws) as unknown as {
+      id: string;
+      options: { since?: number; level?: string; limit?: number };
+    };
+    expect(frame.options).toEqual({ level: "warn" });
+    ws.emit(
+      "message",
+      Buffer.from(JSON.stringify({ type: "logs.response", id: frame.id, records: [] })),
+    );
+    await promise;
+  });
+
   test("returns 503 when no runtime is connected", async () => {
     const bridge = new BrnaBridge();
     const req = makeMockReq("GET", "/brna/logs");
@@ -322,6 +341,32 @@ describe("handleNetwork", () => {
       options: { since: number; status: number; statusMin: number; statusMax: number; limit: number };
     };
     expect(frame.options).toEqual({ since: 10, status: 201, statusMin: 200, statusMax: 299, limit: 5 });
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "network.response", id: frame.id, records: [] })));
+    await promise;
+  });
+
+  test("ignores blank numeric network query filters", async () => {
+    const bridge = new BrnaBridge();
+    const ws = attachRuntime(bridge);
+    const req = makeMockReq(
+      "GET",
+      "/brna/network?since=&status=&statusMin=+&statusMax=%20&limit=&method=post",
+    );
+    const res = makeMockRes();
+    const promise = handleNetwork(bridge, req as never, res as never);
+    await new Promise((r) => setImmediate(r));
+    const frame = lastSent(ws) as unknown as {
+      id: string;
+      options: {
+        since?: number;
+        status?: number;
+        statusMin?: number;
+        statusMax?: number;
+        limit?: number;
+        method?: string;
+      };
+    };
+    expect(frame.options).toEqual({ method: "POST" });
     ws.emit("message", Buffer.from(JSON.stringify({ type: "network.response", id: frame.id, records: [] })));
     await promise;
   });

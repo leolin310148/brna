@@ -46,6 +46,24 @@ describe("markdown projection — accessibility fields", () => {
     // No separate accessibility_label token
     expect(md).not.toContain("accessibility_label");
   });
+
+  test("escapes node names with quote and newline characters", () => {
+    const md = toMarkdown(
+      snapshotWith({
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "message",
+            kind: "text",
+            name: "Line 1\n\"Line 2\"",
+          },
+        ],
+      }),
+    );
+    expect(md).toContain(String.raw`"Line 1\n\"Line 2\""`);
+    expect(md).not.toContain('Line 1\n"Line 2"');
+  });
 });
 
 describe("markdown projection — screen and active layer", () => {
@@ -179,6 +197,36 @@ describe("markdown projection — range precedence", () => {
     // No bracketed annotation derived from range
     expect(md).not.toContain("[0/");
     expect(md).not.toContain("[100");
+  });
+});
+
+describe("markdown projection — virtualized lists", () => {
+  test("renders omitted items above and below visible ranges", () => {
+    const md = toMarkdown(
+      snapshotWith({
+        id: "root",
+        kind: "screen",
+        children: [
+          {
+            id: "feed",
+            kind: "list",
+            total_count: 10,
+            visible_range: { start: 3, end: 5 },
+            children: [
+              { id: "item-3", kind: "list_item", name: "Item 4" },
+              { id: "item-4", kind: "list_item", name: "Item 5" },
+              { id: "item-5", kind: "list_item", name: "Item 6" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(md).toContain("- …3 items above…");
+    expect(md).toContain("- list_item#item-3 \"Item 4\"");
+    expect(md).toContain("- …4 items below…");
+    expect(md.indexOf("…3 items above…")).toBeLessThan(md.indexOf("list_item#item-3"));
+    expect(md.indexOf("list_item#item-5")).toBeLessThan(md.indexOf("…4 items below…"));
   });
 });
 

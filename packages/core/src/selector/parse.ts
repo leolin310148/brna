@@ -47,10 +47,11 @@ export function parseSelector(input: string): SelectorAST {
 
   const colonIndex = raw.indexOf(":");
   if (colonIndex > 0) {
-    const role = raw.slice(0, colonIndex);
-    if (!ROLE_RE.test(role)) {
+    const rawRole = raw.slice(0, colonIndex);
+    if (!ROLE_RE.test(rawRole)) {
       return { kind: "xpath", path: raw };
     }
+    const role = rawRole.toLowerCase();
     const remainder = raw.slice(colonIndex + 1);
     const quoted = parseQuotedRoleName(role, remainder, colonIndex);
     if (quoted) return quoted;

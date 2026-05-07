@@ -4,13 +4,14 @@ import { formatRoleSelector } from "./format.js";
 
 export function canonicalSelectorFor(node: Node, ancestors: Node[] = []): string {
   if (!node.id.startsWith("auto:")) return `#${node.id}`;
-  if (node.role && node.name) {
+  const roleOrKind = node.role ?? node.kind;
+  if (roleOrKind && node.name) {
     const display = displayLabel(node) ?? node.name;
     const namedAncestor = [...ancestors].reverse().find((a) => !a.id.startsWith("auto:"));
     if (namedAncestor) {
-      return `${formatRoleSelector(node.role, display)} in #${namedAncestor.id}`;
+      return `${formatRoleSelector(roleOrKind, display)} in #${namedAncestor.id}`;
     }
-    return formatRoleSelector(node.role, display);
+    return formatRoleSelector(roleOrKind, display);
   }
   return `#${node.id}`;
 }

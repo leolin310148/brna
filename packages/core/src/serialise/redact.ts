@@ -35,7 +35,7 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
   }
 
   if (node.value !== undefined) {
-    node.value = secure && typeof node.value === "string" ? redactSecureString(node.value) : redactScalar(node.value, rules);
+    node.value = secure ? redactSecureScalar(node.value) : redactScalar(node.value, rules);
   }
   if (node.range?.text !== undefined) {
     node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
@@ -50,6 +50,10 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
 
 function redactSecureString(value: string): string {
   return value.length === 0 ? "" : SECURE_REPLACEMENT;
+}
+
+function redactSecureScalar(value: NonNullable<Node["value"]>): string {
+  return typeof value === "string" ? redactSecureString(value) : SECURE_REPLACEMENT;
 }
 
 function redactScalar(value: string | number | boolean, rules: CompiledRule[]): string | number | boolean {

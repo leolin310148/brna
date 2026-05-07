@@ -140,6 +140,9 @@ export async function runWait(rest: string[], runtime: WaitRuntime = {}): Promis
     if (result.kind === "connect_error") {
       failWith(1, `could not connect to Metro at ${args.metro}`, stderr, exit);
     }
+    if (result.kind === "timeout") {
+      failWith(2, `wait timed out after ${args.timeoutMs}ms`, stderr, exit);
+    }
     if (result.kind === "no_runtime") {
       failWith(3, "no runtime connected — start the app first", stderr, exit);
     }
@@ -165,6 +168,7 @@ type FetchResult =
   | { kind: "snapshot"; snapshot: Snapshot }
   | { kind: "retry" }
   | { kind: "connect_error" }
+  | { kind: "timeout" }
   | { kind: "no_runtime" }
   | { kind: "unknown_device" }
   | { kind: "runtime_error"; message: string };
@@ -180,7 +184,8 @@ async function fetchSnapshot(
   let response: Response;
   try {
     response = await fetchImpl(url, { signal: controller.signal, headers });
-  } catch {
+  } catch (err) {
+    if (isAbortError(err)) return { kind: "timeout" };
     return { kind: "connect_error" };
   } finally {
     clearTimeout(timer);
@@ -233,4 +238,8 @@ function matches(ast: SelectorAST, snapshot: Snapshot, wantGone: boolean): boole
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+function isAbortError(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && (err as { name?: unknown }).name === "AbortError");
 }

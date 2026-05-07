@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeMetroUrl } from "../src/options.js";
+import { diagnoseMetroResponse, normalizeMetroUrl } from "../src/options.js";
 
 describe("CLI option parsing", () => {
   test("normalizes Metro URL origins", () => {
@@ -21,5 +21,25 @@ describe("CLI option parsing", () => {
     expect(() => normalizeMetroUrl("not-a-url")).toThrow();
     expect(() => normalizeMetroUrl("ftp://localhost:8081")).toThrow();
     expect(() => normalizeMetroUrl("brna://metro")).toThrow();
+  });
+
+  test("diagnoses HTML responses without relying on content-type casing", async () => {
+    const response = new Response("  <!doctype html><html><body>Metro</body></html>", {
+      status: 404,
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toContain(
+      "brna Metro middleware is not mounted",
+    );
+  });
+
+  test("includes useful non-HTML HTTP response details", async () => {
+    const response = new Response("noise\nUnable to resolve module @brna/runtime\nmore noise", {
+      status: 500,
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: Unable to resolve module @brna/runtime",
+    );
   });
 });
