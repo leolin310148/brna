@@ -85,4 +85,13 @@ describe("observability schema helpers", () => {
     });
     expect(parseNetworkRequestOptions({ since: Infinity, method: "", status: Number.NaN, limit: -1 })).toEqual({});
   });
+
+  test("rejects impossible network status filters", () => {
+    expect(parseNetworkRequestOptions({
+      status: 99,
+      statusMin: 600,
+      statusMax: 700,
+    })).toEqual({});
+    expect(parseNetworkRequestOptions({ statusMin: 500, statusMax: 400 })).toEqual({});
+  });
 });

@@ -93,6 +93,12 @@ function isOptionalFiniteNumber(value: unknown): boolean {
   return value === undefined || isFiniteNumber(value);
 }
 
+function parseHttpStatus(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const status = Math.floor(value);
+  return status >= 100 && status <= 599 ? status : undefined;
+}
+
 export function isValidLogRecord(value: unknown): value is LogRecord {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -143,9 +149,15 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
     const method = v.method.trim();
     if (method.length > 0) out.method = method.toUpperCase();
   }
-  if (typeof v.status === "number" && Number.isFinite(v.status)) out.status = Math.floor(v.status);
-  if (typeof v.statusMin === "number" && Number.isFinite(v.statusMin)) out.statusMin = Math.floor(v.statusMin);
-  if (typeof v.statusMax === "number" && Number.isFinite(v.statusMax)) out.statusMax = Math.floor(v.statusMax);
+  const status = parseHttpStatus(v.status);
+  if (status !== undefined) out.status = status;
+  const statusMin = parseHttpStatus(v.statusMin);
+  const statusMax = parseHttpStatus(v.statusMax);
+  const validRange = statusMin === undefined || statusMax === undefined || statusMin <= statusMax;
+  if (validRange) {
+    if (statusMin !== undefined) out.statusMin = statusMin;
+    if (statusMax !== undefined) out.statusMax = statusMax;
+  }
   if (typeof v.limit === "number" && Number.isFinite(v.limit) && v.limit > 0) {
     out.limit = Math.floor(v.limit);
   }
