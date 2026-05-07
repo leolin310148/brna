@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import type {
   ObservabilityRedactionOptions,
@@ -75,7 +76,9 @@ export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {
   for (const name of ["brna.config.ts", "brna.config.js"]) {
     const path = join(cwd, name);
     if (!existsSync(path)) continue;
-    const mod = (await import(`${path}?t=${Date.now()}`)) as { default?: BrnaConfig; config?: BrnaConfig };
+    const url = pathToFileURL(path);
+    url.searchParams.set("t", Date.now().toString());
+    const mod = (await import(url.href)) as { default?: BrnaConfig; config?: BrnaConfig };
     return { path, config: mod.default ?? mod.config ?? {} };
   }
   return { config: {} };

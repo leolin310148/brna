@@ -271,6 +271,20 @@ describe("brna config", () => {
       await rm(cwd, { recursive: true, force: true });
     }
   });
+
+  test("loadConfig supports project paths with URL special characters", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config #"));
+    try {
+      const configPath = join(cwd, "brna.config.ts");
+      writeFileSync(configPath, 'export default { sessionDir: "sessions-with-special-path" };\n', "utf8");
+
+      const loaded = await loadConfig(cwd);
+      expect(realpathSync(loaded.path!)).toBe(realpathSync(configPath));
+      expect(loaded.config.sessionDir).toBe("sessions-with-special-path");
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("brna trace", () => {
