@@ -7,6 +7,7 @@ interface Capture {
   stdout: string;
   stderr: string;
   fetchCount: number;
+  fetchUrls: string[];
 }
 
 function makeSnapshot(over: { children?: Snapshot["tree"]["children"] } = {}): Snapshot {
@@ -40,6 +41,7 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
   let stdout = "";
   let stderr = "";
   let fetchCount = 0;
+  const fetchUrls: string[] = [];
   const responses = opts.responses ?? [];
   let nowMs = opts.now ? opts.now() : 1_000_000;
   const advance = (ms: number) => {
@@ -47,8 +49,9 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
   };
   try {
     await runWait(rest, {
-      fetch: async () => {
+      fetch: async (input) => {
         fetchCount++;
+        fetchUrls.push(String(input));
         if (opts.fetchReject) throw opts.fetchReject;
         const next = responses.shift();
         if (!next) return new Response("{}", { status: 503 });
@@ -66,7 +69,7 @@ async function run(rest: string[], opts: RunOpts = {}): Promise<Capture> {
     });
   } catch (err) {
     const code = (err as { code?: unknown }).code;
-    if (typeof code === "number") return { code, stdout, stderr, fetchCount };
+    if (typeof code === "number") return { code, stdout, stderr, fetchCount, fetchUrls };
     throw err;
   }
   throw new Error("expected runWait to exit");
@@ -156,5 +159,16 @@ describe("brna wait", () => {
     const res = await run(["text:X", "--interval", "5"]);
     expect(res.code).toBe(4);
     expect(res.stderr).toContain("--interval");
+  });
+
+  test("--metro accepts host:port shorthand", async () => {
+    const snap = makeSnapshot({
+      children: [{ id: "auto:ready", kind: "text", name: "Ready" }],
+    });
+    const res = await run(["text:Ready", "--metro", "localhost:19000"], {
+      responses: [snapshotResponse(snap)],
+    });
+    expect(res.code).toBe(0);
+    expect(res.fetchUrls[0]).toBe("http://localhost:19000/brna/snapshot");
   });
 });

@@ -9,15 +9,29 @@ export function fail(code: number, reason: string): never {
 }
 
 export function parseMetro(value: string | undefined): string {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     fail(4, "missing value for '--metro'");
   }
   try {
-    const u = new URL(value);
-    return `${u.protocol}//${u.host}`;
+    return normalizeMetroUrl(value);
   } catch {
     fail(4, `malformed URL for '--metro': ${value}`);
   }
+}
+
+export function normalizeMetroUrl(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) throw new Error("empty Metro URL");
+
+  const hasExplicitScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+  if (!hasExplicitScheme && !/:\d+(?:[/?#]|$)/.test(trimmed)) {
+    throw new Error("Metro URL shorthand must include a port");
+  }
+  const url = new URL(hasExplicitScheme ? trimmed : `http://${trimmed}`);
+  if ((url.protocol !== "http:" && url.protocol !== "https:") || url.host.length === 0) {
+    throw new Error("Metro URL must use http:// or https://");
+  }
+  return `${url.protocol}//${url.host}`;
 }
 
 export function parseTimeout(value: string | undefined): number {

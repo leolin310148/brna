@@ -6,6 +6,7 @@ import {
   DEVICE_HEADER,
   diagnoseMetroResponse,
   failWith,
+  normalizeMetroUrl,
 } from "./options.js";
 
 export const DEFAULT_WAIT_TIMEOUT_MS = 30000;
@@ -19,12 +20,11 @@ class WaitUsageError extends Error {
 }
 
 function parseUrlValue(value: string | undefined): string {
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new WaitUsageError("missing value for '--metro'");
   }
   try {
-    const u = new URL(value);
-    return `${u.protocol}//${u.host}`;
+    return normalizeMetroUrl(value);
   } catch {
     throw new WaitUsageError(`malformed URL for '--metro': ${value}`);
   }
