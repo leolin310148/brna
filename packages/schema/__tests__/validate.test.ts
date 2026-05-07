@@ -263,6 +263,17 @@ describe("advanced snapshot fields", () => {
     });
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
+
+  test("rejects reversed visible_range", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        visible_range: { start: 10, end: 5 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
 });
 
 describe("node _dev.source", () => {

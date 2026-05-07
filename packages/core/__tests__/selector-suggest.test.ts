@@ -212,6 +212,27 @@ describe("annotateSuggestedSelectors", () => {
     expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:loading");
   });
 
+  test("labels starting with a quote are escaped in generated selectors", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "auto:quoted",
+          kind: "button",
+          role: "button",
+          name: '"Quoted"',
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:quoted");
+    expect(btn.suggested_selectors).toContain('button:"\\"Quoted\\""');
+    for (const selector of btn.suggested_selectors ?? []) {
+      const resolved = resolve(selector, result);
+      expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:quoted");
+    }
+  });
+
   test("text fragment fallback resolves uniquely", () => {
     const result = annotated({
       id: "root",

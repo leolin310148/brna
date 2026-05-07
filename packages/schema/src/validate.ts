@@ -350,4 +350,11 @@ function validateVisibleRange(range: unknown, path: string): void {
       });
     }
   }
+  if ((obj.start as number) > (obj.end as number)) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "visible_range.start must be less than or equal to visible_range.end",
+    });
+  }
 }

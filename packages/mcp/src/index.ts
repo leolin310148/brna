@@ -11,7 +11,7 @@ import {
   ReadResourceRequestSchema,
   type JSONRPCMessage,
 } from "@modelcontextprotocol/sdk/types.js";
-import { validateActionRequest, validateSnapshot, type Snapshot } from "@brna/schema";
+import { validateActionRequest, validateSnapshot, type Node, type Snapshot } from "@brna/schema";
 import { resolve as resolveSelector, toMarkdown } from "@brna/core";
 
 const SERVER_INFO = { name: "brna-mcp", version: "0.0.0" };
@@ -213,7 +213,7 @@ class BrnaMcpApp {
         description: "Tap a node identified by a brna selector.",
         inputSchema: {
           type: "object",
-          properties: { selector: { type: "string" } },
+          properties: { selector: { type: "string" }, at: { type: "number", minimum: 0 } },
           required: ["selector"],
         },
       },
@@ -225,6 +225,7 @@ class BrnaMcpApp {
           properties: {
             selector: { type: "string" },
             text: { type: "string" },
+            at: { type: "number", minimum: 0 },
           },
           required: ["selector", "text"],
         },
@@ -238,6 +239,7 @@ class BrnaMcpApp {
             selector: { type: "string" },
             direction: { type: "string", enum: ["up", "down", "left", "right"] },
             by: { type: "number" },
+            at: { type: "number", minimum: 0 },
           },
           required: ["selector", "direction"],
         },
@@ -251,6 +253,7 @@ class BrnaMcpApp {
             selector: { type: "string" },
             direction: { type: "string", enum: ["up", "down", "left", "right"] },
             by: { type: "number" },
+            at: { type: "number", minimum: 0 },
           },
           required: ["selector", "direction"],
         },
@@ -263,6 +266,7 @@ class BrnaMcpApp {
           properties: {
             selector: { type: "string" },
             duration_ms: { type: "number" },
+            at: { type: "number", minimum: 0 },
           },
           required: ["selector"],
         },
@@ -403,11 +407,17 @@ class BrnaMcpApp {
 
   private async resolveTarget(args: Record<string, unknown>): Promise<string> {
     const selector = stringField(args, "selector");
+    const at = optionalAt(args);
     const snapshot = await this.fetchSnapshot();
-    const result = resolveSelector(selector, snapshot);
+    const result = resolveSelector(selector, snapshot, at === undefined ? {} : { at });
     if ("ok" in result) return result.ok.id;
     if ("ambiguous" in result) {
-      throw new Error(`selector matched multiple nodes: ${selector}`);
+      throw new Error(JSON.stringify({
+        code: "ambiguous",
+        selector,
+        ...(result.at !== undefined ? { at: result.at } : {}),
+        matches: describeMatches(result.ambiguous),
+      }));
     }
     throw new Error(`selector did not match a node: ${selector}`);
   }
@@ -450,4 +460,32 @@ function stringField(args: Record<string, unknown>, name: string): string {
     throw new Error(`missing or empty argument: ${name}`);
   }
   return v;
+}
+
+function optionalAt(args: Record<string, unknown>): number | undefined {
+  const v = args.at;
+  if (v === undefined) return undefined;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+    throw new Error("argument at must be a non-negative integer");
+  }
+  return v;
+}
+
+function describeMatches(matches: Node[]): Array<Record<string, unknown>> {
+  return matches.map((node, index) => {
+    const out: Record<string, unknown> = {
+      index,
+      kind: node.kind,
+      selector: candidateSelector(node),
+    };
+    if (node.bounds) out.bounds = node.bounds;
+    return out;
+  });
+}
+
+function candidateSelector(node: Node): string {
+  if (node.selector) return node.selector;
+  const suggested = node.suggested_selectors?.[0];
+  if (suggested) return suggested;
+  return `#${node.id}`;
 }

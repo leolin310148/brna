@@ -33,6 +33,9 @@ describe("act usage errors (no Metro contact)", () => {
     const r = run(["help", "act"]);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("brna act");
+    expect(r.stdout).toContain("auto-select a single safe interactive match");
+    expect(r.stdout).toContain("--at");
+    expect(r.stdout).toContain("Pick a 0-indexed candidate");
     expect(r.stdout).toContain("brna act type");
     expect(r.stderr).toBe("");
   });

@@ -159,6 +159,14 @@ brna snapshot --format json > snapshot.json
 brna verify snapshot.json
 ```
 
+If you invoke brna through an npm script and redirect snapshot output to a
+golden file, run npm in silent mode so its script banner does not contaminate
+the snapshot:
+
+```sh
+npm --silent run brna -- snapshot --format md > snapshot.md
+```
+
 Markdown goldens compare the markdown projection and ignore volatile session
 header metadata. JSON goldens compare the validated snapshot structure and
 ignore volatile capture metadata (`captured_at`, `session_id`, `snapshot_id`).
@@ -183,6 +191,14 @@ Selectors can target explicit ids such as `#save` or semantic matches such as
 `button:Submit` and `input:Email`. Prefer explicit `testID` values for workflows
 that need to be stable over time. Quote semantic labels when the label itself
 looks like selector syntax, for example `button:"Save in #toolbar"`.
+
+When a selector matches one interactive node and only container wrappers, `act`
+auto-selects the interactive target and prints a note. If several real targets
+match, the error lists indexed candidates; re-run with `--at <index>` to pick one.
+
+```sh
+brna act tap "#check" --at 0
+```
 
 ### `capture`
 

@@ -43,12 +43,13 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   },
   {
     name: "act",
-    description: "Resolve a selector against a fresh snapshot and dispatch one runtime action.",
-    usage: "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--verify-change] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    description: "Resolve a selector against a fresh snapshot, auto-select a single safe interactive match, and dispatch one runtime action.",
+    usage: "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--at <index>] [--verify-change] [--metro <url>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--duration", description: "Long-press duration in milliseconds." },
       { name: "--direction", description: "Scroll/swipe direction: up, down, left, or right." },
       { name: "--by", description: "Distance for scroll and swipe actions." },
+      { name: "--at", description: "Pick a 0-indexed candidate when a selector matches multiple nodes." },
       { name: "--verify-change", description: "Warn when the action succeeds but the next snapshot has no tree diff." },
       { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
       { name: "--timeout", description: "Request timeout in milliseconds." },
@@ -59,6 +60,7 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
       "brna act long-press \"#menu\" --duration 750",
       "brna act type \"input:Email\" \"leo@example.com\"",
       "brna act scroll \"#feed\" --direction down --by 300",
+      "brna act tap \"#save\" --at 1",
       "brna act tap \"#save\" --verify-change",
       "brna act swipe \"#screen:root\" --direction up --by 600",
     ],

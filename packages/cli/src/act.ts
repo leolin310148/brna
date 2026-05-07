@@ -17,6 +17,7 @@ import {
   fetchWithInFlightRetry,
   parseDevice,
   parseMetro,
+  parseNonNegativeInt,
   parseTimeout,
   parsePositiveInt,
 } from "./options.js";
@@ -61,6 +62,7 @@ interface SharedFlags {
   commandArgs?: string[];
   snapshotBefore?: Snapshot;
   targetId?: string;
+  at?: number;
 }
 
 export async function runAct(rest: string[], runtime: { exit?: (code: number) => never } = {}): Promise<void> {
@@ -93,7 +95,8 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
         target_id,
       }));
     case "long-press": {
-      const { selector, durationMs } = parseLongPressArgs(positional);
+      const { selector, durationMs, at } = parseLongPressArgs(positional);
+      if (at !== undefined) shared.at = at;
       return runWithSelector(selector, shared, (resolvedId) => ({
         kind: "long_press",
         selector,
@@ -102,7 +105,8 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
       }));
     }
     case "type": {
-      const { selector, text } = parseTypeArgs(positional);
+      const { selector, text, at } = parseTypeArgs(positional);
+      if (at !== undefined) shared.at = at;
       return runWithSelector(selector, shared, (resolvedId) => ({
         kind: "type",
         selector,
@@ -111,7 +115,8 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
       }));
     }
     case "scroll": {
-      const { selector, direction, by } = parseDirectionalArgs("scroll", positional);
+      const { selector, direction, by, at } = parseDirectionalArgs("scroll", positional);
+      if (at !== undefined) shared.at = at;
       return runWithSelector(selector, shared, (resolvedId) => {
         const action: ActionRequest = {
           kind: "scroll",
@@ -124,7 +129,8 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
       });
     }
     case "swipe": {
-      const { selector, direction, by } = parseDirectionalArgs("swipe", positional);
+      const { selector, direction, by, at } = parseDirectionalArgs("swipe", positional);
+      if (at !== undefined) shared.at = at;
       return runWithSelector(selector, shared, (resolvedId) => {
         const action: ActionRequest = {
           kind: "swipe",
@@ -155,6 +161,8 @@ function extractSharedFlags(args: string[]): { positional: string[]; shared: Sha
       timeoutMs = parseTimeout(args[++i]);
     } else if (token === "--device") {
       device = parseDevice(args[++i]);
+    } else if (token === "--at") {
+      positional.push(token, args[++i] ?? "");
     } else if (token === "--verify-change") {
       verifyChange = true;
     } else if (token === "--duration" || token === "--by" || token === "--direction") {
@@ -170,12 +178,30 @@ function extractSharedFlags(args: string[]): { positional: string[]; shared: Sha
   return { positional, shared };
 }
 
+function extractAtFlag(positional: string[]): { positional: string[]; at?: number } {
+  const out: string[] = [];
+  let at: number | undefined;
+  for (let i = 0; i < positional.length; i++) {
+    const token = positional[i]!;
+    if (token === "--at") {
+      if (at !== undefined) fail(4, "duplicate '--at'");
+      at = parseNonNegativeInt(positional[++i], "--at");
+    } else {
+      out.push(token);
+    }
+  }
+  return at === undefined ? { positional: out } : { positional: out, at };
+}
+
 async function runTargetedSelector(
   verb: Verb,
   positional: string[],
   shared: SharedFlags,
   build: (selector: string, target_id: string) => ActionRequest,
 ): Promise<void> {
+  const parsed = extractAtFlag(positional);
+  positional = parsed.positional;
+  if (parsed.at !== undefined) shared.at = parsed.at;
   const selector = positional[0];
   if (typeof selector !== "string" || selector.length === 0) {
     fail(4, `missing selector for act ${verb}`);
@@ -186,7 +212,9 @@ async function runTargetedSelector(
   return runWithSelector(selector, shared, (resolvedId) => build(selector, resolvedId));
 }
 
-function parseLongPressArgs(positional: string[]): { selector: string; durationMs: number } {
+function parseLongPressArgs(positional: string[]): { selector: string; durationMs: number; at?: number } {
+  const parsed = extractAtFlag(positional);
+  positional = parsed.positional;
   const selector = positional[0];
   if (typeof selector !== "string" || selector.length === 0) {
     fail(4, "missing selector for act long-press");
@@ -200,10 +228,12 @@ function parseLongPressArgs(positional: string[]): { selector: string; durationM
       fail(4, `unexpected argument '${token}'`);
     }
   }
-  return { selector, durationMs };
+  return parsed.at === undefined ? { selector, durationMs } : { selector, durationMs, at: parsed.at };
 }
 
-function parseTypeArgs(positional: string[]): { selector: string; text: string } {
+function parseTypeArgs(positional: string[]): { selector: string; text: string; at?: number } {
+  const parsed = extractAtFlag(positional);
+  positional = parsed.positional;
   const selector = positional[0];
   if (typeof selector !== "string" || selector.length === 0) {
     fail(4, "missing selector for act type");
@@ -215,14 +245,17 @@ function parseTypeArgs(positional: string[]): { selector: string; text: string }
   if (positional.length > 2) {
     fail(4, `unexpected argument '${positional[2]}'`);
   }
-  return { selector, text };
+  return parsed.at === undefined ? { selector, text } : { selector, text, at: parsed.at };
 }
 
 function parseDirectionalArgs(verb: "scroll" | "swipe", positional: string[]): {
   selector: string;
   direction: ScrollDirection;
   by?: number;
+  at?: number;
 } {
+  const parsed = extractAtFlag(positional);
+  positional = parsed.positional;
   const selector = positional[0];
   if (typeof selector !== "string" || selector.length === 0) {
     fail(4, `missing selector for act ${verb}`);
@@ -247,7 +280,10 @@ function parseDirectionalArgs(verb: "scroll" | "swipe", positional: string[]): {
     }
   }
   if (!direction) fail(4, `missing --direction for act ${verb}`);
-  return by === undefined ? { selector, direction } : { selector, direction, by };
+  const result: { selector: string; direction: ScrollDirection; by?: number; at?: number } = { selector, direction };
+  if (by !== undefined) result.by = by;
+  if (parsed.at !== undefined) result.at = parsed.at;
+  return result;
 }
 
 async function runKey(positional: string[], shared: SharedFlags): Promise<void> {
@@ -288,7 +324,7 @@ async function runWithSelector(
   shared.snapshotBefore = snapshot;
   let result: ReturnType<typeof resolve>;
   try {
-    result = resolve(selector, snapshot);
+    result = resolve(selector, snapshot, shared.at === undefined ? {} : { at: shared.at });
   } catch (err) {
     fail(6, `selector resolution failed for '${selector}': ${(err as Error).message}`);
   }
@@ -296,11 +332,41 @@ async function runWithSelector(
     fail(2, `selector not found: ${selector}`);
   }
   if ("ambiguous" in result) {
-    const ids = result.ambiguous.map((n: Node) => n.id);
-    fail(3, `selector '${selector}' is ambiguous: ${ids.join(", ")}`);
+    fail(3, formatAmbiguousSelector(selector, result.ambiguous, result.at));
+  }
+  if (result.warning) {
+    process.stderr.write(formatResolveWarning(selector, result.ok, result.warning.skipped));
   }
   shared.targetId = result.ok.id;
   await postAction(shared, build(result.ok.id));
+}
+
+function formatResolveWarning(selector: string, selected: Node, skipped: string[]): string {
+  const skippedText = skipped.length > 0 ? `; skipped ${skipped.join(", ")}` : "";
+  return `note: '${selector}' matched multiple nodes; auto-selected interactive ${selected.kind} (${selected.id})${skippedText}. Use --at to override.\n`;
+}
+
+function formatAmbiguousSelector(selector: string, matches: Node[], at?: number): string {
+  const heading = at === undefined
+    ? `selector '${selector}' is ambiguous (${matches.length} matches):`
+    : `selector '${selector}' matched ${matches.length} nodes but --at ${at} is out of range:`;
+  return `${heading}\n${formatCandidates(matches)}\nhint: re-run with --at <index>, or use a more specific selector`;
+}
+
+function formatCandidates(matches: Node[]): string {
+  return matches.map((node, index) => `  [${index}] kind=${node.kind} bounds=${formatBounds(node)} selector=${formatCandidateSelector(node)}`).join("\n");
+}
+
+function formatBounds(node: Node): string {
+  const bounds = node.bounds;
+  return bounds ? `${bounds.x},${bounds.y},${bounds.w},${bounds.h}` : "unknown";
+}
+
+function formatCandidateSelector(node: Node): string {
+  if (node.selector) return node.selector;
+  const suggested = node.suggested_selectors?.[0];
+  if (suggested) return suggested;
+  return `#${node.id}`;
 }
 
 async function fetchSnapshot(shared: SharedFlags): Promise<Snapshot> {

@@ -1,32 +1,47 @@
-import type { Node, SelectorAST, Snapshot } from "@brna/schema";
+import type { Node, NodeKind, SelectorAST, Snapshot } from "@brna/schema";
 import { parseSelector } from "./parse.js";
 import { displayLabel } from "./inferred-label.js";
 
+export type ResolveWarning = { code: "auto_prefer_interactive"; skipped: string[] };
+
 export type ResolveResult =
-  | { ok: Node }
+  | { ok: Node; warning?: ResolveWarning }
   | { none: true }
-  | { ambiguous: Node[] };
+  | { ambiguous: Node[]; at?: number };
+
+export interface ResolveOptions {
+  at?: number;
+  autoPreferInteractive?: boolean;
+}
+
+const INTERACTIVE_KINDS = new Set<NodeKind>(["button", "input", "toggle", "slider", "link"]);
+const CONTAINER_KINDS = new Set<NodeKind>(["screen", "region", "group", "list", "list_item", "modal", "toast"]);
 
 export function resolve(
   selector: string | SelectorAST,
   snapshot: Snapshot,
+  options: ResolveOptions = {},
 ): ResolveResult {
   const ast = typeof selector === "string" ? parseSelector(selector) : selector;
-  return resolveAst(ast, snapshot);
+  return resolveAst(ast, snapshot, options);
 }
 
-function resolveAst(ast: SelectorAST, snapshot: Snapshot): ResolveResult {
+function resolveAst(ast: SelectorAST, snapshot: Snapshot, options: ResolveOptions): ResolveResult {
   if (ast.kind === "role-name" && ast.in) {
-    const inner = resolveAst(ast.in, snapshot);
+    const inner = resolveAst(ast.in, snapshot, withoutAt(options));
     if ("none" in inner) return { none: true };
-    if ("ambiguous" in inner) return { ambiguous: inner.ambiguous };
+    if ("ambiguous" in inner) return { ambiguous: inner.ambiguous, ...(inner.at !== undefined ? { at: inner.at } : {}) };
     const region = inner.ok;
     const matches = collectFromRoots([region], (n) => n !== region && matchesLeaf(ast, n));
-    return packageResult(matches);
+    return packageResult(matches, options);
   }
   const roots = collectRoots(snapshot);
   const matches = collectFromRoots(roots, (n) => matchesLeaf(ast, n));
-  return packageResult(matches);
+  return packageResult(matches, options);
+}
+
+function withoutAt(options: ResolveOptions): ResolveOptions {
+  return options.at === undefined ? options : { ...options, at: undefined };
 }
 
 function collectRoots(snapshot: Snapshot): Node[] {
@@ -79,8 +94,30 @@ function matchesLeaf(ast: SelectorAST, node: Node): boolean {
   }
 }
 
-function packageResult(matches: Node[]): ResolveResult {
+function packageResult(matches: Node[], options: ResolveOptions): ResolveResult {
   if (matches.length === 0) return { none: true };
+  if (options.at !== undefined) {
+    if (options.at >= 0 && options.at < matches.length) return { ok: matches[options.at]! };
+    return { ambiguous: matches, at: options.at };
+  }
   if (matches.length === 1) return { ok: matches[0]! };
+  if (options.autoPreferInteractive !== false) {
+    const interactive = matches.filter(isInteractive);
+    const skipped = matches.filter((n) => !isInteractive(n));
+    if (interactive.length === 1 && skipped.every(isContainer)) {
+      return {
+        ok: interactive[0]!,
+        warning: { code: "auto_prefer_interactive", skipped: skipped.map((n) => n.id) },
+      };
+    }
+  }
   return { ambiguous: matches };
+}
+
+function isInteractive(node: Node): boolean {
+  return INTERACTIVE_KINDS.has(node.kind) || (node.actions?.length ?? 0) > 0;
+}
+
+function isContainer(node: Node): boolean {
+  return CONTAINER_KINDS.has(node.kind);
 }

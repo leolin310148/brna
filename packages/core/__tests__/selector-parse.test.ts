@@ -70,6 +70,14 @@ describe("parseSelector", () => {
     });
   });
 
+  test("quoted role names can start with a literal quote", () => {
+    expect(parseSelector('button:"\\"Quoted\\""')).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: '"Quoted"',
+    });
+  });
+
   test("Forgot...password → text fragment", () => {
     expect(parseSelector("Forgot...password")).toEqual({
       kind: "text",

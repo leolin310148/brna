@@ -307,8 +307,89 @@ describe("act selector failures", () => {
     const r = await runAct(["tap", "button:Save"]);
     expect(r.status).toBe(3);
     expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("selector 'button:Save' is ambiguous (2 matches):");
+    expect(r.stderr).toContain("[0] kind=button");
+    expect(r.stderr).toContain("[1] kind=button");
     expect(r.stderr).toContain("save-top");
     expect(r.stderr).toContain("save-bottom");
+    expect(r.stderr).toContain("hint: re-run with --at <index>");
+    expect(state.lastActionBody).toBe(null);
+  });
+
+  test("auto-prefers a single interactive candidate and prints a note", async () => {
+    state.snapshotResponder = (_req, res) =>
+      jsonReply(
+        res,
+        200,
+        makeSnapshot({
+          tree: {
+            id: "screen:root",
+            kind: "screen",
+            children: [
+              { id: "check", kind: "group", bounds: { x: 350, y: 57, w: 24, h: 24 } },
+              { id: "check", kind: "button", name: "Responder Release", bounds: { x: 350, y: 57, w: 24, h: 24 } },
+            ],
+          },
+        }),
+      );
+    const r = await runAct(["tap", "#check"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("auto-selected interactive button (check)");
+    expect(JSON.parse(state.lastActionBody!)).toEqual({
+      kind: "tap",
+      selector: "#check",
+      target_id: "check",
+    });
+  });
+
+  test("--at picks a specific ambiguous candidate", async () => {
+    state.snapshotResponder = (_req, res) =>
+      jsonReply(
+        res,
+        200,
+        makeSnapshot({
+          tree: {
+            id: "screen:root",
+            kind: "screen",
+            children: [
+              { id: "save-top", kind: "button", role: "button", name: "Save" },
+              { id: "save-bottom", kind: "button", role: "button", name: "Save" },
+            ],
+          },
+        }),
+      );
+    const r = await runAct(["tap", "button:Save", "--at", "1"]);
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(state.lastActionBody!)).toEqual({
+      kind: "tap",
+      selector: "button:Save",
+      target_id: "save-bottom",
+    });
+  });
+
+  test("--at out of range exits 3 with candidate list", async () => {
+    state.snapshotResponder = (_req, res) =>
+      jsonReply(
+        res,
+        200,
+        makeSnapshot({
+          tree: {
+            id: "screen:root",
+            kind: "screen",
+            children: [
+              { id: "save-top", kind: "button", role: "button", name: "Save" },
+              { id: "save-bottom", kind: "button", role: "button", name: "Save" },
+            ],
+          },
+        }),
+      );
+    const r = await runAct(["tap", "button:Save", "--at", "5"]);
+    expect(r.status).toBe(3);
+    expect(r.stderr).toContain("--at 5 is out of range");
+    expect(r.stderr).toContain("[0] kind=button");
+    expect(r.stderr).toContain("[1] kind=button");
     expect(state.lastActionBody).toBe(null);
   });
 });

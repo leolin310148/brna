@@ -144,6 +144,61 @@ describe("MCP server", () => {
     expect(actions[0]).toEqual({ kind: "tap", selector: "button:Submit", target_id: "btn" });
   });
 
+  test("tools/call tap supports at index for ambiguous selectors", async () => {
+    const actions: unknown[] = [];
+    const responses = await exchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "tap", arguments: { selector: "button:Submit", at: 1 } },
+      },
+    ], {
+      actions,
+      fresh: makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            { id: "top", kind: "button", role: "button", name: "Submit" },
+            { id: "bottom", kind: "button", role: "button", name: "Submit" },
+          ],
+        },
+      }),
+    });
+    const result = responses[0]!.result as { content: Array<{ text: string }> };
+    expect(result.content[0]!.text).toContain("ok: tap");
+    expect(actions[0]).toEqual({ kind: "tap", selector: "button:Submit", target_id: "bottom" });
+  });
+
+  test("ambiguous selector returns structured error payload", async () => {
+    const responses = await exchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "tap", arguments: { selector: "button:Submit" } },
+      },
+    ], {
+      fresh: makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            { id: "top", kind: "button", role: "button", name: "Submit", bounds: { x: 1, y: 2, w: 3, h: 4 } },
+            { id: "bottom", kind: "button", role: "button", name: "Submit" },
+          ],
+        },
+      }),
+    });
+    expect(responses[0]!.error).toBeDefined();
+    const payload = JSON.parse(responses[0]!.error!.message) as { code: string; selector: string; matches: Array<{ index: number; kind: string; bounds?: unknown }> };
+    expect(payload.code).toBe("ambiguous");
+    expect(payload.selector).toBe("button:Submit");
+    expect(payload.matches.map((m) => [m.index, m.kind])).toEqual([[0, "button"], [1, "button"]]);
+    expect(payload.matches[0]!.bounds).toEqual({ x: 1, y: 2, w: 3, h: 4 });
+  });
+
   test("tools/call swipe posts swipe action", async () => {
     const actions: unknown[] = [];
     const responses = await exchange([

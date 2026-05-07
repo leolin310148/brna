@@ -46,6 +46,49 @@ describe("resolve", () => {
     expect("ambiguous" in r ? r.ambiguous.map((n) => n.id) : null).toEqual(["a", "b", "c"]);
   });
 
+  test("auto-prefers one interactive match over container wrappers", () => {
+    const s = snap([
+      { id: "check", kind: "group", bounds: { x: 350, y: 57, w: 24, h: 24 } },
+      { id: "check", kind: "button", name: "Responder Release", bounds: { x: 350, y: 57, w: 24, h: 24 } },
+    ]);
+    const r = resolve("#check", s);
+    expect("ok" in r ? r.ok.kind : null).toBe("button");
+    expect("ok" in r ? r.warning : null).toEqual({
+      code: "auto_prefer_interactive",
+      skipped: ["check"],
+    });
+  });
+
+  test("does not auto-prefer when multiple interactive nodes collide", () => {
+    const s = snap([
+      { id: "delete", kind: "button", name: "Delete" },
+      { id: "delete", kind: "button", name: "Delete" },
+      { id: "delete", kind: "group" },
+    ]);
+    const r = resolve("#delete", s);
+    expect("ambiguous" in r ? r.ambiguous.map((n) => n.kind) : null).toEqual(["button", "button", "group"]);
+  });
+
+  test("at option picks from the original match set before auto-prefer", () => {
+    const s = snap([
+      { id: "check", kind: "group" },
+      { id: "check", kind: "button", name: "Responder Release" },
+    ]);
+    const r = resolve("#check", s, { at: 0 });
+    expect("ok" in r ? r.ok.kind : null).toBe("group");
+    expect("ok" in r ? r.warning : null).toBeUndefined();
+  });
+
+  test("out-of-range at returns ambiguous with candidate set", () => {
+    const s = snap([
+      { id: "check", kind: "group" },
+      { id: "check", kind: "button", name: "Responder Release" },
+    ]);
+    const r = resolve("#check", s, { at: 5 });
+    expect("ambiguous" in r ? r.at : null).toBe(5);
+    expect("ambiguous" in r ? r.ambiguous.map((n) => n.kind) : null).toEqual(["group", "button"]);
+  });
+
   test("#id does not fall through on miss", () => {
     const s = snap([{ id: "x", kind: "button", name: "unknown-id" }]);
     expect(resolve("#unknown-id", s)).toEqual({ none: true });
@@ -62,6 +105,21 @@ describe("resolve", () => {
     ]);
     const r = resolve("button:Save in #form", s);
     expect("ok" in r ? r.ok.id : null).toBe("save-inside");
+  });
+
+  test("at option applies to scoped leaf matches, not the region selector", () => {
+    const s = snap([
+      {
+        id: "form",
+        kind: "region",
+        children: [
+          { id: "save-top", kind: "button", role: "button", name: "Save" },
+          { id: "save-bottom", kind: "button", role: "button", name: "Save" },
+        ],
+      },
+    ]);
+    const r = resolve("button:Save in #form", s, { at: 1 });
+    expect("ok" in r ? r.ok.id : null).toBe("save-bottom");
   });
 
   test("role names can contain in without becoming scoped selectors", () => {

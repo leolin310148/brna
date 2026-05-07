@@ -12,6 +12,11 @@ describe("CLI option parsing", () => {
     expect(normalizeMetroUrl("  127.0.0.1:19000  ")).toBe("http://127.0.0.1:19000");
   });
 
+  test("accepts bare port Metro shorthand as localhost", () => {
+    expect(normalizeMetroUrl("8081")).toBe("http://localhost:8081");
+    expect(normalizeMetroUrl("  19000  ")).toBe("http://localhost:19000");
+  });
+
   test("rejects unsupported Metro URL schemes", () => {
     expect(() => normalizeMetroUrl("not-a-url")).toThrow();
     expect(() => normalizeMetroUrl("ftp://localhost:8081")).toThrow();

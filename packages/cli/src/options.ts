@@ -23,6 +23,10 @@ export function normalizeMetroUrl(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) throw new Error("empty Metro URL");
 
+  if (/^\d+$/.test(trimmed)) {
+    return normalizeMetroUrl(`localhost:${trimmed}`);
+  }
+
   const hasExplicitScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
   if (!hasExplicitScheme && !/:\d+(?:[/?#]|$)/.test(trimmed)) {
     throw new Error("Metro URL shorthand must include a port");
@@ -48,6 +52,15 @@ export function parsePositiveInt(value: string | undefined, flag: string): numbe
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
     fail(4, `'${flag}' must be a positive integer, got '${value}'`);
+  }
+  return n;
+}
+
+export function parseNonNegativeInt(value: string | undefined, flag: string): number {
+  if (typeof value !== "string" || value.length === 0) fail(4, `missing value for '${flag}'`);
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    fail(4, `'${flag}' must be a non-negative integer, got '${value}'`);
   }
   return n;
 }
