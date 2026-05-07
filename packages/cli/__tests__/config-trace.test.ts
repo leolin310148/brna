@@ -285,6 +285,23 @@ describe("brna config", () => {
       await rm(cwd, { recursive: true, force: true });
     }
   });
+
+  test("loadConfig refreshes config imports loaded in the same millisecond", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    const configPath = join(cwd, "brna.config.ts");
+    const originalDateNow = Date.now;
+    try {
+      Date.now = () => 1234567890;
+      writeFileSync(configPath, 'export default { sessionDir: "first" };\n', "utf8");
+      expect((await loadConfig(cwd)).config.sessionDir).toBe("first");
+
+      writeFileSync(configPath, 'export default { sessionDir: "second" };\n', "utf8");
+      expect((await loadConfig(cwd)).config.sessionDir).toBe("second");
+    } finally {
+      Date.now = originalDateNow;
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("brna trace", () => {

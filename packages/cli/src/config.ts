@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { copyFile, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, extname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import type {
@@ -21,6 +21,8 @@ export interface LoadedConfig {
   path?: string;
   config: BrnaConfig;
 }
+
+let configImportVersion = 0;
 
 export async function runConfig(rest: string[]): Promise<void> {
   const sub = rest[0];
@@ -76,12 +78,22 @@ export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {
   for (const name of ["brna.config.ts", "brna.config.js"]) {
     const path = join(cwd, name);
     if (!existsSync(path)) continue;
-    const url = pathToFileURL(path);
-    url.searchParams.set("t", Date.now().toString());
-    const mod = (await import(url.href)) as { default?: BrnaConfig; config?: BrnaConfig };
+    const mod = await importFreshConfig(path);
     return { path, config: mod.default ?? mod.config ?? {} };
   }
   return { config: {} };
+}
+
+async function importFreshConfig(path: string): Promise<{ default?: BrnaConfig; config?: BrnaConfig }> {
+  const ext = extname(path);
+  const version = ++configImportVersion;
+  const freshPath = join(dirname(path), `.${basename(path, ext)}.${process.pid}.${version}${ext}`);
+  await copyFile(path, freshPath);
+  try {
+    return (await import(pathToFileURL(freshPath).href)) as { default?: BrnaConfig; config?: BrnaConfig };
+  } finally {
+    await unlink(freshPath).catch(() => undefined);
+  }
 }
 
 function configRedactRules(config: BrnaConfig): SerializableRedactionRule[] {
