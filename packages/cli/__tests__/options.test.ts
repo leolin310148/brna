@@ -5,6 +5,7 @@ import {
   parseDevice,
   parseNonNegativeInt,
   parsePositiveInt,
+  parseSince,
   parseTimeout,
 } from "../src/options.js";
 
@@ -54,6 +55,26 @@ describe("CLI option parsing", () => {
     expect(captureProcessExit(() => parseNonNegativeInt("-0", "--at")).stderr).toContain(
       "'--at' must be a non-negative integer",
     );
+  });
+
+  test("since flags reject non-decimal numeric syntax", () => {
+    expect(captureProcessExit(() => parseSince("0x10", "--since")).stderr).toContain(
+      "'--since' must be a non-negative number",
+    );
+    expect(captureProcessExit(() => parseSince("1e3", "--since")).stderr).toContain(
+      "'--since' must be a non-negative number",
+    );
+    expect(captureProcessExit(() => parseSince("9".repeat(400), "--since")).stderr).toContain(
+      "'--since' must be a non-negative number",
+    );
+  });
+
+  test("since flags still accept decimal durations", () => {
+    const before = Date.now();
+    const parsed = parseSince("  1500.5  ", "--since");
+    const after = Date.now();
+    expect(parsed).toBeLessThanOrEqual(after - 1500.5);
+    expect(parsed).toBeGreaterThanOrEqual(before - 1500.5);
   });
 
   test("diagnoses HTML responses without relying on content-type casing", async () => {

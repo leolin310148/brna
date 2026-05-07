@@ -69,8 +69,12 @@ export function parseSince(value: string | undefined, flag = "--since"): number 
   if (typeof value !== "string" || value.trim().length === 0) {
     fail(4, `missing value for '${flag}'`);
   }
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) {
+  const trimmed = value.trim();
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) {
+    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${value}'`);
+  }
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) {
     fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${value}'`);
   }
   // Heuristic: small numbers (< ~1980 epoch) are interpreted as durations from now;
