@@ -111,10 +111,17 @@ describe("brna network", () => {
   });
 
   test("--method forwards uppercase method to body", async () => {
-    const res = await run(["--method", "post"], { body: { records: [] } });
+    const res = await run(["--method", " post "], { body: { records: [] } });
     expect(res.requestInit?.method).toBe("POST");
     const body = JSON.parse(String(res.requestInit?.body)) as { method?: string };
     expect(body.method).toBe("POST");
+  });
+
+  test("--method rejects whitespace-only values", () => {
+    const res = runCli(["network", "--method", "   "]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("missing value for '--method'");
+    expect(res.stdout).toBe("");
   });
 
   test("--since rejects negative values", async () => {
@@ -125,13 +132,13 @@ describe("brna network", () => {
   });
 
   test("--status code forwards as status", async () => {
-    const res = await run(["--status", "404"], { body: { records: [] } });
+    const res = await run(["--status", " 404 "], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { status?: number };
     expect(body.status).toBe(404);
   });
 
   test("--status range forwards as statusMin/statusMax", async () => {
-    const res = await run(["--status", "4xx"], { body: { records: [] } });
+    const res = await run(["--status", " 4xx "], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as {
       statusMin?: number;
       statusMax?: number;
@@ -150,6 +157,13 @@ describe("brna network", () => {
     expect(tooHighRange.status).toBe(4);
     expect(tooHighRange.stderr).toContain("'--status' must be a code or range");
     expect(tooHighRange.stdout).toBe("");
+  });
+
+  test("--status rejects whitespace-only values", () => {
+    const res = runCli(["network", "--status", "   "]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("missing value for '--status'");
+    expect(res.stdout).toBe("");
   });
 
   test("--limit rejects fractional values", async () => {

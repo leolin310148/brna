@@ -47,24 +47,25 @@ function parseStatusArg(value: string | undefined): {
   statusMin?: number;
   statusMax?: number;
 } {
-  if (typeof value !== "string" || value.length === 0) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed.length === 0) {
     fail(4, "missing value for '--status'");
   }
-  if (/^\d+$/.test(value)) {
-    const status = Number(value);
+  if (/^\d+$/.test(trimmed)) {
+    const status = Number(trimmed);
     if (isHttpStatus(status)) return { status };
     fail(4, `'--status' must be an HTTP status code from 100 to 599, got '${value}'`);
   }
-  const dash = value.indexOf("-");
+  const dash = trimmed.indexOf("-");
   if (dash > 0) {
-    const lo = Number(value.slice(0, dash));
-    const hi = Number(value.slice(dash + 1));
+    const lo = Number(trimmed.slice(0, dash));
+    const hi = Number(trimmed.slice(dash + 1));
     if (isHttpStatus(lo) && isHttpStatus(hi) && lo <= hi) {
       return { statusMin: lo, statusMax: hi };
     }
   }
   // Class shortcuts like "2xx", "4xx".
-  const cls = /^([1-5])xx$/i.exec(value);
+  const cls = /^([1-5])xx$/i.exec(trimmed);
   if (cls) {
     const base = Number(cls[1]) * 100;
     return { statusMin: base, statusMax: base + 99 };
@@ -96,8 +97,9 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--since") since = parseSince(rest[++i]);
     else if (token === "--method") {
       const value = rest[++i];
-      if (typeof value !== "string" || value.length === 0) fail(4, "missing value for '--method'");
-      method = value.toUpperCase();
+      const trimmed = typeof value === "string" ? value.trim() : "";
+      if (trimmed.length === 0) fail(4, "missing value for '--method'");
+      method = trimmed.toUpperCase();
     } else if (token === "--status") {
       const parsed = parseStatusArg(rest[++i]);
       if (parsed.status !== undefined) status = parsed.status;
