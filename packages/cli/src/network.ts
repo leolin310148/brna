@@ -77,6 +77,15 @@ function isHttpStatus(value: number): boolean {
   return Number.isInteger(value) && value >= 100 && value <= 599;
 }
 
+function parseMethodArg(value: string | undefined): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (trimmed.length === 0) fail(4, "missing value for '--method'");
+  if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(trimmed)) {
+    fail(4, `'--method' must be an HTTP method token, got '${value}'`);
+  }
+  return trimmed.toUpperCase();
+}
+
 function parseArgs(rest: string[]): ParsedArgs {
   let metro = DEFAULT_METRO_URL;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
@@ -95,12 +104,8 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--json") json = true;
     else if (token === "--device") device = parseDevice(rest[++i]);
     else if (token === "--since") since = parseSince(rest[++i]);
-    else if (token === "--method") {
-      const value = rest[++i];
-      const trimmed = typeof value === "string" ? value.trim() : "";
-      if (trimmed.length === 0) fail(4, "missing value for '--method'");
-      method = trimmed.toUpperCase();
-    } else if (token === "--status") {
+    else if (token === "--method") method = parseMethodArg(rest[++i]);
+    else if (token === "--status") {
       const parsed = parseStatusArg(rest[++i]);
       if (parsed.status !== undefined) status = parsed.status;
       if (parsed.statusMin !== undefined) statusMin = parsed.statusMin;

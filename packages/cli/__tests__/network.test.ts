@@ -124,6 +124,13 @@ describe("brna network", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("--method rejects malformed HTTP method tokens", () => {
+    const res = runCli(["network", "--method", "GET POST"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("'--method' must be an HTTP method token");
+    expect(res.stdout).toBe("");
+  });
+
   test("--since rejects negative values", async () => {
     const res = runCli(["network", "--since", "-1"]);
     expect(res.status).toBe(4);
