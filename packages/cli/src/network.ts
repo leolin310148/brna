@@ -51,13 +51,15 @@ function parseStatusArg(value: string | undefined): {
     fail(4, "missing value for '--status'");
   }
   if (/^\d+$/.test(value)) {
-    return { status: Number(value) };
+    const status = Number(value);
+    if (isHttpStatus(status)) return { status };
+    fail(4, `'--status' must be an HTTP status code from 100 to 599, got '${value}'`);
   }
   const dash = value.indexOf("-");
   if (dash > 0) {
     const lo = Number(value.slice(0, dash));
     const hi = Number(value.slice(dash + 1));
-    if (Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi) {
+    if (isHttpStatus(lo) && isHttpStatus(hi) && lo <= hi) {
       return { statusMin: lo, statusMax: hi };
     }
   }
@@ -68,6 +70,10 @@ function parseStatusArg(value: string | undefined): {
     return { statusMin: base, statusMax: base + 99 };
   }
   fail(4, `'--status' must be a code or range (e.g. 200, 200-299, 4xx), got '${value}'`);
+}
+
+function isHttpStatus(value: number): boolean {
+  return Number.isInteger(value) && value >= 100 && value <= 599;
 }
 
 function parseArgs(rest: string[]): ParsedArgs {

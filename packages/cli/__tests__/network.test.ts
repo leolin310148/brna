@@ -140,6 +140,18 @@ describe("brna network", () => {
     expect(body.statusMax).toBe(499);
   });
 
+  test("--status rejects values outside HTTP status range", async () => {
+    const tooLow = runCli(["network", "--status", "99"]);
+    expect(tooLow.status).toBe(4);
+    expect(tooLow.stderr).toContain("HTTP status code from 100 to 599");
+    expect(tooLow.stdout).toBe("");
+
+    const tooHighRange = runCli(["network", "--status", "500-700"]);
+    expect(tooHighRange.status).toBe(4);
+    expect(tooHighRange.stderr).toContain("'--status' must be a code or range");
+    expect(tooHighRange.stdout).toBe("");
+  });
+
   test("--limit rejects fractional values", async () => {
     const res = runCli(["network", "--limit", "2.5"]);
     expect(res.status).toBe(4);
