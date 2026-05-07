@@ -1,5 +1,6 @@
 import type { Node } from "@brna/schema";
 import { displayLabel } from "./inferred-label.js";
+import { formatRoleSelector } from "./format.js";
 
 export function canonicalSelectorFor(node: Node, ancestors: Node[] = []): string {
   if (!node.id.startsWith("auto:")) return `#${node.id}`;
@@ -7,9 +8,9 @@ export function canonicalSelectorFor(node: Node, ancestors: Node[] = []): string
     const display = displayLabel(node) ?? node.name;
     const namedAncestor = [...ancestors].reverse().find((a) => !a.id.startsWith("auto:"));
     if (namedAncestor) {
-      return `${node.role}:${display} in #${namedAncestor.id}`;
+      return `${formatRoleSelector(node.role, display)} in #${namedAncestor.id}`;
     }
-    return `${node.role}:${display}`;
+    return formatRoleSelector(node.role, display);
   }
   return `#${node.id}`;
 }

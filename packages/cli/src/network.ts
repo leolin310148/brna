@@ -9,6 +9,7 @@ import {
   parseDevice,
   parseMetro,
   parsePositiveInt,
+  parseSince,
   parseTimeout,
 } from "./options.js";
 import { loadConfig, toObservabilityRedactionOptions } from "./config.js";
@@ -35,20 +36,6 @@ interface ParsedArgs {
 
 interface NetworkResponseBody {
   records: NetworkRecord[];
-}
-
-function parseSinceArg(value: string | undefined): number {
-  if (typeof value !== "string" || value.length === 0) {
-    fail(4, "missing value for '--since'");
-  }
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    fail(4, `'--since' must be a number (ms duration or absolute ms timestamp), got '${value}'`);
-  }
-  if (n < 315532800000) {
-    return Date.now() - n;
-  }
-  return n;
 }
 
 function parseStatusArg(value: string | undefined): {
@@ -96,7 +83,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
     else if (token === "--json") json = true;
     else if (token === "--device") device = parseDevice(rest[++i]);
-    else if (token === "--since") since = parseSinceArg(rest[++i]);
+    else if (token === "--since") since = parseSince(rest[++i]);
     else if (token === "--method") {
       const value = rest[++i];
       if (typeof value !== "string" || value.length === 0) fail(4, "missing value for '--method'");

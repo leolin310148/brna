@@ -40,27 +40,17 @@ export type NetworkResult =
   | { kind: "timeout" }
   | { kind: "unknown_device"; device_id: string };
 
-type PendingSnapshot = {
-  variant: "snapshot";
-  resolve: (value: SnapshotResult) => void;
+type PendingRequest<Variant extends string, Result> = {
+  variant: Variant;
+  resolve: (value: Result) => void;
   timer: NodeJS.Timeout;
 };
-type PendingAction = {
-  variant: "action";
-  resolve: (value: ActionResult) => void;
-  timer: NodeJS.Timeout;
-};
-type PendingLogs = {
-  variant: "logs";
-  resolve: (value: LogsResult) => void;
-  timer: NodeJS.Timeout;
-};
-type PendingNetwork = {
-  variant: "network";
-  resolve: (value: NetworkResult) => void;
-  timer: NodeJS.Timeout;
-};
+type PendingSnapshot = PendingRequest<"snapshot", SnapshotResult>;
+type PendingAction = PendingRequest<"action", ActionResult>;
+type PendingLogs = PendingRequest<"logs", LogsResult>;
+type PendingNetwork = PendingRequest<"network", NetworkResult>;
 type Pending = PendingSnapshot | PendingAction | PendingLogs | PendingNetwork;
+type RuntimeRequestResult = SnapshotResult | ActionResult | LogsResult | NetworkResult;
 
 interface RuntimeFrame {
   type?: string;
@@ -397,119 +387,93 @@ export class BrnaBridge {
   }
 
   async requestSnapshot(deviceId?: string, options: SnapshotRequestOptions = {}): Promise<SnapshotResult> {
-    const picked = this.pickEntry(deviceId);
-    if (picked && "kind" in picked) {
-      return { kind: "unknown_device", device_id: deviceId! };
-    }
-    if (!picked) throw new Error("no_runtime_connected");
-    const ws = picked.ws;
-    const id = randomUUID();
-    return new Promise<SnapshotResult>((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        this.markDisconnected(picked);
-        resolve({ kind: "timeout" });
-      }, this.snapshotTimeoutMs);
-      this.pending.set(id, { variant: "snapshot", resolve, timer });
-      try {
-        ws.send(JSON.stringify({ type: "snapshot.request", id, options }));
-      } catch (err) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        resolve({
-          kind: "runtime_error",
-          code: "bridge_send_failed",
-          message: (err as Error).message,
-        });
-      }
-    });
+    return this.sendRuntimeRequest(deviceId, "snapshot", this.snapshotTimeoutMs, (id) => ({
+      type: "snapshot.request",
+      id,
+      options,
+    }));
   }
 
   async requestLogs(options: LogsRequestOptions = {}, deviceId?: string): Promise<LogsResult> {
-    const picked = this.pickEntry(deviceId);
-    if (picked && "kind" in picked) {
-      return { kind: "unknown_device", device_id: deviceId! };
-    }
-    if (!picked) throw new Error("no_runtime_connected");
-    const ws = picked.ws;
-    const id = randomUUID();
-    return new Promise<LogsResult>((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        this.markDisconnected(picked);
-        resolve({ kind: "timeout" });
-      }, OBSERVABILITY_TIMEOUT_MS);
-      this.pending.set(id, { variant: "logs", resolve, timer });
-      try {
-        ws.send(JSON.stringify({ type: "logs.request", id, options }));
-      } catch (err) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        resolve({
-          kind: "runtime_error",
-          code: "bridge_send_failed",
-          message: (err as Error).message,
-        });
-      }
-    });
+    return this.sendRuntimeRequest(deviceId, "logs", OBSERVABILITY_TIMEOUT_MS, (id) => ({
+      type: "logs.request",
+      id,
+      options,
+    }));
   }
 
   async requestNetwork(
     options: NetworkRequestOptions = {},
     deviceId?: string,
   ): Promise<NetworkResult> {
-    const picked = this.pickEntry(deviceId);
-    if (picked && "kind" in picked) {
-      return { kind: "unknown_device", device_id: deviceId! };
-    }
-    if (!picked) throw new Error("no_runtime_connected");
-    const ws = picked.ws;
-    const id = randomUUID();
-    return new Promise<NetworkResult>((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        this.markDisconnected(picked);
-        resolve({ kind: "timeout" });
-      }, OBSERVABILITY_TIMEOUT_MS);
-      this.pending.set(id, { variant: "network", resolve, timer });
-      try {
-        ws.send(JSON.stringify({ type: "network.request", id, options }));
-      } catch (err) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        resolve({
-          kind: "runtime_error",
-          code: "bridge_send_failed",
-          message: (err as Error).message,
-        });
-      }
-    });
+    return this.sendRuntimeRequest(deviceId, "network", OBSERVABILITY_TIMEOUT_MS, (id) => ({
+      type: "network.request",
+      id,
+      options,
+    }));
   }
 
   async requestAction(action: ActionRequest, deviceId?: string): Promise<ActionResult> {
+    return this.sendRuntimeRequest(deviceId, "action", this.actionTimeoutMs, (id) => ({
+      type: "action.request",
+      id,
+      action,
+    }));
+  }
+
+  private sendRuntimeRequest(
+    deviceId: string | undefined,
+    variant: "snapshot",
+    timeoutMs: number,
+    makeFrame: (id: string) => unknown,
+  ): Promise<SnapshotResult>;
+  private sendRuntimeRequest(
+    deviceId: string | undefined,
+    variant: "logs",
+    timeoutMs: number,
+    makeFrame: (id: string) => unknown,
+  ): Promise<LogsResult>;
+  private sendRuntimeRequest(
+    deviceId: string | undefined,
+    variant: "network",
+    timeoutMs: number,
+    makeFrame: (id: string) => unknown,
+  ): Promise<NetworkResult>;
+  private sendRuntimeRequest(
+    deviceId: string | undefined,
+    variant: "action",
+    timeoutMs: number,
+    makeFrame: (id: string) => unknown,
+  ): Promise<ActionResult>;
+  private sendRuntimeRequest(
+    deviceId: string | undefined,
+    variant: Pending["variant"],
+    timeoutMs: number,
+    makeFrame: (id: string) => unknown,
+  ): Promise<RuntimeRequestResult> {
     const picked = this.pickEntry(deviceId);
     if (picked && "kind" in picked) {
-      return { kind: "unknown_device", device_id: deviceId! };
+      return Promise.resolve({ kind: "unknown_device", device_id: deviceId! });
     }
     if (!picked) throw new Error("no_runtime_connected");
     const ws = picked.ws;
     const id = randomUUID();
-    return new Promise<ActionResult>((resolve) => {
+    return new Promise<RuntimeRequestResult>((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         this.markDisconnected(picked);
         resolve({ kind: "timeout" });
-      }, this.actionTimeoutMs);
-      this.pending.set(id, { variant: "action", resolve, timer });
+      }, timeoutMs);
+      this.pending.set(id, { variant, resolve, timer } as Pending);
       try {
-        ws.send(JSON.stringify({ type: "action.request", id, action }));
+        ws.send(JSON.stringify(makeFrame(id)));
       } catch (err) {
         clearTimeout(timer);
         this.pending.delete(id);
         resolve({
           kind: "runtime_error",
           code: "bridge_send_failed",
-          message: (err as Error).message,
+          message: errorMessage(err),
         });
       }
     });
@@ -554,6 +518,10 @@ export class BrnaBridge {
 
 function shortId(): string {
   return randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 let singleton: BrnaBridge | null = null;

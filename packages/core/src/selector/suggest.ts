@@ -2,6 +2,7 @@ import type { Node, Snapshot } from "@brna/schema";
 import { canonicalSelectorFor } from "./canonical.js";
 import { resolve } from "./resolve.js";
 import { displayLabel } from "./inferred-label.js";
+import { formatRoleSelector } from "./format.js";
 
 const MAX_SUGGESTIONS = 4;
 const MAX_TEXT_FRAGMENT_PARTS = 3;
@@ -73,13 +74,13 @@ function generateForNode(
     // Prefer the normalized label (e.g. `button:Sitemap` over
     // `button:__Sitemap__`); fall back to the raw form so selectors copied
     // verbatim from older snapshots still resolve.
-    push(`${roleOrKind}:${display}`);
-    if (display !== node.name) push(`${roleOrKind}:${node.name}`);
+    push(formatRoleSelector(roleOrKind, display));
+    if (display !== node.name) push(formatRoleSelector(roleOrKind, node.name));
     const ancestor = nearestStableAncestor(ancestors);
     if (ancestor) {
-      push(`${roleOrKind}:${display} in #${ancestor.id}`);
+      push(`${formatRoleSelector(roleOrKind, display)} in #${ancestor.id}`);
       if (display !== node.name) {
-        push(`${roleOrKind}:${node.name} in #${ancestor.id}`);
+        push(`${formatRoleSelector(roleOrKind, node.name)} in #${ancestor.id}`);
       }
     }
   }

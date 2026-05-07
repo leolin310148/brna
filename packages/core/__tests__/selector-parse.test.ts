@@ -45,6 +45,31 @@ describe("parseSelector", () => {
     });
   });
 
+  test("quoted role names keep selector-like text literal", () => {
+    expect(parseSelector('button:"Save in #toolbar"')).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Save in #toolbar",
+    });
+  });
+
+  test("quoted role names can still be scoped", () => {
+    expect(parseSelector('button:"Save in #toolbar" in #form')).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Save in #toolbar",
+      in: { kind: "id", id: "form" },
+    });
+  });
+
+  test("quoted role names can contain text-fragment punctuation", () => {
+    expect(parseSelector('text:"Loading...done"')).toEqual({
+      kind: "role-name",
+      role: "text",
+      name: "Loading...done",
+    });
+  });
+
   test("Forgot...password → text fragment", () => {
     expect(parseSelector("Forgot...password")).toEqual({
       kind: "text",

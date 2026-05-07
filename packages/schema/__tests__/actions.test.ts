@@ -178,6 +178,18 @@ describe("validateActionRequest", () => {
     ).toThrow(/direction/);
   });
 
+  test("rejects swipe with non-positive by", () => {
+    expect(() =>
+      validateActionRequest({
+        kind: "swipe",
+        selector: "#f",
+        target_id: "f",
+        direction: "left",
+        by: 0,
+      }),
+    ).toThrow(/by/);
+  });
+
   test("accepts supported key values", () => {
     expect(validateActionRequest({ kind: "key", key: "enter" })).toEqual({ kind: "key", key: "enter" });
     expect(validateActionRequest({ kind: "key", key: "arrow_down" })).toEqual({ kind: "key", key: "arrow_down" });

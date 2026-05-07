@@ -163,6 +163,7 @@ export async function runWait(rest: string[], runtime: WaitRuntime = {}): Promis
 
 type FetchResult =
   | { kind: "snapshot"; snapshot: Snapshot }
+  | { kind: "retry" }
   | { kind: "connect_error" }
   | { kind: "no_runtime" }
   | { kind: "unknown_device" }
@@ -189,7 +190,7 @@ async function fetchSnapshot(
   if (response.status === 504) return { kind: "runtime_error", message: "runtime timed out" };
   if (response.status === 429) {
     // request-in-flight collisions just trigger the next polling tick
-    return { kind: "runtime_error", message: "another snapshot request is in flight" };
+    return { kind: "retry" };
   }
   if (response.status === 502) {
     let body: { code?: string; message?: string } = {};

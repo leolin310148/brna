@@ -52,6 +52,22 @@ export function parsePositiveInt(value: string | undefined, flag: string): numbe
   return n;
 }
 
+export function parseSince(value: string | undefined, flag = "--since"): number {
+  if (typeof value !== "string" || value.length === 0) {
+    fail(4, `missing value for '${flag}'`);
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${value}'`);
+  }
+  // Heuristic: small numbers (< ~1980 epoch) are interpreted as durations from now;
+  // large numbers are treated as absolute timestamps.
+  if (n < 315532800000) {
+    return Date.now() - n;
+  }
+  return n;
+}
+
 export function parseDevice(value: string | undefined): string {
   if (typeof value !== "string" || value.length === 0) {
     fail(4, "missing value for '--device'");

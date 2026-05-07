@@ -10,6 +10,7 @@ import {
   parseDevice,
   parseMetro,
   parsePositiveInt,
+  parseSince,
   parseTimeout,
 } from "./options.js";
 import { loadConfig, toObservabilityRedactionOptions } from "./config.js";
@@ -35,22 +36,6 @@ interface LogsResponseBody {
   records: LogRecord[];
 }
 
-function parseSinceArg(value: string | undefined): number {
-  if (typeof value !== "string" || value.length === 0) {
-    fail(4, "missing value for '--since'");
-  }
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    fail(4, `'--since' must be a number (ms duration or absolute ms timestamp), got '${value}'`);
-  }
-  // Heuristic: small numbers (< ~1980 epoch) are interpreted as durations from now;
-  // large numbers are treated as absolute timestamps.
-  if (n < 315532800000) {
-    return Date.now() - n;
-  }
-  return n;
-}
-
 function parseLevelArg(value: string | undefined): LogLevel {
   if (typeof value !== "string") fail(4, "missing value for '--level'");
   if (!isLogLevel(value)) {
@@ -73,7 +58,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
     else if (token === "--json") json = true;
     else if (token === "--device") device = parseDevice(rest[++i]);
-    else if (token === "--since") since = parseSinceArg(rest[++i]);
+    else if (token === "--since") since = parseSince(rest[++i]);
     else if (token === "--level") level = parseLevelArg(rest[++i]);
     else if (token === "--limit") {
       limit = parsePositiveInt(rest[++i], "--limit");

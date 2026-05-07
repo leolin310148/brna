@@ -113,6 +113,20 @@ describe("brna wait", () => {
     expect(res.stderr).toContain("wait timed out after 1000ms");
   });
 
+  test("retries when a snapshot request is already in flight", async () => {
+    const populated = makeSnapshot({
+      children: [{ id: "auto:ready", kind: "text", name: "Ready" }],
+    });
+    const res = await run(["text:Ready", "--timeout", "10000", "--interval", "100"], {
+      responses: [
+        () => new Response(JSON.stringify({ error: "request_in_flight" }), { status: 429 }),
+        snapshotResponse(populated),
+      ],
+    });
+    expect(res.code).toBe(0);
+    expect(res.fetchCount).toBe(2);
+  });
+
   test("ambiguous matches do not satisfy presence wait", async () => {
     const ambiguous = makeSnapshot({
       children: [

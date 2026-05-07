@@ -119,6 +119,35 @@ function nonEmptyString(value: unknown, path: string, label: string): string {
   return value;
 }
 
+function positiveInteger(value: unknown, path: string, message: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+    fail(path, message);
+  }
+  return value;
+}
+
+function targetedFields(obj: Record<string, unknown>): Pick<TapActionRequest, "selector" | "target_id"> {
+  return {
+    selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
+    target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
+  };
+}
+
+function scrollLikeFields(obj: Record<string, unknown>): Omit<ScrollActionRequest, "kind"> {
+  const direction = obj["direction"];
+  if (typeof direction !== "string" || !SCROLL_DIRECTION_SET.has(direction)) {
+    fail("$.direction", `direction must be one of ${SCROLL_DIRECTIONS.join("|")}`);
+  }
+  const out: Omit<ScrollActionRequest, "kind"> = {
+    ...targetedFields(obj),
+    direction: direction as ScrollDirection,
+  };
+  if (obj["by"] !== undefined) {
+    out.by = positiveInteger(obj["by"], "$.by", "by must be a positive integer when supplied");
+  }
+  return out;
+}
+
 export function validateActionRequest(input: unknown): ActionRequest {
   if (!isPlainObject(input)) fail("$", "action must be an object");
   const obj = input as Record<string, unknown>;
@@ -130,19 +159,13 @@ export function validateActionRequest(input: unknown): ActionRequest {
     case "tap":
       return {
         kind: "tap",
-        selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
-        target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
+        ...targetedFields(obj),
       };
     case "long_press": {
-      const duration = obj["duration_ms"];
-      if (typeof duration !== "number" || !Number.isFinite(duration) || !Number.isInteger(duration) || duration <= 0) {
-        fail("$.duration_ms", "duration_ms must be a positive integer");
-      }
       return {
         kind: "long_press",
-        selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
-        target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
-        duration_ms: duration,
+        ...targetedFields(obj),
+        duration_ms: positiveInteger(obj["duration_ms"], "$.duration_ms", "duration_ms must be a positive integer"),
       };
     }
     case "type": {
@@ -150,51 +173,14 @@ export function validateActionRequest(input: unknown): ActionRequest {
       if (typeof text !== "string") fail("$.text", "text must be a string");
       return {
         kind: "type",
-        selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
-        target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
+        ...targetedFields(obj),
         text,
       };
     }
-    case "scroll": {
-      const direction = obj["direction"];
-      if (typeof direction !== "string" || !SCROLL_DIRECTION_SET.has(direction)) {
-        fail("$.direction", `direction must be one of ${SCROLL_DIRECTIONS.join("|")}`);
-      }
-      const out: ScrollActionRequest = {
-        kind: "scroll",
-        selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
-        target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
-        direction: direction as ScrollDirection,
-      };
-      if (obj["by"] !== undefined) {
-        const by = obj["by"];
-        if (typeof by !== "number" || !Number.isFinite(by) || !Number.isInteger(by) || by <= 0) {
-          fail("$.by", "by must be a positive integer when supplied");
-        }
-        out.by = by;
-      }
-      return out;
-    }
-    case "swipe": {
-      const direction = obj["direction"];
-      if (typeof direction !== "string" || !SCROLL_DIRECTION_SET.has(direction)) {
-        fail("$.direction", `direction must be one of ${SCROLL_DIRECTIONS.join("|")}`);
-      }
-      const out: SwipeActionRequest = {
-        kind: "swipe",
-        selector: nonEmptyString(obj["selector"], "$.selector", "selector"),
-        target_id: nonEmptyString(obj["target_id"], "$.target_id", "target_id"),
-        direction: direction as ScrollDirection,
-      };
-      if (obj["by"] !== undefined) {
-        const by = obj["by"];
-        if (typeof by !== "number" || !Number.isFinite(by) || !Number.isInteger(by) || by <= 0) {
-          fail("$.by", "by must be a positive integer when supplied");
-        }
-        out.by = by;
-      }
-      return out;
-    }
+    case "scroll":
+      return { kind: "scroll", ...scrollLikeFields(obj) };
+    case "swipe":
+      return { kind: "swipe", ...scrollLikeFields(obj) };
     case "key": {
       const key = obj["key"];
       if (typeof key !== "string" || !ACTION_KEY_SET.has(key)) {

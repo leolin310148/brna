@@ -181,7 +181,8 @@ brna act key tab
 
 Selectors can target explicit ids such as `#save` or semantic matches such as
 `button:Submit` and `input:Email`. Prefer explicit `testID` values for workflows
-that need to be stable over time.
+that need to be stable over time. Quote semantic labels when the label itself
+looks like selector syntax, for example `button:"Save in #toolbar"`.
 
 ### `capture`
 

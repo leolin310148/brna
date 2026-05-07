@@ -114,6 +114,13 @@ describe("brna network", () => {
     expect(body.method).toBe("POST");
   });
 
+  test("--since rejects negative values", async () => {
+    const res = runCli(["network", "--since", "-1"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("'--since' must be a non-negative number");
+    expect(res.stdout).toBe("");
+  });
+
   test("--status code forwards as status", async () => {
     const res = await run(["--status", "404"], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { status?: number };

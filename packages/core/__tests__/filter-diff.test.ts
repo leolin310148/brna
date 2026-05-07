@@ -156,6 +156,33 @@ describe("filterDiffByTarget", () => {
     expect(ids).toContain("toast-1");
   });
 
+  test("retains changed overlay descendants", () => {
+    const baselineWithOverlay = snap(
+      baseline.tree,
+      [
+        {
+          id: "modal-1",
+          kind: "modal",
+          children: [{ id: "modal-title", kind: "text", name: "Saving" }],
+        },
+      ],
+    );
+    const fresh = snap(
+      baseline.tree,
+      [
+        {
+          id: "modal-1",
+          kind: "modal",
+          children: [{ id: "modal-title", kind: "text", name: "Saved" }],
+        },
+      ],
+    );
+    const full = diff(baselineWithOverlay, fresh);
+    const filtered = filterDiffByTarget(baselineWithOverlay, fresh, full, "submit");
+    const ids = filtered.events.map((e) => e.id);
+    expect(ids).toContain("modal-title");
+  });
+
   test("drops descendants of the target", () => {
     const targetWithChild: Node = {
       id: "form",

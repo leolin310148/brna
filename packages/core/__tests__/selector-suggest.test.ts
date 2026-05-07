@@ -165,6 +165,53 @@ describe("annotateSuggestedSelectors", () => {
     expect(btn.suggested_selectors).toContain("button:Log in with Apple in #form");
   });
 
+  test("labels that look scoped are quoted in generated selectors", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "form",
+          kind: "region",
+          children: [
+            {
+              id: "auto:save-toolbar",
+              kind: "button",
+              role: "button",
+              name: "Save in #toolbar",
+            },
+          ],
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:save-toolbar");
+    expect(btn.suggested_selectors).toContain('button:"Save in #toolbar"');
+    expect(btn.suggested_selectors?.[0]).toBe('button:"Save in #toolbar" in #form');
+    for (const selector of btn.suggested_selectors ?? []) {
+      const resolved = resolve(selector, result);
+      expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:save-toolbar");
+    }
+  });
+
+  test("labels with text-fragment punctuation are quoted in generated selectors", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "auto:loading",
+          kind: "text",
+          name: "Loading...done",
+          text: "Loading...done",
+        },
+      ],
+    });
+    const node = findNode(result, (n) => n.id === "auto:loading");
+    expect(node.suggested_selectors).toContain('text:"Loading...done"');
+    const resolved = resolve('text:"Loading...done"', result);
+    expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:loading");
+  });
+
   test("text fragment fallback resolves uniquely", () => {
     const result = annotated({
       id: "root",

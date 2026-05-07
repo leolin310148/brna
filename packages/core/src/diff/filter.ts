@@ -11,21 +11,21 @@ function indexParents(snapshot: Snapshot): ParentIndex {
   const childrenOf = new Map<string | null, string[]>();
   const overlayIds = new Set<string>();
 
-  const walk = (node: Node, parent: string | null): void => {
+  const walk = (node: Node, parent: string | null, inOverlay = false): void => {
     parentOf.set(node.id, parent);
     const list = childrenOf.get(parent) ?? [];
     list.push(node.id);
     childrenOf.set(parent, list);
+    if (inOverlay) overlayIds.add(node.id);
     if (node.children) {
-      for (const child of node.children) walk(child, node.id);
+      for (const child of node.children) walk(child, node.id, inOverlay);
     }
   };
 
   if (snapshot.tree) walk(snapshot.tree, null);
   if (snapshot.overlays) {
     for (const overlay of snapshot.overlays) {
-      overlayIds.add(overlay.id);
-      walk(overlay, null);
+      walk(overlay, null, true);
     }
   }
   return { parentOf, childrenOf, overlayIds };

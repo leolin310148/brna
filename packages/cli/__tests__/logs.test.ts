@@ -104,6 +104,13 @@ describe("brna logs", () => {
     expect(body.since!).toBeLessThanOrEqual(Date.now());
   });
 
+  test("--since rejects negative values", async () => {
+    const res = runCli(["logs", "--since", "-1"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("'--since' must be a non-negative number");
+    expect(res.stdout).toBe("");
+  });
+
   test("--level forwards the level filter", async () => {
     const res = await run(["--level", "warn"], { body: { records: [] } });
     const body = JSON.parse(String(res.requestInit?.body)) as { level?: string };

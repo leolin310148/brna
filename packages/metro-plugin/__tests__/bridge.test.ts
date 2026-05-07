@@ -128,6 +128,23 @@ describe("BrnaBridge.requestAction", () => {
       bridge.requestAction({ kind: "tap", selector: "#x", target_id: "x" }),
     ).rejects.toThrow("no_runtime_connected");
   });
+
+  test("reports send failures even when WebSocket throws a non-Error value", async () => {
+    const bridge = new BrnaBridge();
+    const ws = makeMockSocket();
+    ws.send = () => {
+      throw "socket closed";
+    };
+    bridge.onConnection(ws as unknown as Parameters<BrnaBridge["onConnection"]>[0]);
+
+    const result = await bridge.requestAction({ kind: "tap", selector: "#x", target_id: "x" });
+
+    expect(result).toEqual({
+      kind: "runtime_error",
+      code: "bridge_send_failed",
+      message: "socket closed",
+    });
+  });
 });
 
 describe("BrnaBridge single-flight slot", () => {
