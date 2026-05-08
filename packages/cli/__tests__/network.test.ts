@@ -273,4 +273,21 @@ describe("formatNetworkTable", () => {
     expect(out).toContain("ERR");
     expect(out).toContain("https://api.test/dead");
   });
+
+  test("renders invalid timestamps without throwing", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-bad",
+        timestamp: Number.NaN,
+        method: "GET",
+        url: "https://api.test/bad-time",
+        state: "completed",
+        source: "fetch",
+        status: 200,
+      },
+    ]);
+
+    expect(out).toContain("invalid");
+    expect(out).toContain("https://api.test/bad-time");
+  });
 });

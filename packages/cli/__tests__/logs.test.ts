@@ -221,4 +221,13 @@ describe("formatLogsTable", () => {
     expect(out).toContain("warn");
     expect(out).toContain("slow query");
   });
+
+  test("renders invalid timestamps without throwing", () => {
+    const out = formatLogsTable([
+      { id: "log-bad", timestamp: Number.NaN, level: "error", message: "bad timestamp" },
+    ]);
+
+    expect(out).toContain("invalid");
+    expect(out).toContain("bad timestamp");
+  });
 });

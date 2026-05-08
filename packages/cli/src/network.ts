@@ -17,6 +17,7 @@ import {
   loadConfig,
   toObservabilityRedactionOptions,
 } from "./config.js";
+import { formatTimestamp } from "./format.js";
 
 interface NetworkRuntime {
   fetch?: typeof fetch;
@@ -223,7 +224,7 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
 export function formatNetworkTable(records: NetworkRecord[]): string {
   const headers: string[] = ["TIME", "METHOD", "STATUS", "DUR(ms)", "URL"];
   const rows: string[][] = records.map((r) => [
-    new Date(r.timestamp).toISOString(),
+    formatTimestamp(r.timestamp),
     r.method,
     r.status !== undefined ? String(r.status) : r.state === "errored" ? "ERR" : "-",
     r.duration_ms !== undefined ? String(r.duration_ms) : "-",

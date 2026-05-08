@@ -18,6 +18,7 @@ import {
   loadConfig,
   toObservabilityRedactionOptions,
 } from "./config.js";
+import { formatTimestamp } from "./format.js";
 
 interface LogsRuntime {
   fetch?: typeof fetch;
@@ -174,7 +175,7 @@ export function formatLogsTable(records: LogRecord[]): string {
   return (
     records
       .map((r) => {
-        const ts = new Date(r.timestamp).toISOString();
+        const ts = formatTimestamp(r.timestamp);
         return `${ts}  ${r.level.padEnd(5)}  ${r.message}`;
       })
       .join("\n") + "\n"
