@@ -90,9 +90,9 @@ function parseArgs(rest: string[]): WaitArgs {
       intervalMs = value;
     } else if (token === "--gone") gone = true;
     else if (token === "--device") device = parseDeviceValue(rest[++i]);
-    else if (token.startsWith("--")) throw new WaitUsageError(`unknown flag '${token}'`);
+    else if (token.startsWith("--")) throw new WaitUsageError(`unknown flag '${formatCliValue(token)}'`);
     else if (selector === undefined) selector = token;
-    else throw new WaitUsageError(`unexpected argument '${token}'`);
+    else throw new WaitUsageError(`unexpected argument '${formatCliValue(token)}'`);
   }
 
   if (selector === undefined || selector.length === 0) {

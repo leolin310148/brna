@@ -230,6 +230,16 @@ describe("brna wait", () => {
     expect(metro.code).toBe(4);
     expect(metro.stderr).toContain("bad\\nurl");
     expect(metro.stderr).not.toContain("bad\nurl");
+
+    const flag = await run(["text:X", "--bad\x1b[31m"]);
+    expect(flag.code).toBe(4);
+    expect(flag.stderr).toContain("--bad\\x1b[31m");
+    expect(flag.stderr).not.toContain("\x1b");
+
+    const extra = await run(["text:X", "extra\narg"]);
+    expect(extra.code).toBe(4);
+    expect(extra.stderr).toContain("extra\\narg");
+    expect(extra.stderr).not.toContain("extra\narg");
   });
 
   test("--device rejects whitespace-only values as missing", async () => {
