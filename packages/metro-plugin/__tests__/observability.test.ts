@@ -83,6 +83,8 @@ function attachRuntime(bridge: BrnaBridge): MockSocket {
   return ws;
 }
 
+const OVERSIZED_JSON_BODY = JSON.stringify({ text: "x".repeat(65 * 1024) });
+
 describe("handleLogs", () => {
   test("returns 200 with logs records on logs.response", async () => {
     const bridge = new BrnaBridge();
@@ -213,6 +215,29 @@ describe("handleLogs", () => {
       expect(res.statusCode).toBe(status);
       expect(JSON.parse(res.body).error).toBe(error);
     }
+  });
+
+  test("rejects malformed and oversized POST bodies", async () => {
+    const bridge = new BrnaBridge();
+    attachRuntime(bridge);
+
+    const malformedReq = makeMockReq("POST", "/brna/logs");
+    malformedReq.headers["content-length"] = "1";
+    const malformedRes = makeMockRes();
+    const malformedPromise = handleLogs(bridge, malformedReq as never, malformedRes as never);
+    feedBody(malformedReq, "{");
+    await malformedPromise;
+    expect(malformedRes.statusCode).toBe(400);
+    expect(JSON.parse(malformedRes.body)).toEqual({ error: "malformed_logs_request" });
+
+    const oversizedReq = makeMockReq("POST", "/brna/logs");
+    oversizedReq.headers["content-length"] = String(Buffer.byteLength(OVERSIZED_JSON_BODY));
+    const oversizedRes = makeMockRes();
+    const oversizedPromise = handleLogs(bridge, oversizedReq as never, oversizedRes as never);
+    feedBody(oversizedReq, OVERSIZED_JSON_BODY);
+    await oversizedPromise;
+    expect(oversizedRes.statusCode).toBe(413);
+    expect(JSON.parse(oversizedRes.body)).toEqual({ error: "request_body_too_large", max_bytes: 64 * 1024 });
   });
 
   test("maps thrown log requests to connection and internal errors", async () => {
@@ -396,6 +421,29 @@ describe("handleNetwork", () => {
       expect(res.statusCode).toBe(status);
       expect(JSON.parse(res.body).error).toBe(error);
     }
+  });
+
+  test("rejects malformed and oversized POST bodies", async () => {
+    const bridge = new BrnaBridge();
+    attachRuntime(bridge);
+
+    const malformedReq = makeMockReq("POST", "/brna/network");
+    malformedReq.headers["content-length"] = "1";
+    const malformedRes = makeMockRes();
+    const malformedPromise = handleNetwork(bridge, malformedReq as never, malformedRes as never);
+    feedBody(malformedReq, "{");
+    await malformedPromise;
+    expect(malformedRes.statusCode).toBe(400);
+    expect(JSON.parse(malformedRes.body)).toEqual({ error: "malformed_network_request" });
+
+    const oversizedReq = makeMockReq("POST", "/brna/network");
+    oversizedReq.headers["content-length"] = String(Buffer.byteLength(OVERSIZED_JSON_BODY));
+    const oversizedRes = makeMockRes();
+    const oversizedPromise = handleNetwork(bridge, oversizedReq as never, oversizedRes as never);
+    feedBody(oversizedReq, OVERSIZED_JSON_BODY);
+    await oversizedPromise;
+    expect(oversizedRes.statusCode).toBe(413);
+    expect(JSON.parse(oversizedRes.body)).toEqual({ error: "request_body_too_large", max_bytes: 64 * 1024 });
   });
 
   test("maps thrown network requests to connection and internal errors", async () => {

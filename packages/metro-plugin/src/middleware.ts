@@ -298,12 +298,19 @@ function readNumericQueryParam(params: URLSearchParams, name: string): number | 
   return Number.isFinite(value) ? value : undefined;
 }
 
-async function readObservabilityOptions(req: IncomingMessage): Promise<unknown> {
-  if ((req.headers["content-length"] ?? "0") === "0") return undefined;
+async function readObservabilityOptions(
+  req: IncomingMessage,
+): Promise<
+  | { kind: "ok"; body: unknown }
+  | { kind: "malformed" }
+  | { kind: "too_large" }
+> {
+  if ((req.headers["content-length"] ?? "0") === "0") return { kind: "ok", body: undefined };
   try {
-    return await readJsonBody(req);
-  } catch {
-    return undefined;
+    return { kind: "ok", body: await readJsonBody(req) };
+  } catch (err) {
+    if (isBodyTooLargeError(err)) return { kind: "too_large" };
+    return { kind: "malformed" };
   }
 }
 
@@ -324,7 +331,15 @@ export async function handleLogs(
   let options: LogsRequestOptions;
   if (req.method === "POST") {
     const body = await readObservabilityOptions(req);
-    options = parseLogsRequestOptions(body);
+    if (body.kind === "too_large") {
+      sendBodyTooLarge(res);
+      return;
+    }
+    if (body.kind === "malformed") {
+      sendJson(res, 400, { error: "malformed_logs_request" });
+      return;
+    }
+    options = parseLogsRequestOptions(body.body);
   } else {
     options = parseLogsQuery(req.url ?? "");
   }
@@ -373,7 +388,15 @@ export async function handleNetwork(
   let options: NetworkRequestOptions;
   if (req.method === "POST") {
     const body = await readObservabilityOptions(req);
-    options = parseNetworkRequestOptions(body);
+    if (body.kind === "too_large") {
+      sendBodyTooLarge(res);
+      return;
+    }
+    if (body.kind === "malformed") {
+      sendJson(res, 400, { error: "malformed_network_request" });
+      return;
+    }
+    options = parseNetworkRequestOptions(body.body);
   } else {
     options = parseNetworkQuery(req.url ?? "");
   }
