@@ -130,6 +130,17 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("extracts JSON HTTP response titles", async () => {
+    const response = new Response(JSON.stringify({ title: "Metro middleware unavailable" }), {
+      status: 503,
+      headers: { "content-type": "application/problem+json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 503: Metro middleware unavailable",
+    );
+  });
+
   test("extracts JSON HTTP response messages from errors arrays", async () => {
     const response = new Response(JSON.stringify({ errors: [{ message: "Metro resolver failed" }] }), {
       status: 500,
