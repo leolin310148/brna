@@ -1,5 +1,5 @@
 import type { LogLevel, LogRecord, LogsRequestOptions } from "@brna/schema";
-import { isLogLevel } from "@brna/schema";
+import { isLogLevel, isValidLogRecord } from "@brna/schema";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -154,7 +154,10 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
   } catch (err) {
     failWith(3, diagnosis ?? `malformed logs response: ${(err as Error).message}`, stderr, exit);
   }
-  const records = Array.isArray(payload.records) ? payload.records : [];
+  if (!Array.isArray(payload.records) || !payload.records.every(isValidLogRecord)) {
+    failWith(3, diagnosis ?? "malformed logs response: records must be an array of log records", stderr, exit);
+  }
+  const records = payload.records;
 
   if (parsed.json) {
     stdout.write(JSON.stringify({ records }, null, 2));

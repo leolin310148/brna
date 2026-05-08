@@ -100,6 +100,16 @@ describe("brna logs", () => {
     expect(res.stdout).toContain("No log records captured");
   });
 
+  test("malformed records payload exits with a protocol diagnostic", async () => {
+    const missingArray = await run([], { body: { records: "not-an-array" } });
+    expect(missingArray.code).toBe(3);
+    expect(missingArray.stderr).toContain("malformed logs response");
+
+    const invalidRecord = await run([], { body: { records: [{ id: "log-1", message: "missing fields" }] } });
+    expect(invalidRecord.code).toBe(3);
+    expect(invalidRecord.stderr).toContain("records must be an array of log records");
+  });
+
   test("--since adds since to POST body", async () => {
     const res = await run(["--since", "5000"], { body: { records: [] } });
     expect(res.code).toBe(0);

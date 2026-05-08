@@ -111,6 +111,16 @@ describe("brna network", () => {
     expect(res.stdout).toContain("No network records captured");
   });
 
+  test("malformed records payload exits with a protocol diagnostic", async () => {
+    const missingArray = await run([], { body: { records: "not-an-array" } });
+    expect(missingArray.code).toBe(3);
+    expect(missingArray.stderr).toContain("malformed network response");
+
+    const invalidRecord = await run([], { body: { records: [{ id: "net-1", url: "https://api.test" }] } });
+    expect(invalidRecord.code).toBe(3);
+    expect(invalidRecord.stderr).toContain("records must be an array of network records");
+  });
+
   test("--method forwards uppercase method to body", async () => {
     const res = await run(["--method", " post "], { body: { records: [] } });
     expect(res.requestInit?.method).toBe("POST");

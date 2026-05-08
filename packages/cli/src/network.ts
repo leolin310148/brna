@@ -1,4 +1,5 @@
 import type { NetworkRecord, NetworkRequestOptions } from "@brna/schema";
+import { isValidNetworkRecord } from "@brna/schema";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -207,7 +208,10 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
   } catch (err) {
     failWith(3, diagnosis ?? `malformed network response: ${(err as Error).message}`, stderr, exit);
   }
-  const records = Array.isArray(payload.records) ? payload.records : [];
+  if (!Array.isArray(payload.records) || !payload.records.every(isValidNetworkRecord)) {
+    failWith(3, diagnosis ?? "malformed network response: records must be an array of network records", stderr, exit);
+  }
+  const records = payload.records;
 
   if (parsed.json) {
     stdout.write(JSON.stringify({ records }, null, 2));
