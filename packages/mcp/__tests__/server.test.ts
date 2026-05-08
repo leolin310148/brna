@@ -46,6 +46,7 @@ async function exchange(
     actions?: unknown[];
     argv?: string[];
     requestUrls?: string[];
+    trailingNewline?: boolean;
   } = {},
 ): Promise<Frame[]> {
   const fresh = opts.fresh ?? makeSnapshot();
@@ -77,7 +78,8 @@ async function exchange(
       ...requests,
     ]
     : requests;
-  const stdin = Readable.from(frames.map((r) => JSON.stringify(r) + "\n"));
+  const stdinText = frames.map((r) => JSON.stringify(r)).join("\n") + (opts.trailingNewline === false ? "" : "\n");
+  const stdin = Readable.from([stdinText]);
   let out = "";
   const stdout = new Writable({
     write(chunk, _encoding, callback) {
@@ -114,6 +116,23 @@ describe("MCP server", () => {
     expect(responses).toHaveLength(1);
     const result = responses[0]!.result as { protocolVersion: string; serverInfo: { name: string } };
     expect(result.protocolVersion).toBe("2024-11-05");
+    expect(result.serverInfo.name).toBe("brna-mcp");
+  });
+
+  test("processes a final line-delimited frame without trailing newline", async () => {
+    const responses = await exchange([{
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "test-client", version: "0.0.0" },
+      },
+    }], { trailingNewline: false });
+
+    expect(responses).toHaveLength(1);
+    const result = responses[0]!.result as { serverInfo: { name: string } };
     expect(result.serverInfo.name).toBe("brna-mcp");
   });
 

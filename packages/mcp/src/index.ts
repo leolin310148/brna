@@ -71,6 +71,14 @@ class LineTransport implements Transport {
     if (this.started) throw new Error("LineTransport already started");
     this.started = true;
     let buffer = "";
+    const dispatchLine = (line: string) => {
+      if (line.length === 0) return;
+      try {
+        this.onmessage?.(JSONRPCMessageSchema.parse(JSON.parse(line)));
+      } catch (err) {
+        this.onerror?.(err as Error);
+      }
+    };
     this.stdin.on("data", (chunk: Buffer | string) => {
       buffer += chunk.toString();
       while (true) {
@@ -78,13 +86,13 @@ class LineTransport implements Transport {
         if (idx === -1) return;
         const line = buffer.slice(0, idx).replace(/\r$/, "");
         buffer = buffer.slice(idx + 1);
-        if (line.length === 0) continue;
-        try {
-          this.onmessage?.(JSONRPCMessageSchema.parse(JSON.parse(line)));
-        } catch (err) {
-          this.onerror?.(err as Error);
-        }
+        dispatchLine(line);
       }
+    });
+    this.stdin.on("end", () => {
+      const line = buffer.replace(/\r$/, "");
+      buffer = "";
+      dispatchLine(line);
     });
     this.stdin.on("error", (err) => this.onerror?.(err));
   }
