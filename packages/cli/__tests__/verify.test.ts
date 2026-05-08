@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { SCHEMA_VERSION, type Snapshot } from "@brna/schema";
 import { toActiveLayerMarkdown, toJSON, toMarkdown } from "@brna/core";
 import { normalizeMarkdown, runVerify, unifiedDiff } from "../src/verify.js";
+
+const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
   return {
@@ -87,6 +91,18 @@ describe("unifiedDiff", () => {
 });
 
 describe("brna verify", () => {
+  test("unknown flag diagnostics escape terminal control characters", () => {
+    const res = spawnSync("bun", ["run", CLI_PATH, "verify", "--bad\x1b[31m"], {
+      env: { ...process.env, BRNA_NO_DAEMON: "1", NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("unknown flag '--bad\\x1b[31m'");
+    expect(res.stderr).not.toContain("\x1b");
+  });
+
   test("matching golden exits 0", async () => {
     const fresh = makeSnapshot();
     const golden = toMarkdown(fresh);

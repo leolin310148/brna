@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
+import { escapeControlCharacters } from "./format.js";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -63,7 +64,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     if (token === "--metro") metro = parseMetro(rest[++i]);
     else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
     else if (token === "--fix") fix = true;
-    else fail(4, `unknown flag '${token}'`);
+    else fail(4, `unknown flag '${escapeControlCharacters(token)}'`);
   }
   return { metro, timeoutMs, fix };
 }

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { bundlePathFromMain, compareSemver, patchBabelConfig, patchMetroConfig, registerPlugin, runDoctor } from "../src/doctor.js";
+
+const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
 
 interface Capture {
   code: number;
@@ -59,6 +63,18 @@ const okFetch: typeof fetch = async (input) => {
 };
 
 describe("brna doctor", () => {
+  test("unknown flag diagnostics escape terminal control characters", () => {
+    const res = spawnSync("bun", ["run", CLI_PATH, "doctor", "--bad\x1b[31m"], {
+      env: { ...process.env, BRNA_NO_DAEMON: "1", NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("unknown flag '--bad\\x1b[31m'");
+    expect(res.stderr).not.toContain("\x1b");
+  });
+
   test("happy path exits 0 when versions ok and runtime connected", async () => {
     const fs: FsMap = {
       "/proj/package.json": JSON.stringify({

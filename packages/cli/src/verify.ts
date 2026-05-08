@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { validateSnapshot, type Snapshot } from "@brna/schema";
 import { fromJSON, toActiveLayerMarkdown, toJSON, toMarkdown } from "@brna/core";
+import { escapeControlCharacters } from "./format.js";
 import {
   DEFAULT_METRO_URL,
   DEFAULT_TIMEOUT_MS,
@@ -40,9 +41,9 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--timeout") timeoutMs = parseTimeout(rest[++i]);
     else if (token === "--device") device = parseDevice(rest[++i]);
     else if (token === "--active-layer") activeLayer = true;
-    else if (token.startsWith("--")) fail(4, `unknown flag '${token}'`);
+    else if (token.startsWith("--")) fail(4, `unknown flag '${escapeControlCharacters(token)}'`);
     else if (goldenPath === undefined) goldenPath = token;
-    else fail(4, `unexpected argument '${token}'`);
+    else fail(4, `unexpected argument '${escapeControlCharacters(token)}'`);
   }
   if (goldenPath === undefined) {
     fail(4, "usage: brna verify <golden-path> [--active-layer] [--metro <url>] [--device <id>]");
