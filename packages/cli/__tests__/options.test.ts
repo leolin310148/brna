@@ -3,6 +3,7 @@ import {
   diagnoseMetroResponse,
   normalizeMetroUrl,
   parseDevice,
+  parseNativeDevice,
   parseNonNegativeInt,
   parsePositiveInt,
   parseSince,
@@ -39,6 +40,16 @@ describe("CLI option parsing", () => {
 
   test("trims surrounding whitespace from device ids", () => {
     expect(parseDevice("  ios-sim  ")).toBe("ios-sim");
+  });
+
+  test("rejects whitespace-only native device ids", () => {
+    const result = captureProcessExit(() => parseNativeDevice("   "));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("missing value for '--native-device'");
+  });
+
+  test("trims surrounding whitespace from native device ids", () => {
+    expect(parseNativeDevice("  ios-sim  ")).toBe("ios-sim");
   });
 
   test("integer flags reject non-decimal numeric syntax", () => {
