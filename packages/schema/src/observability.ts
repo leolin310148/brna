@@ -94,9 +94,8 @@ function isOptionalFiniteNumber(value: unknown): boolean {
 }
 
 function parseHttpStatus(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  const status = Math.floor(value);
-  return status >= 100 && status <= 599 ? status : undefined;
+  if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
+  return value >= 100 && value <= 599 ? value : undefined;
 }
 
 export function isValidLogRecord(value: unknown): value is LogRecord {

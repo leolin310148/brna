@@ -69,9 +69,9 @@ describe("observability schema helpers", () => {
     expect(parseNetworkRequestOptions({
       since: 5,
       method: " post ",
-      status: 201.8,
-      statusMin: 200.2,
-      statusMax: 299.9,
+      status: 201,
+      statusMin: 200,
+      statusMax: 299,
       limit: 3.5,
       redaction: { redactSensitiveDefaults: false },
     })).toEqual({
@@ -83,7 +83,14 @@ describe("observability schema helpers", () => {
       limit: 3,
       redaction: { redactSensitiveDefaults: false },
     });
-    expect(parseNetworkRequestOptions({ since: Infinity, method: "", status: Number.NaN, limit: -1 })).toEqual({});
+    expect(parseNetworkRequestOptions({
+      since: Infinity,
+      method: "",
+      status: Number.NaN,
+      statusMin: 200.5,
+      statusMax: 299.5,
+      limit: -1,
+    })).toEqual({});
   });
 
   test("rejects impossible network status filters", () => {
