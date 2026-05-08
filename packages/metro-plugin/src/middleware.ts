@@ -294,6 +294,7 @@ function readNumericQueryParam(params: URLSearchParams, name: string): number | 
   if (raw === null) return undefined;
   const trimmed = raw.trim();
   if (trimmed.length === 0) return undefined;
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) return undefined;
   const value = Number(trimmed);
   return Number.isFinite(value) ? value : undefined;
 }

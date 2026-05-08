@@ -148,6 +148,25 @@ describe("handleLogs", () => {
     await promise;
   });
 
+  test("ignores non-decimal numeric query filters", async () => {
+    const bridge = new BrnaBridge();
+    const ws = attachRuntime(bridge);
+    const req = makeMockReq("GET", "/brna/logs?since=1e3&limit=0x10&level=warn");
+    const res = makeMockRes();
+    const promise = handleLogs(bridge, req as never, res as never);
+    await new Promise((r) => setImmediate(r));
+    const frame = lastSent(ws) as unknown as {
+      id: string;
+      options: { since?: number; level?: string; limit?: number };
+    };
+    expect(frame.options).toEqual({ level: "warn" });
+    ws.emit(
+      "message",
+      Buffer.from(JSON.stringify({ type: "logs.response", id: frame.id, records: [] })),
+    );
+    await promise;
+  });
+
   test("returns 503 when no runtime is connected", async () => {
     const bridge = new BrnaBridge();
     const req = makeMockReq("GET", "/brna/logs");
@@ -392,6 +411,32 @@ describe("handleNetwork", () => {
       };
     };
     expect(frame.options).toEqual({ method: "POST" });
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "network.response", id: frame.id, records: [] })));
+    await promise;
+  });
+
+  test("ignores non-decimal numeric network query filters", async () => {
+    const bridge = new BrnaBridge();
+    const ws = attachRuntime(bridge);
+    const req = makeMockReq(
+      "GET",
+      "/brna/network?since=1e3&status=0xC8&statusMin=2e2&statusMax=299&limit=0x10&method=post",
+    );
+    const res = makeMockRes();
+    const promise = handleNetwork(bridge, req as never, res as never);
+    await new Promise((r) => setImmediate(r));
+    const frame = lastSent(ws) as unknown as {
+      id: string;
+      options: {
+        since?: number;
+        status?: number;
+        statusMin?: number;
+        statusMax?: number;
+        limit?: number;
+        method?: string;
+      };
+    };
+    expect(frame.options).toEqual({ statusMax: 299, method: "POST" });
     ws.emit("message", Buffer.from(JSON.stringify({ type: "network.response", id: frame.id, records: [] })));
     await promise;
   });
