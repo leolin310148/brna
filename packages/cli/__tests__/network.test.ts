@@ -346,4 +346,21 @@ describe("formatNetworkTable", () => {
     expect(out).toContain("https://api.test/\\x1b[31mred\\x1b[0m");
     expect(out).not.toContain("\x1b");
   });
+
+  test("escapes terminal control characters in methods", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-method-control",
+        timestamp: 1700000000000,
+        method: "GET\x1b[31m",
+        url: "https://api.test/orders",
+        state: "completed",
+        source: "fetch",
+        status: 200,
+      },
+    ]);
+
+    expect(out).toContain("GET\\x1b[31m");
+    expect(out).not.toContain("\x1b");
+  });
 });

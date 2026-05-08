@@ -232,7 +232,7 @@ export function formatNetworkTable(records: NetworkRecord[]): string {
   const headers: string[] = ["TIME", "METHOD", "STATUS", "DUR(ms)", "URL"];
   const rows: string[][] = records.map((r) => [
     formatTimestamp(r.timestamp),
-    r.method,
+    escapeControlCharacters(r.method),
     r.status !== undefined ? String(r.status) : r.state === "errored" ? "ERR" : "-",
     r.duration_ms !== undefined ? String(r.duration_ms) : "-",
     escapeControlCharacters(r.url),
