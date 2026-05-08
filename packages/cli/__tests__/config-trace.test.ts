@@ -94,6 +94,13 @@ describe("brna config", () => {
     }
   });
 
+  test("unexpected argument diagnostics escape terminal control characters", async () => {
+    const result = await captureProcessExit(() => runConfig(["show", "extra\x1b[31m"]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("extra\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+  });
+
   test("config init writes a default brna.config.ts", () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
     const result = spawnSync("bun", ["run", CLI_PATH, "config", "init"], {

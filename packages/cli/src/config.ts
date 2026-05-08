@@ -8,6 +8,7 @@ import type {
   SerializableRedactionRule,
   SnapshotRedactionOptions,
 } from "@brna/schema";
+import { escapeControlCharacters } from "./format.js";
 import { fail } from "./options.js";
 
 export interface BrnaConfig {
@@ -27,7 +28,7 @@ let configImportVersion = 0;
 export async function runConfig(rest: string[]): Promise<void> {
   const sub = rest[0];
   if (sub === "init") {
-    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    if (rest.length > 1) fail(4, `unexpected argument '${escapeControlCharacters(rest[1]!)}'`);
     const target = join(process.cwd(), "brna.config.ts");
     if (existsSync(target)) fail(4, "brna.config.ts already exists");
     await writeFile(target, defaultConfigText(), "utf8");
@@ -35,13 +36,13 @@ export async function runConfig(rest: string[]): Promise<void> {
     process.exit(0);
   }
   if (sub === "show") {
-    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    if (rest.length > 1) fail(4, `unexpected argument '${escapeControlCharacters(rest[1]!)}'`);
     const loaded = await loadConfig();
     process.stdout.write(`${JSON.stringify(serializeLoadedConfig(loaded), null, 2)}\n`);
     process.exit(0);
   }
   if (sub === "path") {
-    if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+    if (rest.length > 1) fail(4, `unexpected argument '${escapeControlCharacters(rest[1]!)}'`);
     const loaded = await loadConfig();
     if (!loaded.path) fail(1, "no brna.config.ts or brna.config.js found");
     process.stdout.write(`${loaded.path}\n`);
