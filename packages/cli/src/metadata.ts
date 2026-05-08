@@ -236,9 +236,10 @@ export function commandByName(name: string): CliCommandMetadata | undefined {
 }
 
 export function formatGlobalHelp(): string {
-  const commands = CLI_COMMANDS.map((command) => {
-    const aliases = command.aliases?.length ? ` (${command.aliases.join(", ")})` : "";
-    return `  ${command.name}${aliases.padEnd(Math.max(0, 13 - command.name.length))} ${command.description}`;
+  const labels = CLI_COMMANDS.map((command) => commandLabel(command));
+  const labelWidth = Math.max(...labels.map((label) => label.length));
+  const commands = CLI_COMMANDS.map((command, i) => {
+    return `  ${labels[i]!.padEnd(labelWidth)} ${command.description}`;
   }).join("\n");
   return [
     "brna - agent-friendly snapshot and action surface for React Native apps",
@@ -252,6 +253,10 @@ export function formatGlobalHelp(): string {
     "Run 'brna <command> --help' for command-specific examples.",
     `Docs: ${DOCS_URL}`,
   ].join("\n") + "\n";
+}
+
+function commandLabel(command: CliCommandMetadata): string {
+  return command.aliases?.length ? `${command.name} (${command.aliases.join(", ")})` : command.name;
 }
 
 export function formatCommandHelp(command: CliCommandMetadata): string {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { commandByName, formatCommandHelp } from "../src/metadata.js";
+import { commandByName, formatCommandHelp, formatGlobalHelp } from "../src/metadata.js";
 
 describe("CLI metadata", () => {
   test("snapshot help shows the overlay flag in usage", () => {
@@ -27,5 +27,15 @@ describe("CLI metadata", () => {
     const help = formatCommandHelp(command!);
     expect(help).toContain("brna daemon <status|stop>");
     expect(help).toContain("brna daemon status");
+  });
+
+  test("global help aligns command descriptions when aliases are shown", () => {
+    const help = formatGlobalHelp();
+    const commandLines = help
+      .split("\n")
+      .filter((line) => /^  (snapshot \(snap\)|act)\s/.test(line));
+
+    expect(commandLines).toHaveLength(2);
+    expect(commandLines[0]!.indexOf("Capture")).toBe(commandLines[1]!.indexOf("Resolve"));
   });
 });
