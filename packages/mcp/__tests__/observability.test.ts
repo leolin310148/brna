@@ -186,4 +186,34 @@ describe("MCP observability", () => {
     const parsed = JSON.parse(result.content[0]!.text) as { records: unknown[] };
     expect(parsed.records).toEqual(records);
   });
+
+  test("tools/list advertises network status range filters", async () => {
+    const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
+    const result = responses[0]!.result as {
+      tools: Array<{ name: string; inputSchema?: { properties?: Record<string, { type?: string }> } }>;
+    };
+    const networkTool = result.tools.find((tool) => tool.name === "network");
+
+    expect(networkTool?.inputSchema?.properties?.statusMin?.type).toBe("number");
+    expect(networkTool?.inputSchema?.properties?.statusMax?.type).toBe("number");
+  });
+
+  test("tools/call network forwards status range filters", async () => {
+    const calls: Array<{ url: string; method?: string; body?: string }> = [];
+    await exchange(
+      [
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "network", arguments: { statusMin: 400, statusMax: 499 } },
+        },
+      ],
+      { recordCalls: calls },
+    );
+
+    const sent = JSON.parse(calls[0]!.body!) as { statusMin?: number; statusMax?: number };
+    expect(sent.statusMin).toBe(400);
+    expect(sent.statusMax).toBe(499);
+  });
 });

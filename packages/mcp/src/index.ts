@@ -326,6 +326,8 @@ class BrnaMcpApp {
             since: { type: "number" },
             method: { type: "string" },
             status: { type: "number" },
+            statusMin: { type: "number" },
+            statusMax: { type: "number" },
             limit: { type: "number" },
           },
         },
