@@ -78,6 +78,14 @@ describe("MCP observability", () => {
     await expect(runMcpServer(["--devcie", "ios-1"])).rejects.toThrow("unknown flag: --devcie");
   });
 
+  test("escapes control characters in unknown CLI flags", async () => {
+    const err = await runMcpServer(["--bad\x1b[31m\u202e"]).catch((error) => error as Error);
+
+    expect(err.message).toContain("unknown flag: --bad\\x1b[31m\\u202e");
+    expect(err.message).not.toContain("\x1b");
+    expect(err.message).not.toContain("\u202e");
+  });
+
   test("rejects whitespace-only device CLI values", async () => {
     await expect(runMcpServer(["--device", "   "])).rejects.toThrow("missing value for --device");
   });
