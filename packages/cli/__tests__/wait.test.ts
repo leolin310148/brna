@@ -179,6 +179,22 @@ describe("brna wait", () => {
     expect(res.stderr).toContain("no runtime connected");
   });
 
+  test("HTML snapshot responses explain that Metro middleware is missing", async () => {
+    const html = "<!doctype html><html><body>Metro</body></html>";
+
+    const success = await run(["text:Ready"], {
+      responses: [() => new Response(html, { status: 200, headers: { "content-type": "text/html" } })],
+    });
+    expect(success.code).toBe(3);
+    expect(success.stderr).toContain("brna Metro middleware is not mounted");
+
+    const notFound = await run(["text:Ready"], {
+      responses: [() => new Response(html, { status: 404, headers: { "content-type": "text/html" } })],
+    });
+    expect(notFound.code).toBe(3);
+    expect(notFound.stderr).toContain("brna Metro middleware is not mounted");
+  });
+
   test("--interval rejects values below floor", async () => {
     const res = await run(["text:X", "--interval", "5"]);
     expect(res.code).toBe(4);

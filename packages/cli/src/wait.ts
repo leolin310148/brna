@@ -195,7 +195,13 @@ async function fetchSnapshot(
     clearTimeout(timer);
   }
   if (response.status === 503) return { kind: "no_runtime" };
-  if (response.status === 404) return { kind: "unknown_device" };
+  if (response.status === 404) {
+    const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
+    if (diagnosis?.includes("brna Metro middleware is not mounted")) {
+      return { kind: "runtime_error", message: diagnosis };
+    }
+    return { kind: "unknown_device" };
+  }
   if (response.status === 504) return { kind: "runtime_error", message: "runtime timed out" };
   if (response.status === 429) {
     // request-in-flight collisions just trigger the next polling tick
@@ -220,6 +226,11 @@ async function fetchSnapshot(
       message: diagnosis ?? `unexpected HTTP ${response.status} from Metro`,
     };
   }
+  const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
+  if (diagnosis?.includes("brna Metro middleware is not mounted")) {
+    return { kind: "runtime_error", message: diagnosis };
+  }
+
   let snapshot: Snapshot;
   try {
     snapshot = (await response.json()) as Snapshot;
