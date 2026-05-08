@@ -179,7 +179,7 @@ export async function diagnoseMetroResponse(
   }
 
   if (!response.ok && body.length > 0) {
-    const line = firstUsefulDiagnosticLine(body);
+    const line = escapeControlCharacters(firstUsefulDiagnosticLine(body));
     if (line.length > 0) {
       return `${endpoint} returned HTTP ${response.status}: ${line}`;
     }

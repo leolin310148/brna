@@ -120,6 +120,18 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("escapes control characters in HTTP response diagnostics", async () => {
+    const response = new Response("Error: \x1b[31mMetro failed\u202e", {
+      status: 500,
+    });
+
+    const diagnosis = await diagnoseMetroResponse(response, "/brna/snapshot");
+
+    expect(diagnosis).toBe("/brna/snapshot returned HTTP 500: Error: \\x1b[31mMetro failed\\u202e");
+    expect(diagnosis).not.toContain("\x1b");
+    expect(diagnosis).not.toContain("\u202e");
+  });
+
   test("extracts JSON HTTP response messages", async () => {
     const response = new Response(JSON.stringify({ error: { message: "Metro plugin failed to load" } }), {
       status: 500,
