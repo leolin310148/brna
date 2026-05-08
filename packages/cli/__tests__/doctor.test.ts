@@ -411,6 +411,10 @@ describe("bundlePathFromMain", () => {
     expect(bundlePathFromMain("./index.js")).toBe("index");
     expect(bundlePathFromMain("./src/main.tsx")).toBe("src/main");
   });
+
+  test("keeps explicit relative entry points outside src as local paths", () => {
+    expect(bundlePathFromMain("./lib/index.js")).toBe("lib/index");
+  });
 });
 
 describe("compareSemver", () => {

@@ -357,8 +357,10 @@ async function bundlePathForProject(projectRoot: string, runtime: DoctorRuntime)
 
 export function bundlePathFromMain(main: string | undefined): string {
   const raw = typeof main === "string" && main.trim().length > 0 ? main.trim() : "index";
-  const withoutDot = raw.startsWith("./") ? raw.slice(2) : raw;
+  const isExplicitRelative = raw.startsWith("./");
+  const withoutDot = isExplicitRelative ? raw.slice(2) : raw;
   const withoutExt = withoutDot.replace(/\.(mjs|cjs|js|jsx|ts|tsx)$/, "");
+  if (isExplicitRelative) return withoutExt.replace(/^\/+/, "");
   if (withoutExt.startsWith("node_modules/")) return withoutExt;
   if (withoutExt === "expo-router/entry" || withoutExt.startsWith("@")) {
     return `node_modules/${withoutExt}`;
