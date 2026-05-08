@@ -94,27 +94,35 @@ class LineTransport implements Transport {
 }
 
 function parseArgs(argv: string[], opts: ServerOptions): { metroUrl: string; device?: string } {
-  let metroUrl = opts.metroUrl ?? process.env.BRNA_METRO_URL ?? DEFAULT_METRO_URL;
-  let device = opts.device;
+  let metroUrl = trimOptional(opts.metroUrl ?? process.env.BRNA_METRO_URL) ?? DEFAULT_METRO_URL;
+  let device = trimOptional(opts.device);
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i]!;
     if (token === "--metro") {
-      const value = argv[++i];
-      if (typeof value !== "string" || value.length === 0) {
-        throw new Error("missing value for --metro");
-      }
-      metroUrl = value;
+      metroUrl = parseFlagValue(argv[++i], "--metro");
     } else if (token === "--device") {
-      const value = argv[++i];
-      if (typeof value !== "string" || value.length === 0) {
-        throw new Error("missing value for --device");
-      }
-      device = value;
+      device = parseFlagValue(argv[++i], "--device");
+    } else {
+      throw new Error(`unknown flag: ${token}`);
     }
   }
   const result: { metroUrl: string; device?: string } = { metroUrl };
   if (device !== undefined) result.device = device;
   return result;
+}
+
+function trimOptional(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseFlagValue(value: string | undefined, flag: string): string {
+  const trimmed = trimOptional(value);
+  if (trimmed === undefined) {
+    throw new Error(`missing value for ${flag}`);
+  }
+  return trimmed;
 }
 
 interface McpServerDeps {

@@ -12,18 +12,20 @@ interface Frame {
 }
 
 interface ExchangeOpts {
+  argv?: string[];
   logs?: unknown[];
   network?: unknown[];
-  recordCalls?: Array<{ url: string; method?: string; body?: string }>;
+  recordCalls?: Array<{ url: string; method?: string; body?: string; headers?: HeadersInit }>;
 }
 
 async function exchange(requests: Frame[], opts: ExchangeOpts = {}): Promise<Frame[]> {
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : (input as URL).toString();
     if (opts.recordCalls) {
-      const entry: { url: string; method?: string; body?: string } = { url };
+      const entry: { url: string; method?: string; body?: string; headers?: HeadersInit } = { url };
       if (init?.method !== undefined) entry.method = init.method;
       if (typeof init?.body === "string") entry.body = init.body;
+      if (init?.headers !== undefined) entry.headers = init.headers;
       opts.recordCalls.push(entry);
     }
     if (url.endsWith("/brna/logs") || url.includes("/brna/logs?")) {
@@ -57,7 +59,7 @@ async function exchange(requests: Frame[], opts: ExchangeOpts = {}): Promise<Fra
       callback();
     },
   });
-  await runMcpServer([], {
+  await runMcpServer(opts.argv ?? [], {
     metroUrl: "http://localhost:8081",
     fetch: fetchImpl,
     stdin,
@@ -72,6 +74,24 @@ async function exchange(requests: Frame[], opts: ExchangeOpts = {}): Promise<Fra
 }
 
 describe("MCP observability", () => {
+  test("rejects unknown CLI flags", async () => {
+    await expect(runMcpServer(["--devcie", "ios-1"])).rejects.toThrow("unknown flag: --devcie");
+  });
+
+  test("rejects whitespace-only device CLI values", async () => {
+    await expect(runMcpServer(["--device", "   "])).rejects.toThrow("missing value for --device");
+  });
+
+  test("trims device CLI values before forwarding headers", async () => {
+    const calls: Array<{ url: string; method?: string; body?: string; headers?: HeadersInit }> = [];
+    await exchange(
+      [{ jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "brna://current/logs" } }],
+      { argv: ["--device", " ios-1 "], recordCalls: calls },
+    );
+
+    expect((calls[0]!.headers as Record<string, string>)["x-brna-device-id"]).toBe("ios-1");
+  });
+
   test("resources/list includes logs and network", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "resources/list" }]);
     const result = responses[0]!.result as { resources: Array<{ uri: string }> };
