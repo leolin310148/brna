@@ -250,6 +250,18 @@ describe("brna doctor", () => {
     expect(res.stdout).toContain("0.72.0 < required 0.74.0");
   });
 
+  test("compatibility matrix treats prereleases below matching stable versions", async () => {
+    const fs: FsMap = {
+      "/proj/package.json": JSON.stringify({
+        dependencies: { react: "18.2.0", "react-native": "0.74.0-rc.1", expo: "50.0.0" },
+      }),
+    };
+    const res = await run([], { fs, fetchImpl: okFetch });
+    expect(res.code).toBe(1);
+    expect(res.stdout).toContain("react-native");
+    expect(res.stdout).toContain("0.74.0-rc.1 < required 0.74.0");
+  });
+
   test("--fix registers @brna/expo-plugin in app.json plugins", async () => {
     const fs: FsMap = {
       "/proj/package.json": JSON.stringify({ dependencies: { expo: "50.0.0", react: "18.2.0", "react-native": "0.74.0" } }),
@@ -407,5 +419,7 @@ describe("compareSemver", () => {
     expect(compareSemver("1.2.4", "1.2.3")).toBeGreaterThan(0);
     expect(compareSemver("0.74.0", "0.73.9")).toBeGreaterThan(0);
     expect(compareSemver("0.73.9", "0.74.0")).toBeLessThan(0);
+    expect(compareSemver("0.74.0-rc.1", "0.74.0")).toBeLessThan(0);
+    expect(compareSemver("0.74.0-rc.2", "0.74.0-rc.1")).toBeGreaterThan(0);
   });
 });

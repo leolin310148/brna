@@ -723,19 +723,55 @@ export function patchMetroConfig(text: string): string {
 }
 
 function stripRange(spec: string): string | null {
-  const match = spec.match(/(\d+)\.(\d+)\.(\d+)/);
+  const match = spec.match(/(\d+)\.(\d+)\.(\d+(?:-[0-9A-Za-z.-]+)?)/);
   if (!match) return null;
   return `${match[1]}.${match[2]}.${match[3]}`;
 }
 
 export function compareSemver(a: string, b: string): number {
-  const pa = a.split(".").map((n) => Number.parseInt(n, 10));
-  const pb = b.split(".").map((n) => Number.parseInt(n, 10));
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
   for (let i = 0; i < 3; i++) {
-    const ai = pa[i] ?? 0;
-    const bi = pb[i] ?? 0;
+    const ai = pa.parts[i] ?? 0;
+    const bi = pb.parts[i] ?? 0;
     if (ai > bi) return 1;
     if (ai < bi) return -1;
+  }
+  if (!pa.prerelease && pb.prerelease) return 1;
+  if (pa.prerelease && !pb.prerelease) return -1;
+  if (pa.prerelease && pb.prerelease) {
+    return comparePrerelease(pa.prerelease, pb.prerelease);
+  }
+  return 0;
+}
+
+function parseSemver(version: string): { parts: number[]; prerelease?: string[] } {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/);
+  if (!match) {
+    return { parts: version.split(".").map((n) => Number.parseInt(n, 10)) };
+  }
+  const parsed = {
+    parts: [Number(match[1]), Number(match[2]), Number(match[3])],
+    ...(match[4] !== undefined ? { prerelease: match[4].split(".") } : {}),
+  };
+  return parsed;
+}
+
+function comparePrerelease(a: string[], b: string[]): number {
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const ai = a[i];
+    const bi = b[i];
+    if (ai === undefined) return -1;
+    if (bi === undefined) return 1;
+    if (ai === bi) continue;
+
+    const an = /^\d+$/.test(ai) ? Number(ai) : undefined;
+    const bn = /^\d+$/.test(bi) ? Number(bi) : undefined;
+    if (an !== undefined && bn !== undefined) return an > bn ? 1 : -1;
+    if (an !== undefined) return -1;
+    if (bn !== undefined) return 1;
+    return ai > bi ? 1 : -1;
   }
   return 0;
 }
