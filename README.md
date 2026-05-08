@@ -125,10 +125,10 @@ npx brna snapshot
 ```
 
 The default Metro URL is `http://localhost:8081`. If your app uses another
-port, pass it explicitly:
+port, pass a full URL or the bare port:
 
 ```sh
-npx brna snapshot --metro http://localhost:19000
+npx brna snapshot --metro 19000
 ```
 
 ## CLI Guide
@@ -151,7 +151,7 @@ Useful options:
 - `--format json|md|yaml` selects the output format.
 - `--diff` compares against the rolling session baseline.
 - `--target <selector>` focuses diff output to one selector's region.
-- `--metro <url>` points at a non-default Metro server.
+- `--metro <url-or-port>` points at a non-default Metro server.
 - `--device <id>` targets one connected runtime when several are available.
 - `--timeout <ms>` changes the request timeout.
 
