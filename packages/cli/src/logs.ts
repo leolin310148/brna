@@ -142,11 +142,12 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
     failWith(3, diagnosis ?? `unexpected HTTP ${response.status} from Metro`, stderr, exit);
   }
 
+  const diagnosis = await diagnoseMetroResponse(response, "logs endpoint");
   let payload: LogsResponseBody;
   try {
     payload = (await response.json()) as LogsResponseBody;
   } catch (err) {
-    failWith(3, `malformed logs response: ${(err as Error).message}`, stderr, exit);
+    failWith(3, diagnosis ?? `malformed logs response: ${(err as Error).message}`, stderr, exit);
   }
   const records = Array.isArray(payload.records) ? payload.records : [];
 

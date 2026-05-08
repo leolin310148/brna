@@ -192,11 +192,12 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
     failWith(3, diagnosis ?? `unexpected HTTP ${response.status} from Metro`, stderr, exit);
   }
 
+  const diagnosis = await diagnoseMetroResponse(response, "network endpoint");
   let payload: NetworkResponseBody;
   try {
     payload = (await response.json()) as NetworkResponseBody;
   } catch (err) {
-    failWith(3, `malformed network response: ${(err as Error).message}`, stderr, exit);
+    failWith(3, diagnosis ?? `malformed network response: ${(err as Error).message}`, stderr, exit);
   }
   const records = Array.isArray(payload.records) ? payload.records : [];
 

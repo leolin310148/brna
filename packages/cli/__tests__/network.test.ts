@@ -27,7 +27,7 @@ interface RunResult {
 
 async function run(
   rest: string[],
-  options: { status?: number; body?: unknown } = {},
+  options: { status?: number; body?: unknown; response?: Response } = {},
 ): Promise<RunResult> {
   let stdout = "";
   let stderr = "";
@@ -38,6 +38,7 @@ async function run(
       fetch: (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         requestUrl = typeof input === "string" ? input : input.toString();
         requestInit = init;
+        if (options.response) return options.response;
         const status = options.status ?? 200;
         if (status >= 400) {
           return new Response(JSON.stringify(options.body ?? {}), { status });
@@ -224,6 +225,17 @@ describe("brna network", () => {
     const res = await run([], { status: 503 });
     expect(res.code).toBe(3);
     expect(res.stderr).toContain("no runtime connected");
+  });
+
+  test("HTML success responses explain that Metro middleware is missing", async () => {
+    const res = await run([], {
+      response: new Response("<!doctype html><html><body>Metro</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("brna Metro middleware is not mounted");
   });
 
   test("--device sets device header", async () => {
