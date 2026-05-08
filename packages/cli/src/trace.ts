@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import { diff, fromCanonicalYAML, toCanonicalYAML } from "@brna/core";
 import { validateSnapshot, type Snapshot } from "@brna/schema";
 import { loadConfig, sessionDirFromConfig } from "./config.js";
+import { escapeControlCharacters } from "./format.js";
 import { getSessionId } from "./session.js";
 import { DEFAULT_METRO_URL, DEFAULT_TIMEOUT_MS, DEVICE_HEADER, fail, parseDevice, parseMetro, parseTimeout } from "./options.js";
 
@@ -56,7 +57,7 @@ export async function activeTracePath(): Promise<string | null> {
 }
 
 async function traceStart(rest: string[]): Promise<void> {
-  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  if (rest.length > 0) fail(4, `unexpected argument '${escapeControlCharacters(rest[0]!)}'`);
   const dir = await configuredSessionDir();
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const tracePath = join(dir, `trace-${getSessionId()}-${Date.now()}.yaml`);
@@ -75,7 +76,7 @@ async function traceStart(rest: string[]): Promise<void> {
 }
 
 async function traceStop(rest: string[]): Promise<void> {
-  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  if (rest.length > 0) fail(4, `unexpected argument '${escapeControlCharacters(rest[0]!)}'`);
   const active = await readActiveMarker();
   if (!active) fail(4, "no active trace");
   const { marker, tracePath } = active;
@@ -88,7 +89,7 @@ async function traceStop(rest: string[]): Promise<void> {
 }
 
 async function traceStatus(rest: string[]): Promise<void> {
-  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  if (rest.length > 0) fail(4, `unexpected argument '${escapeControlCharacters(rest[0]!)}'`);
   const active = await readActiveMarker();
   if (!active) {
     process.stdout.write("no active trace\n");
@@ -99,7 +100,7 @@ async function traceStatus(rest: string[]): Promise<void> {
 }
 
 async function tracePath(rest: string[]): Promise<void> {
-  if (rest.length > 0) fail(4, `unexpected argument '${rest[0]}'`);
+  if (rest.length > 0) fail(4, `unexpected argument '${escapeControlCharacters(rest[0]!)}'`);
   const active = await readActiveMarker();
   if (!active) fail(4, "no active trace");
   process.stdout.write(`${active.tracePath}\n`);
@@ -109,7 +110,7 @@ async function tracePath(rest: string[]): Promise<void> {
 async function traceReplay(rest: string[]): Promise<void> {
   const path = rest[0];
   if (typeof path !== "string" || path.length === 0) fail(4, "usage: brna trace replay <path>");
-  if (rest.length > 1) fail(4, `unexpected argument '${rest[1]}'`);
+  if (rest.length > 1) fail(4, `unexpected argument '${escapeControlCharacters(rest[1]!)}'`);
   await replayTraceFile(path);
   process.exit(0);
 }

@@ -373,6 +373,13 @@ describe("brna trace", () => {
     }
   });
 
+  test("unexpected argument diagnostics escape terminal control characters", async () => {
+    const result = await captureProcessExit(() => runTrace(["start", "extra\x1b[31m"]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("extra\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+  });
+
   test("replayTraceFile validates snapshots, devices, and act continuation", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-trace-"));
     const recorded = makeSnapshot();
