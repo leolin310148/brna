@@ -13,13 +13,14 @@ export interface CliCommandMetadata {
 }
 
 export const DOCS_URL = "https://brna.dev/docs";
+const METRO_OPTION_DESCRIPTION = "Metro base URL or bare port. Defaults to http://localhost:8081.";
 
 export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "snapshot",
     aliases: ["snap"],
     description: "Capture the current app snapshot from a connected brna runtime.",
-    usage: "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--format", description: "Select md/markdown, JSON, or YAML output." },
       { name: "--diff", description: "Compare against the rolling session baseline." },
@@ -28,7 +29,7 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
       { name: "--image", description: "Also write a sidecar PNG screenshot. Requires --image-to." },
       { name: "--image-to", description: "Output PNG path for --image sidecar capture." },
       { name: "--overlay", description: "Annotate the sidecar PNG with snapshot bounds and short selector labels." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
       { name: "--device", description: "Target a connected runtime device id." },
       { name: "--native-device", description: "Override native screenshot target for --image." },
@@ -46,14 +47,14 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "act",
     description: "Resolve a selector against a fresh snapshot, auto-select a single safe interactive match, and dispatch one runtime action.",
-    usage: "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--at <index>] [--verify-change] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--at <index>] [--verify-change] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--duration", description: "Long-press duration in milliseconds." },
       { name: "--direction", description: "Scroll/swipe direction: up, down, left, or right." },
       { name: "--by", description: "Distance for scroll and swipe actions." },
       { name: "--at", description: "Pick a 0-indexed candidate when a selector matches multiple nodes." },
       { name: "--verify-change", description: "Warn when the action succeeds but the next snapshot has no tree diff." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
       { name: "--device", description: "Target a connected runtime device id." },
     ],
@@ -70,12 +71,12 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "wait",
     description: "Poll snapshots until a selector appears (or disappears with --gone) or a timeout is reached.",
-    usage: "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url>] [--device <id>]",
+    usage: "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url-or-port>] [--device <id>]",
     options: [
       { name: "--gone", description: "Wait until the selector resolves to no nodes." },
       { name: "--timeout", description: "Total wait timeout in milliseconds (default 30000)." },
       { name: "--interval", description: "Polling cadence in milliseconds (default 500, minimum 100)." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--device", description: "Target a connected runtime device id." },
     ],
     examples: [
@@ -87,11 +88,11 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "capture",
     description: "Write a PNG screenshot of the connected runtime device, optionally overlaid with brna snapshot bounds.",
-    usage: "brna capture [--to <path>] [--overlay] [--metro <url>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
+    usage: "brna capture [--to <path>] [--overlay] [--metro <url-or-port>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
     options: [
       { name: "--to", description: "Output PNG path. Defaults to a session-scoped path printed to stdout." },
       { name: "--overlay", description: "Annotate the PNG with snapshot bounds and short selector labels." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--device", description: "Target a connected brna runtime device id (used to look up native targets)." },
       { name: "--native-device", description: "Override native screenshot target — adb serial or simulator UDID." },
       { name: "--native-platform", description: "Force the native capture platform when no runtime is connected." },
@@ -107,10 +108,10 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "doctor",
     description: "Check Metro/runtime connectivity and project configuration, with optional safe fixes.",
-    usage: "brna doctor [--fix] [--metro <url>] [--timeout <ms>]",
+    usage: "brna doctor [--fix] [--metro <url-or-port>] [--timeout <ms>]",
     options: [
       { name: "--fix", description: "Apply safe Expo, Babel, and Metro configuration fixes after confirmation." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
     ],
     examples: [
@@ -121,10 +122,10 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "verify",
     description: "Compare a freshly captured live snapshot against a golden snapshot markdown or JSON file.",
-    usage: "brna verify <golden.md|golden.json> [--active-layer] [--metro <url>] [--device <id>] [--timeout <ms>]",
+    usage: "brna verify <golden.md|golden.json> [--active-layer] [--metro <url-or-port>] [--device <id>] [--timeout <ms>]",
     options: [
       { name: "--active-layer", description: "Compare only the currently active modal/layer projection." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--device", description: "Target a connected runtime device id." },
       { name: "--timeout", description: "Request timeout in milliseconds." },
     ],
@@ -138,10 +139,10 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "devices",
     description: "List brna runtimes connected through the Metro bridge.",
-    usage: "brna devices [--json] [--metro <url>] [--timeout <ms>]",
+    usage: "brna devices [--json] [--metro <url-or-port>] [--timeout <ms>]",
     options: [
       { name: "--json", description: "Print the connected devices payload as JSON." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
     ],
     examples: ["brna devices", "brna devices --json"],
@@ -149,9 +150,9 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "mcp",
     description: "Start the brna Model Context Protocol server on stdio.",
-    usage: "brna mcp [--metro <url>] [--device <id>]",
+    usage: "brna mcp [--metro <url-or-port>] [--device <id>]",
     options: [
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--device", description: "Target a connected runtime device id." },
     ],
     examples: ["brna mcp", "brna mcp --device ios-sim"],
@@ -170,13 +171,13 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "logs",
     description: "Print recent runtime console/error log records captured by the brna runtime.",
-    usage: "brna logs [--json] [--since <ms-or-timestamp>] [--level <level>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna logs [--json] [--since <ms-or-timestamp>] [--level <level>] [--limit <n>] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--json", description: "Print log records as JSON." },
       { name: "--since", description: "Filter records to those at or after a duration ago (ms) or absolute ms timestamp." },
       { name: "--level", description: "Minimum level to include: debug|log|info|warn|error." },
       { name: "--limit", description: "Maximum number of records to return." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
       { name: "--device", description: "Target a connected runtime device id." },
     ],
@@ -189,14 +190,14 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
   {
     name: "network",
     description: "Print recent runtime fetch/XHR network records captured by the brna runtime.",
-    usage: "brna network [--json] [--since <ms-or-timestamp>] [--method <verb>] [--status <code-or-range>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    usage: "brna network [--json] [--since <ms-or-timestamp>] [--method <verb>] [--status <code-or-range>] [--limit <n>] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--json", description: "Print network records as JSON." },
       { name: "--since", description: "Filter records to those at or after a duration ago (ms) or absolute ms timestamp." },
       { name: "--method", description: "Filter records by HTTP method (case-insensitive)." },
       { name: "--status", description: "Filter records by status code or range (e.g. 200, 200-299, 4xx)." },
       { name: "--limit", description: "Maximum number of records to return." },
-      { name: "--metro", description: "Metro base URL. Defaults to http://localhost:8081." },
+      { name: "--metro", description: METRO_OPTION_DESCRIPTION },
       { name: "--timeout", description: "Request timeout in milliseconds." },
       { name: "--device", description: "Target a connected runtime device id." },
     ],

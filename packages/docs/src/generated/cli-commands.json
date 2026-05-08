@@ -5,7 +5,7 @@
       "snap"
     ],
     "description": "Capture the current app snapshot from a connected brna runtime.",
-    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--format",
@@ -37,7 +37,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
@@ -68,7 +68,7 @@
   {
     "name": "act",
     "description": "Resolve a selector against a fresh snapshot, auto-select a single safe interactive match, and dispatch one runtime action.",
-    "usage": "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--at <index>] [--verify-change] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna act <tap|click|long-press|type|scroll|swipe|key> [args] [--at <index>] [--verify-change] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--duration",
@@ -92,7 +92,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
@@ -116,7 +116,7 @@
   {
     "name": "wait",
     "description": "Poll snapshots until a selector appears (or disappears with --gone) or a timeout is reached.",
-    "usage": "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url>] [--device <id>]",
+    "usage": "brna wait <selector> [--gone] [--timeout <ms>] [--interval <ms>] [--metro <url-or-port>] [--device <id>]",
     "options": [
       {
         "name": "--gone",
@@ -132,7 +132,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--device",
@@ -148,7 +148,7 @@
   {
     "name": "capture",
     "description": "Write a PNG screenshot of the connected runtime device, optionally overlaid with brna snapshot bounds.",
-    "usage": "brna capture [--to <path>] [--overlay] [--metro <url>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
+    "usage": "brna capture [--to <path>] [--overlay] [--metro <url-or-port>] [--device <id>] [--native-device <id>] [--native-platform android|ios] [--timeout <ms>]",
     "options": [
       {
         "name": "--to",
@@ -160,7 +160,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--device",
@@ -189,7 +189,7 @@
   {
     "name": "doctor",
     "description": "Check Metro/runtime connectivity and project configuration, with optional safe fixes.",
-    "usage": "brna doctor [--fix] [--metro <url>] [--timeout <ms>]",
+    "usage": "brna doctor [--fix] [--metro <url-or-port>] [--timeout <ms>]",
     "options": [
       {
         "name": "--fix",
@@ -197,7 +197,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
@@ -212,7 +212,7 @@
   {
     "name": "verify",
     "description": "Compare a freshly captured live snapshot against a golden snapshot markdown or JSON file.",
-    "usage": "brna verify <golden.md|golden.json> [--active-layer] [--metro <url>] [--device <id>] [--timeout <ms>]",
+    "usage": "brna verify <golden.md|golden.json> [--active-layer] [--metro <url-or-port>] [--device <id>] [--timeout <ms>]",
     "options": [
       {
         "name": "--active-layer",
@@ -220,7 +220,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--device",
@@ -241,7 +241,7 @@
   {
     "name": "devices",
     "description": "List brna runtimes connected through the Metro bridge.",
-    "usage": "brna devices [--json] [--metro <url>] [--timeout <ms>]",
+    "usage": "brna devices [--json] [--metro <url-or-port>] [--timeout <ms>]",
     "options": [
       {
         "name": "--json",
@@ -249,7 +249,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
@@ -264,11 +264,11 @@
   {
     "name": "mcp",
     "description": "Start the brna Model Context Protocol server on stdio.",
-    "usage": "brna mcp [--metro <url>] [--device <id>]",
+    "usage": "brna mcp [--metro <url-or-port>] [--device <id>]",
     "options": [
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--device",
@@ -294,7 +294,7 @@
   {
     "name": "logs",
     "description": "Print recent runtime console/error log records captured by the brna runtime.",
-    "usage": "brna logs [--json] [--since <ms-or-timestamp>] [--level <level>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna logs [--json] [--since <ms-or-timestamp>] [--level <level>] [--limit <n>] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--json",
@@ -314,7 +314,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
@@ -334,7 +334,7 @@
   {
     "name": "network",
     "description": "Print recent runtime fetch/XHR network records captured by the brna runtime.",
-    "usage": "brna network [--json] [--since <ms-or-timestamp>] [--method <verb>] [--status <code-or-range>] [--limit <n>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna network [--json] [--since <ms-or-timestamp>] [--method <verb>] [--status <code-or-range>] [--limit <n>] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--json",
@@ -358,7 +358,7 @@
       },
       {
         "name": "--metro",
-        "description": "Metro base URL. Defaults to http://localhost:8081."
+        "description": "Metro base URL or bare port. Defaults to http://localhost:8081."
       },
       {
         "name": "--timeout",
