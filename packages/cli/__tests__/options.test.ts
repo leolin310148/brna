@@ -86,6 +86,12 @@ describe("CLI option parsing", () => {
     expect(result.stderr).not.toContain("\x1b");
   });
 
+  test("usage diagnostics escape unicode bidi controls", () => {
+    const result = captureProcessExit(() => parseSince("123\u202e456", "--since"));
+    expect(result.stderr).toContain("123\\u202e456");
+    expect(result.stderr).not.toContain("\u202e");
+  });
+
   test("since flags still accept decimal durations", () => {
     const before = Date.now();
     const parsed = parseSince("  1500.5  ", "--since");

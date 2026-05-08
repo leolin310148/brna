@@ -355,6 +355,23 @@ describe("formatNetworkTable", () => {
     expect(out).not.toContain("\x1b");
   });
 
+  test("escapes unicode bidi controls in URLs", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-bidi",
+        timestamp: 1700000000000,
+        method: "GET",
+        url: "https://api.test/\u202eevil",
+        state: "completed",
+        source: "fetch",
+        status: 200,
+      },
+    ]);
+
+    expect(out).toContain("https://api.test/\\u202eevil");
+    expect(out).not.toContain("\u202e");
+  });
+
   test("escapes terminal control characters in methods", () => {
     const out = formatNetworkTable([
       {
