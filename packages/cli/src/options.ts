@@ -199,7 +199,7 @@ function firstUsefulDiagnosticLine(body: string): string {
 
 function diagnosticLineFromJson(body: string): string | undefined {
   const trimmed = body.trim();
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return undefined;
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[") && !trimmed.startsWith("\"")) return undefined;
   try {
     return pickJsonDiagnostic(JSON.parse(trimmed));
   } catch {
@@ -208,6 +208,10 @@ function diagnosticLineFromJson(body: string): string | undefined {
 }
 
 function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
   if (!value || typeof value !== "object" || depth > 2) return undefined;
 
   if (Array.isArray(value)) {
@@ -219,7 +223,7 @@ function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
   }
 
   const record = value as Record<string, unknown>;
-  for (const key of ["message", "error", "reason", "detail"]) {
+  for (const key of ["message", "error", "reason", "detail", "description"]) {
     const picked = record[key];
     if (typeof picked === "string" && picked.trim().length > 0) return picked.trim();
     const nested = pickJsonDiagnostic(picked, depth + 1);
