@@ -229,7 +229,18 @@ function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
   }
 
   const record = value as Record<string, unknown>;
-  for (const key of ["message", "error", "errors", "reason", "detail", "description", "title", "data"]) {
+  for (const key of [
+    "message",
+    "error_description",
+    "errorMessage",
+    "detail",
+    "description",
+    "reason",
+    "title",
+    "error",
+    "errors",
+    "data",
+  ]) {
     const picked = record[key];
     if (typeof picked === "string" && picked.trim().length > 0) return picked.trim();
     const nested = pickJsonDiagnostic(picked, depth + 1);

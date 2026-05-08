@@ -154,6 +154,34 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("prefers descriptive JSON error fields over terse error codes", async () => {
+    const response = new Response(
+      JSON.stringify({
+        error: "invalid_request",
+        error_description: "Metro snapshot endpoint rejected the request",
+      }),
+      {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 400: Metro snapshot endpoint rejected the request",
+    );
+  });
+
+  test("extracts camel-case JSON error messages", async () => {
+    const response = new Response(JSON.stringify({ errorMessage: "Metro middleware failed" }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: Metro middleware failed",
+    );
+  });
+
   test("extracts JSON HTTP response titles", async () => {
     const response = new Response(JSON.stringify({ title: "Metro middleware unavailable" }), {
       status: 503,
