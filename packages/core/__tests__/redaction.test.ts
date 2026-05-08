@@ -99,4 +99,22 @@ describe("snapshot redaction", () => {
     expect(out).toContain('"accessibility_hint": "<redacted>"');
     expect(out).not.toContain("myPassword123");
   });
+
+  test("redacts secure values from suggested selectors", () => {
+    const snap = snapshot();
+    snap.tree.children = [
+      {
+        id: "secret",
+        kind: "input",
+        text: "two word secret",
+        value: "two word secret",
+        state: ["secure"],
+        suggested_selectors: ["input:two word secret", "two...secret"],
+      },
+    ];
+
+    const out = toJSON(snap);
+    expect(out).toContain('"input:<redacted>"');
+    expect(out).not.toContain("two word secret");
+  });
 });

@@ -122,4 +122,29 @@ describe("redactSnapshot", () => {
     expect(secret?.accessibility_label).toBe("<redacted>");
     expect(secret?.accessibility_hint).toBe("<redacted>");
   });
+
+  test("redacts secure values from suggested selectors", () => {
+    const out = redactSnapshot(
+      makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            {
+              id: "secret",
+              kind: "input",
+              text: "two word secret",
+              value: "two word secret",
+              state: ["secure"],
+              suggested_selectors: ["input:two word secret", "two...secret"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const secret = out.tree.children?.[0];
+    expect(secret?.suggested_selectors).toEqual(["input:<redacted>", "two...secret"]);
+    expect(JSON.stringify(secret)).not.toContain("two word secret");
+  });
 });

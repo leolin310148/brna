@@ -24,6 +24,7 @@ export function redactSnapshot(snapshot: Snapshot, options: RedactionOptions = {
 
 function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boolean): void {
   const secure = redactSecureFields && node.state?.includes("secure") === true;
+  const secureValue = secure && node.value !== undefined ? String(node.value) : undefined;
 
   for (const key of ["name", "text", "accessibility_label", "accessibility_hint", "url"] as const) {
     const value = node[key];
@@ -40,7 +41,9 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
     node.range.text = secure ? redactSecureString(node.range.text) : applyRules(node.range.text, rules);
   }
   if (Array.isArray(node.suggested_selectors)) {
-    node.suggested_selectors = node.suggested_selectors.map((selector) => applyRules(selector, rules));
+    node.suggested_selectors = node.suggested_selectors.map((selector) =>
+      redactSuggestedSelector(selector, secureValue, rules),
+    );
   }
   if (node.children) {
     for (const child of node.children) redactNode(child, rules, redactSecureFields);
@@ -57,6 +60,18 @@ function redactSecureScalar(value: NonNullable<Node["value"]>): string {
 
 function redactScalar(value: string | number | boolean, rules: CompiledRule[]): string | number | boolean {
   return typeof value === "string" ? applyRules(value, rules) : value;
+}
+
+function redactSuggestedSelector(
+  selector: string,
+  secureValue: string | undefined,
+  rules: CompiledRule[],
+): string {
+  const redacted =
+    secureValue !== undefined && secureValue.length > 0
+      ? selector.split(secureValue).join(SECURE_REPLACEMENT)
+      : selector;
+  return applyRules(redacted, rules);
 }
 
 function applyRules(value: string, rules: CompiledRule[]): string {
