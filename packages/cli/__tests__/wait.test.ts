@@ -220,6 +220,18 @@ describe("brna wait", () => {
     expect(interval.fetchCount).toBe(0);
   });
 
+  test("usage diagnostics escape terminal control characters", async () => {
+    const timeout = await run(["text:X", "--timeout", "\x1b[31m"]);
+    expect(timeout.code).toBe(4);
+    expect(timeout.stderr).toContain("\\x1b[31m");
+    expect(timeout.stderr).not.toContain("\x1b");
+
+    const metro = await run(["text:X", "--metro", "bad\nurl"]);
+    expect(metro.code).toBe(4);
+    expect(metro.stderr).toContain("bad\\nurl");
+    expect(metro.stderr).not.toContain("bad\nurl");
+  });
+
   test("--device rejects whitespace-only values as missing", async () => {
     const res = await run(["text:X", "--device", "   "]);
     expect(res.code).toBe(4);

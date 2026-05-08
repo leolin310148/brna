@@ -1,6 +1,7 @@
 import { BrnaSelectorParseError, validateSnapshot } from "@brna/schema";
 import type { SelectorAST, Snapshot } from "@brna/schema";
 import { parseSelector, resolve } from "@brna/core";
+import { escapeControlCharacters } from "./format.js";
 import {
   DEFAULT_METRO_URL,
   DEVICE_HEADER,
@@ -27,7 +28,7 @@ function parseUrlValue(value: string | undefined): string {
   try {
     return normalizeMetroUrl(value);
   } catch {
-    throw new WaitUsageError(`malformed URL for '--metro': ${value}`);
+    throw new WaitUsageError(`malformed URL for '--metro': ${formatCliValue(value)}`);
   }
 }
 
@@ -37,7 +38,7 @@ function parsePositive(value: string | undefined, flag: string): number {
   }
   const n = parseDecimalInteger(value);
   if (n === undefined || n <= 0) {
-    throw new WaitUsageError(`'${flag}' must be a positive integer, got '${value}'`);
+    throw new WaitUsageError(`'${flag}' must be a positive integer, got '${formatCliValue(value)}'`);
   }
   return n;
 }
@@ -257,4 +258,8 @@ function defaultSleep(ms: number): Promise<void> {
 
 function isAbortError(err: unknown): boolean {
   return Boolean(err && typeof err === "object" && (err as { name?: unknown }).name === "AbortError");
+}
+
+function formatCliValue(value: string): string {
+  return escapeControlCharacters(value);
 }
