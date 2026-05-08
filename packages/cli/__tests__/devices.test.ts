@@ -68,6 +68,11 @@ describe("brna devices", () => {
     expect(badMetadata.code).toBe(3);
     expect(badMetadata.stderr).toContain("malformed devices response: devices[0].app_version must be a string");
     expect(badMetadata.stdout).toBe("");
+
+    const badNativeHint = await runWithBody([], { devices: [{ id: "dev-a", is_simulator: "yes" }] });
+    expect(badNativeHint.code).toBe(3);
+    expect(badNativeHint.stderr).toContain("malformed devices response: devices[0].is_simulator must be a boolean");
+    expect(badNativeHint.stdout).toBe("");
   });
 
   test("malformed recent disconnected rows exit with a protocol diagnostic", async () => {
@@ -160,7 +165,14 @@ describe("formatDevicesTable", () => {
 
   test("renders app name when runtime supplied app metadata", () => {
     const out = formatDevicesTable([
-      { id: "dev-a", platform: "ios", os_version: "17.4", app_name: "Hotcake", app_version: "1.2.3" },
+      {
+        id: "dev-a",
+        platform: "ios",
+        device_name: "iPhone 15",
+        os_version: "17.4",
+        app_name: "Hotcake",
+        app_version: "1.2.3",
+      },
     ]);
     expect(out).toContain("Hotcake");
     expect(out).toContain("1.2.3");
@@ -171,6 +183,36 @@ describe("formatDevicesTable", () => {
     const out = formatDevicesTable([{ id: "dev-a" }]);
     const appColumn = out.split("\n")[1]!;
     expect(appColumn).toContain("unknown");
+  });
+
+  test("renders native device hints when present", () => {
+    const out = formatDevicesTable([
+      {
+        id: "dev-a",
+        platform: "ios",
+        device_name: "iPhone 15",
+        native_device_id: "A1B2C3",
+        is_simulator: true,
+      },
+      { id: "dev-b", platform: "android", native_device_id: "emulator-5554" },
+    ]);
+
+    expect(out.split("\n")[0]).toContain("DEVICE");
+    expect(out).toContain("iPhone 15 simulator");
+    expect(out).toContain("emulator-5554");
+    expect(out).not.toContain("A1B2C3");
+  });
+
+  test("escapes terminal control characters in native device hints", () => {
+    const out = formatDevicesTable([
+      {
+        id: "dev-a",
+        native_device_id: "emulator-\x1b[31m5554",
+      },
+    ]);
+
+    expect(out).toContain("emulator-\\x1b[31m5554");
+    expect(out).not.toContain("\x1b");
   });
 
   test("escapes terminal control characters in table cells", () => {

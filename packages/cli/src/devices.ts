@@ -15,6 +15,9 @@ interface DeviceInfo {
   app_version?: string;
   app_name?: string;
   app_bundle_id?: string;
+  native_device_id?: string;
+  device_name?: string;
+  is_simulator?: boolean;
   registered_at?: number;
   last_seen_at?: number;
   live?: boolean;
@@ -170,10 +173,11 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
 }
 
 export function formatDevicesTable(devices: DeviceInfo[]): string {
-  const headers: string[] = ["ID", "PLATFORM", "OS", "APP"];
+  const headers: string[] = ["ID", "PLATFORM", "DEVICE", "OS", "APP"];
   const rows: string[][] = devices.map((d) => [
     escapeControlCharacters(d.id),
     escapeControlCharacters(d.platform ?? "unknown"),
+    formatNativeDeviceCell(d),
     escapeControlCharacters(d.os_version ?? "unknown"),
     formatAppCell(d),
   ]);
@@ -192,7 +196,11 @@ function firstMalformedDeviceField(devices: unknown[], fieldName: string): strin
     "app_version",
     "app_name",
     "app_bundle_id",
+    "native_device_id",
+    "device_name",
   ];
+  const optionalBooleanFields = ["is_simulator", "live"];
+  const optionalNumberFields = ["registered_at", "last_seen_at"];
   for (const [index, device] of devices.entries()) {
     if (!device || typeof device !== "object" || Array.isArray(device)) {
       return `${fieldName}[${index}] must be an object`;
@@ -206,8 +214,25 @@ function firstMalformedDeviceField(devices: unknown[], fieldName: string): strin
         return `${fieldName}[${index}].${field} must be a string`;
       }
     }
+    for (const field of optionalBooleanFields) {
+      if (record[field] !== undefined && typeof record[field] !== "boolean") {
+        return `${fieldName}[${index}].${field} must be a boolean`;
+      }
+    }
+    for (const field of optionalNumberFields) {
+      if (record[field] !== undefined && typeof record[field] !== "number") {
+        return `${fieldName}[${index}].${field} must be a number`;
+      }
+    }
   }
   return undefined;
+}
+
+function formatNativeDeviceCell(device: DeviceInfo): string {
+  const label = device.device_name ?? device.native_device_id;
+  if (!label) return "unknown";
+  const suffix = device.is_simulator === true ? " simulator" : "";
+  return `${escapeControlCharacters(label)}${suffix}`;
 }
 
 function formatAppCell(device: DeviceInfo): string {
