@@ -127,6 +127,12 @@ describe("brna logs", () => {
     expect(body.level).toBe("warn");
   });
 
+  test("--level accepts uppercase input", async () => {
+    const res = await run(["--level", " WARN "], { body: { records: [] } });
+    const body = JSON.parse(String(res.requestInit?.body)) as { level?: string };
+    expect(body.level).toBe("warn");
+  });
+
   test("--level rejects whitespace-only values as missing", async () => {
     const res = runCli(["logs", "--level", "   "]);
     expect(res.status).toBe(4);
