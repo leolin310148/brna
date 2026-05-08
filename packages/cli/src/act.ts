@@ -385,7 +385,7 @@ async function fetchSnapshot(shared: SharedFlags): Promise<Snapshot> {
   }
 
   if (response.status === 503) fail(6, "no runtime connected");
-  if (response.status === 404) fail(6, `unknown device '${shared.device ?? "?"}'`);
+  if (response.status === 404) fail(6, unknownDeviceMessage(shared.device));
   if (response.status === 504) fail(6, "runtime timed out fetching pre-action snapshot");
   if (response.status === 502) fail(6, "runtime error fetching pre-action snapshot");
   if (response.status === 429) fail(6, "another request is in flight; retry this brna command after the previous command finishes");
@@ -463,7 +463,7 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
     (shared.exit ?? process.exit)(0);
   }
   if (response.status === 503) fail(6, "no runtime connected");
-  if (response.status === 404) fail(6, `unknown device '${shared.device ?? "?"}'`);
+  if (response.status === 404) fail(6, unknownDeviceMessage(shared.device));
   if (response.status === 504) fail(6, "runtime timed out");
   if (response.status === 429) fail(6, "another request is in flight; retry this brna command after the previous command finishes");
   if (response.status === 400) {
@@ -488,4 +488,8 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
   }
   const diagnosis = await diagnoseMetroResponse(response, "action endpoint");
   fail(6, diagnosis ?? `unexpected HTTP ${response.status} from Metro`);
+}
+
+function unknownDeviceMessage(device: string | undefined): string {
+  return `unknown device '${device ?? "?"}' — run 'brna devices' to list connected runtimes`;
 }

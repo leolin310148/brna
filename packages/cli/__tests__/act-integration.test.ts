@@ -395,12 +395,33 @@ describe("act selector failures", () => {
 });
 
 describe("act HTTP error mapping", () => {
+  test("404 from pre-action snapshot includes devices hint", async () => {
+    state.snapshotResponder = (_req, res) => jsonReply(res, 404, { error: "unknown_device" });
+    const r = await runAct(["tap", "#save", "--device", "stale-id"]);
+    expect(r.status).toBe(6);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain(
+      "unknown device 'stale-id' — run 'brna devices' to list connected runtimes",
+    );
+    expect(state.lastActionBody).toBe(null);
+  });
+
   test("503 from /brna/action exits 6 (no_runtime_connected)", async () => {
     state.actionResponder = (_req, res) => jsonReply(res, 503, { error: "no_runtime_connected" });
     const r = await runAct(["tap", "#save"]);
     expect(r.status).toBe(6);
     expect(r.stdout).toBe("");
     expect(r.stderr).toContain("no runtime connected");
+  });
+
+  test("404 from /brna/action includes devices hint", async () => {
+    state.actionResponder = (_req, res) => jsonReply(res, 404, { error: "unknown_device" });
+    const r = await runAct(["key", "tab", "--device", "stale-id"]);
+    expect(r.status).toBe(6);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain(
+      "unknown device 'stale-id' — run 'brna devices' to list connected runtimes",
+    );
   });
 
   test("504 from /brna/action exits 6 (runtime timeout)", async () => {
