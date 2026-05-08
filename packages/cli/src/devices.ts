@@ -55,7 +55,7 @@ function parseMetroValue(value: string | undefined): string {
 }
 
 function parseTimeoutValue(value: string | undefined): number {
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new DevicesUsageError("missing value for '--timeout'");
   }
   const n = parseDecimalInteger(value);

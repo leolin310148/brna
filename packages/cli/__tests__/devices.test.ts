@@ -83,6 +83,12 @@ describe("brna devices", () => {
     expect(res.code).toBe(4);
     expect(res.stderr).toContain("'--timeout' must be a positive integer");
   });
+
+  test("--timeout rejects whitespace-only values as missing", async () => {
+    const res = await run(["--timeout", "   "], []);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("missing value for '--timeout'");
+  });
 });
 
 describe("formatDevicesTable", () => {
