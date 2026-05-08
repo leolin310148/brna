@@ -102,6 +102,18 @@ async function exchange(
 }
 
 describe("MCP server", () => {
+  test("argv diagnostics escape bidi formatting controls", async () => {
+    await expect(runMcpServer(["--bad\u200fflag"], {
+      stdin: Readable.from([""]),
+      stdout: new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      stderr: { write: () => true },
+    })).rejects.toThrow("--bad\\u200fflag");
+  });
+
   test("initialize returns protocol info", async () => {
     const responses = await exchange([{
       jsonrpc: "2.0",
