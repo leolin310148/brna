@@ -200,6 +200,28 @@ describe("CLI --format flag (subprocess, never reaches Metro)", () => {
     });
     expect(result.status).toBe(4);
   });
+
+  test("--format diagnostics escape terminal control characters", () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--format", "json\x1b[31m"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("json\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+  });
+
+  test("unknown flag diagnostics escape terminal control characters", () => {
+    const result = spawnSync("bun", ["run", CLI_PATH, "snapshot", "--bogus\x1b[31m"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("--bogus\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+  });
 });
 
 describe("projectSnapshot", () => {

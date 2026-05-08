@@ -29,6 +29,7 @@ import {
 } from "./options.js";
 import { readSnapshotCache, snapshotSessionId, writeSnapshotCache } from "./session.js";
 import { loadConfig, measureTimeoutFromConfig, toRedactionOptions } from "./config.js";
+import { escapeControlCharacters } from "./format.js";
 import { appendTraceEvent } from "./trace.js";
 import { runCapture, type NativePlatform, type SpawnNative } from "./capture.js";
 
@@ -88,7 +89,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     } else if (token === "--format") {
       const value = rest[++i];
       if (typeof value !== "string" || !VALID_FORMATS.has(value)) {
-        fail(4, `unknown --format value '${value ?? ""}' (expected md|markdown|json|yaml)`);
+        fail(4, `unknown --format value '${formatArgValue(value)}' (expected md|markdown|json|yaml)`);
       }
       format = value === "markdown" ? "md" : value as SnapshotFormat;
     } else if (token === "--diff") {
@@ -112,7 +113,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     } else if (token === "--native-platform") {
       const value = rest[++i];
       if (value !== "android" && value !== "ios") {
-        fail(4, `'--native-platform' must be 'android' or 'ios', got '${value ?? ""}'`);
+        fail(4, `'--native-platform' must be 'android' or 'ios', got '${formatArgValue(value)}'`);
       }
       nativePlatform = value;
     } else if (token === "--to") {
@@ -128,7 +129,7 @@ function parseArgs(rest: string[]): ParsedArgs {
       }
       target = value;
     } else {
-      fail(4, `unknown flag '${token}'`);
+      fail(4, `unknown flag '${escapeControlCharacters(token)}'`);
     }
   }
 
@@ -167,6 +168,10 @@ function parseArgs(rest: string[]): ParsedArgs {
     result.target = target;
   }
   return result;
+}
+
+function formatArgValue(value: string | undefined): string {
+  return escapeControlCharacters(value ?? "");
 }
 
 export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {}): Promise<void> {
