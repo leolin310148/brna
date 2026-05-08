@@ -191,6 +191,17 @@ describe("brna logs", () => {
     expect(res.stderr).toContain("brna Metro middleware is not mounted");
   });
 
+  test("HTML 404 responses explain that Metro middleware is missing", async () => {
+    const res = await run([], {
+      response: new Response("<!doctype html><html><body>Metro</body></html>", {
+        status: 404,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("brna Metro middleware is not mounted");
+  });
+
   test("--device sets device header", async () => {
     const res = await run(["--device", "ios-sim"], { body: { records: [] } });
     expect((res.requestInit?.headers as Record<string, string>)["x-brna-device-id"]).toBe("ios-sim");
