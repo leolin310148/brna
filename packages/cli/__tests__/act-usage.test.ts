@@ -13,6 +13,15 @@ function run(args: string[]) {
 }
 
 describe("act usage errors (no Metro contact)", () => {
+  test("no arguments prints metadata-backed global usage and exits 4", () => {
+    const r = run([]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("Usage:");
+    expect(r.stderr).toContain("snapshot");
+    expect(r.stderr).toContain("daemon");
+    expect(r.stdout).toBe("");
+  });
+
   test("global --help exits 0", () => {
     const r = run(["--help"]);
     expect(r.status).toBe(0);

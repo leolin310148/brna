@@ -11,7 +11,7 @@ import { runTrace } from "./trace.js";
 import { runWait } from "./wait.js";
 import { runLogs } from "./logs.js";
 import { runNetwork } from "./network.js";
-import { DOCS_URL, commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
+import { commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
 import {
   DAEMON_INTERNAL_ENV,
   DAEMON_SESSION_ENV,
@@ -42,9 +42,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   }
 
   if (argv.length === 0) {
-    process.stderr.write(
-      `brna: usage: brna <snapshot|snap|act|wait|capture|devices|doctor|verify|mcp|config|trace|logs|network|daemon> [args]\nDocs: ${DOCS_URL}\n`,
-    );
+    process.stderr.write(formatGlobalHelp());
     return 4;
   }
 
