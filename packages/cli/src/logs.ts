@@ -71,7 +71,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--limit") {
       limit = parsePositiveInt(rest[++i], "--limit");
     } else {
-      fail(4, `unknown flag '${token}'`);
+      fail(4, `unknown flag '${escapeControlCharacters(token)}'`);
     }
   }
   const out: ParsedArgs = { metro, timeoutMs, json };

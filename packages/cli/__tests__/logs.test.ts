@@ -160,6 +160,14 @@ describe("brna logs", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("unknown flag diagnostics escape terminal control characters", () => {
+    const res = runCli(["logs", "--bogus\x1b[31m"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("--bogus\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+    expect(res.stdout).toBe("");
+  });
+
   test("--limit rejects fractional values", async () => {
     const res = runCli(["logs", "--limit", "1.5"]);
     expect(res.status).toBe(4);
