@@ -97,6 +97,10 @@ function isOptionalNonNegativeFiniteNumber(value: unknown): boolean {
   return value === undefined || isNonNegativeFiniteNumber(value);
 }
 
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
 function parseHttpStatus(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
   return value >= 100 && value <= 599 ? value : undefined;
@@ -145,9 +149,7 @@ export function parseLogsRequestOptions(value: unknown): LogsRequestOptions {
     const level = v.level.trim().toLowerCase();
     if (isLogLevel(level)) out.level = level;
   }
-  if (typeof v.limit === "number" && Number.isFinite(v.limit) && v.limit > 0) {
-    out.limit = Math.floor(v.limit);
-  }
+  if (isPositiveSafeInteger(v.limit)) out.limit = v.limit;
   if (v.redaction && typeof v.redaction === "object") {
     out.redaction = v.redaction as ObservabilityRedactionOptions;
   }
@@ -172,9 +174,7 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
     if (statusMin !== undefined) out.statusMin = statusMin;
     if (statusMax !== undefined) out.statusMax = statusMax;
   }
-  if (typeof v.limit === "number" && Number.isFinite(v.limit) && v.limit > 0) {
-    out.limit = Math.floor(v.limit);
-  }
+  if (isPositiveSafeInteger(v.limit)) out.limit = v.limit;
   if (v.redaction && typeof v.redaction === "object") {
     out.redaction = v.redaction as ObservabilityRedactionOptions;
   }

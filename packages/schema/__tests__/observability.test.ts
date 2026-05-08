@@ -80,7 +80,7 @@ describe("observability schema helpers", () => {
     expect(parseLogsRequestOptions({
       since: 10,
       level: " ERROR ",
-      limit: 2.9,
+      limit: 2,
       redaction: { rules: [] },
     })).toEqual({
       since: 10,
@@ -89,6 +89,8 @@ describe("observability schema helpers", () => {
       redaction: { rules: [] },
     });
     expect(parseLogsRequestOptions({ since: Number.NaN, level: "verbose", limit: 0 })).toEqual({});
+    expect(parseLogsRequestOptions({ limit: 2.9 })).toEqual({});
+    expect(parseLogsRequestOptions({ limit: Number.MAX_SAFE_INTEGER + 1 })).toEqual({});
     expect(parseLogsRequestOptions({ since: -1 })).toEqual({});
   });
 
@@ -100,7 +102,7 @@ describe("observability schema helpers", () => {
       status: 201,
       statusMin: 200,
       statusMax: 299,
-      limit: 3.5,
+      limit: 3,
       redaction: { redactSensitiveDefaults: false },
     })).toEqual({
       since: 5,
@@ -121,6 +123,8 @@ describe("observability schema helpers", () => {
     })).toEqual({});
     expect(parseNetworkRequestOptions({ method: "GET /admin" })).toEqual({});
     expect(parseNetworkRequestOptions({ method: "PATCH\r\nX-Test: 1" })).toEqual({});
+    expect(parseNetworkRequestOptions({ limit: 3.5 })).toEqual({});
+    expect(parseNetworkRequestOptions({ limit: Number.MAX_SAFE_INTEGER + 1 })).toEqual({});
     expect(parseNetworkRequestOptions({ since: -1 })).toEqual({});
   });
 
