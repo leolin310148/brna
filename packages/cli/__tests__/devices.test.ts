@@ -70,6 +70,18 @@ describe("brna devices", () => {
     expect(badMetadata.stdout).toBe("");
   });
 
+  test("malformed recent disconnected rows exit with a protocol diagnostic", async () => {
+    const missingArray = await runWithBody([], { devices: [], recent_disconnected: "not-an-array" });
+    expect(missingArray.code).toBe(3);
+    expect(missingArray.stderr).toContain("malformed devices response: recent_disconnected must be an array");
+    expect(missingArray.stdout).toBe("");
+
+    const missingId = await runWithBody([], { devices: [], recent_disconnected: [{ platform: "ios" }] });
+    expect(missingId.code).toBe(3);
+    expect(missingId.stderr).toContain("malformed devices response: recent_disconnected[0].id must be a string");
+    expect(missingId.stdout).toBe("");
+  });
+
   test("--json emits JSON payload", async () => {
     const res = await run(["--json"], [{ id: "dev-a", platform: "ios" }]);
     expect(res.code).toBe(0);

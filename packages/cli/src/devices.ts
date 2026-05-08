@@ -138,17 +138,23 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
     failWith(3, diagnosis ?? "malformed devices response: devices must be an array", stderr, exit);
   }
   const devices = payload.devices;
-  const malformedDevice = firstMalformedDeviceField(devices);
+  const malformedDevice = firstMalformedDeviceField(devices, "devices");
   if (malformedDevice) {
     failWith(3, diagnosis ?? `malformed devices response: ${malformedDevice}`, stderr, exit);
+  }
+  const recentDisconnected = payload.recent_disconnected ?? [];
+  if (!Array.isArray(recentDisconnected)) {
+    failWith(3, diagnosis ?? "malformed devices response: recent_disconnected must be an array", stderr, exit);
+  }
+  const malformedRecentDisconnected = firstMalformedDeviceField(recentDisconnected, "recent_disconnected");
+  if (malformedRecentDisconnected) {
+    failWith(3, diagnosis ?? `malformed devices response: ${malformedRecentDisconnected}`, stderr, exit);
   }
 
   if (json) {
     stdout.write(JSON.stringify({
       devices,
-      recent_disconnected: Array.isArray(payload.recent_disconnected)
-        ? payload.recent_disconnected
-        : [],
+      recent_disconnected: recentDisconnected,
     }, null, 2));
     stdout.write("\n");
     exit(0);
@@ -179,7 +185,7 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
 }
 
-function firstMalformedDeviceField(devices: unknown[]): string | undefined {
+function firstMalformedDeviceField(devices: unknown[], fieldName: string): string | undefined {
   const optionalStringFields = [
     "platform",
     "os_version",
@@ -189,15 +195,15 @@ function firstMalformedDeviceField(devices: unknown[]): string | undefined {
   ];
   for (const [index, device] of devices.entries()) {
     if (!device || typeof device !== "object" || Array.isArray(device)) {
-      return `devices[${index}] must be an object`;
+      return `${fieldName}[${index}] must be an object`;
     }
     const record = device as Record<string, unknown>;
     if (typeof record.id !== "string") {
-      return `devices[${index}].id must be a string`;
+      return `${fieldName}[${index}].id must be a string`;
     }
     for (const field of optionalStringFields) {
       if (record[field] !== undefined && typeof record[field] !== "string") {
-        return `devices[${index}].${field} must be a string`;
+        return `${fieldName}[${index}].${field} must be a string`;
       }
     }
   }
