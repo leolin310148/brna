@@ -119,6 +119,8 @@ describe("observability schema helpers", () => {
       statusMax: 299.5,
       limit: -1,
     })).toEqual({});
+    expect(parseNetworkRequestOptions({ method: "GET /admin" })).toEqual({});
+    expect(parseNetworkRequestOptions({ method: "PATCH\r\nX-Test: 1" })).toEqual({});
     expect(parseNetworkRequestOptions({ since: -1 })).toEqual({});
   });
 

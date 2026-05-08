@@ -102,6 +102,10 @@ function parseHttpStatus(value: unknown): number | undefined {
   return value >= 100 && value <= 599 ? value : undefined;
 }
 
+function isHttpMethodToken(value: string): boolean {
+  return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(value);
+}
+
 function isOptionalHttpStatus(value: unknown): boolean {
   return value === undefined || parseHttpStatus(value) !== undefined;
 }
@@ -157,7 +161,7 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
   if (isNonNegativeFiniteNumber(v.since)) out.since = v.since;
   if (typeof v.method === "string") {
     const method = v.method.trim();
-    if (method.length > 0) out.method = method.toUpperCase();
+    if (method.length > 0 && isHttpMethodToken(method)) out.method = method.toUpperCase();
   }
   const status = parseHttpStatus(v.status);
   if (status !== undefined) out.status = status;
