@@ -10,4 +10,13 @@ describe("CLI metadata", () => {
     expect(help).toContain("[--image --image-to <path> [--overlay]]");
     expect(help).toContain("--overlay");
   });
+
+  test("daemon help documents management subcommands", () => {
+    const command = commandByName("daemon");
+    expect(command).toBeDefined();
+
+    const help = formatCommandHelp(command!);
+    expect(help).toContain("brna daemon <status|stop>");
+    expect(help).toContain("brna daemon status");
+  });
 });

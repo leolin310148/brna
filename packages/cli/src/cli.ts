@@ -43,7 +43,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
 
   if (argv.length === 0) {
     process.stderr.write(
-      `brna: usage: brna <snapshot|snap|act|wait|capture|devices|doctor|verify|mcp|config|trace|logs|network> [args]\nDocs: ${DOCS_URL}\n`,
+      `brna: usage: brna <snapshot|snap|act|wait|capture|devices|doctor|verify|mcp|config|trace|logs|network|daemon> [args]\nDocs: ${DOCS_URL}\n`,
     );
     return 4;
   }

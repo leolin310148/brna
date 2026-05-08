@@ -218,6 +218,16 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
       "brna trace replay trace.yaml",
     ],
   },
+  {
+    name: "daemon",
+    description: "Inspect or stop the local brna command daemon.",
+    usage: "brna daemon <status|stop>",
+    options: [],
+    examples: [
+      "brna daemon status",
+      "brna daemon stop",
+    ],
+  },
 ];
 
 export function commandByName(name: string): CliCommandMetadata | undefined {
