@@ -5,6 +5,7 @@ import {
   brnaMiddleware,
   handleAction,
   handleDevices,
+  handleLogs,
   handleSnapshot,
   handleSnapshotPost,
 } from "../src/middleware.js";
@@ -383,6 +384,30 @@ describe("handleSnapshotPost", () => {
     await promise;
     expect(res.statusCode).toBe(413);
     expect(JSON.parse(res.body)).toEqual({ error: "request_body_too_large", max_bytes: 64 * 1024 });
+  });
+});
+
+describe("handleLogs", () => {
+  test("reads chunked POST observability options without content-length", async () => {
+    let capturedOptions: unknown;
+    const bridge = {
+      hasRuntime: () => true,
+      requestLogs: async (options: unknown) => {
+        capturedOptions = options;
+        return { kind: "ok", records: [] };
+      },
+    } as unknown as BrnaBridge;
+    const req = makeMockReq();
+    req.url = "/brna/logs";
+    req.headers = { "transfer-encoding": "chunked" };
+    const res = makeMockRes();
+
+    const promise = handleLogs(bridge, req as never, res as never);
+    feedBody(req, JSON.stringify({ limit: 5, level: "warn" }));
+    await promise;
+
+    expect(capturedOptions).toEqual({ limit: 5, level: "warn" });
+    expect(res.statusCode).toBe(200);
   });
 });
 

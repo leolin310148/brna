@@ -305,13 +305,22 @@ async function readObservabilityOptions(
   | { kind: "malformed" }
   | { kind: "too_large" }
 > {
-  if ((req.headers["content-length"] ?? "0") === "0") return { kind: "ok", body: undefined };
+  if (hasEmptyObservabilityBody(req)) return { kind: "ok", body: undefined };
   try {
     return { kind: "ok", body: await readJsonBody(req) };
   } catch (err) {
     if (isBodyTooLargeError(err)) return { kind: "too_large" };
     return { kind: "malformed" };
   }
+}
+
+function hasEmptyObservabilityBody(req: IncomingMessage): boolean {
+  const contentLength = req.headers["content-length"];
+  if (contentLength === "0" || (Array.isArray(contentLength) && contentLength[0] === "0")) {
+    return true;
+  }
+  const transferEncoding = req.headers["transfer-encoding"];
+  return contentLength === undefined && transferEncoding === undefined;
 }
 
 export async function handleLogs(
