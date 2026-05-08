@@ -279,6 +279,21 @@ describe("brna config", () => {
     }
   });
 
+  test("config redaction ignores malformed JavaScript config entries", () => {
+    const config = {
+      redact: [
+        { match: "token", replace: "<token>" },
+        { match: /secret/g },
+        { replace: "<missing-match>" },
+        null,
+      ],
+    } as unknown as Parameters<typeof toRedactionOptions>[0];
+
+    expect(toRedactionOptions(config)).toEqual({
+      rules: [{ match: { source: "token", flags: "g" }, replace: "<token>" }],
+    });
+  });
+
   test("loadConfig supports project paths with URL special characters", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-config #"));
     try {

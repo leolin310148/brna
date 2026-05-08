@@ -99,7 +99,9 @@ async function importFreshConfig(path: string): Promise<{ default?: BrnaConfig; 
 
 function configRedactRules(config: BrnaConfig): SerializableRedactionRule[] {
   const rules: SerializableRedactionRule[] = [];
-  for (const rule of config.redact ?? []) {
+  const configuredRules = Array.isArray(config.redact) ? config.redact : [];
+  for (const rule of configuredRules) {
+    if (!isConfigRedactionRule(rule)) continue;
     if (typeof rule.match === "string") {
       rules.push({ match: { source: escapeRegExp(rule.match), flags: "g" }, replace: rule.replace });
     } else if (rule.match instanceof RegExp) {
@@ -110,6 +112,15 @@ function configRedactRules(config: BrnaConfig): SerializableRedactionRule[] {
     }
   }
   return rules;
+}
+
+function isConfigRedactionRule(rule: unknown): rule is { match: RegExp | string; replace: string } {
+  if (!rule || typeof rule !== "object") return false;
+  const candidate = rule as Record<string, unknown>;
+  return (
+    (typeof candidate.match === "string" || candidate.match instanceof RegExp) &&
+    typeof candidate.replace === "string"
+  );
 }
 
 export function toRedactionOptions(config: BrnaConfig): SnapshotRedactionOptions {
