@@ -217,7 +217,7 @@ async function fetchSnapshot(
     }
     return {
       kind: "runtime_error",
-      message: `runtime error: ${body.code ?? "unknown"} — ${body.message ?? "no message"}`,
+      message: `runtime error: ${formatRuntimeDiagnosticValue(body.code, "unknown")} — ${formatRuntimeDiagnosticValue(body.message, "no message")}`,
     };
   }
   if (!response.ok) {
@@ -262,4 +262,9 @@ function isAbortError(err: unknown): boolean {
 
 function formatCliValue(value: string): string {
   return escapeControlCharacters(value);
+}
+
+function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback;
+  return escapeControlCharacters(String(value));
 }

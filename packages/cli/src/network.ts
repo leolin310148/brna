@@ -196,7 +196,12 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
     } catch {
       /* ignore */
     }
-    failWith(3, `runtime error: ${body.code ?? "unknown"} — ${body.message ?? "no message"}`, stderr, exit);
+    failWith(
+      3,
+      `runtime error: ${formatRuntimeDiagnosticValue(body.code, "unknown")} — ${formatRuntimeDiagnosticValue(body.message, "no message")}`,
+      stderr,
+      exit,
+    );
   }
   if (!response.ok) {
     const diagnosis = await diagnoseMetroResponse(response, "network endpoint");
@@ -245,4 +250,9 @@ export function formatNetworkTable(records: NetworkRecord[]): string {
   const fmt = (cells: string[]): string =>
     cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}
+
+function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback;
+  return escapeControlCharacters(String(value));
 }
