@@ -12,6 +12,7 @@ import { runWait } from "./wait.js";
 import { runLogs } from "./logs.js";
 import { runNetwork } from "./network.js";
 import { commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
+import { escapeControlCharacters } from "./format.js";
 import {
   DAEMON_INTERNAL_ENV,
   DAEMON_SESSION_ENV,
@@ -75,7 +76,7 @@ async function maybeRunLocalOnly(argv: string[]): Promise<number | null> {
     }
     const command = commandByName(commandName);
     if (!command) {
-      process.stderr.write(`brna: unknown subcommand '${commandName}'\n`);
+      process.stderr.write(formatUnknownSubcommand(commandName));
       return 4;
     }
     process.stdout.write(formatCommandHelp(command));
@@ -86,7 +87,7 @@ async function maybeRunLocalOnly(argv: string[]): Promise<number | null> {
   const command = commandByName(subcommand);
   if (commandHelp) {
     if (!command) {
-      process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
+      process.stderr.write(formatUnknownSubcommand(subcommand));
       return 4;
     }
     process.stdout.write(formatCommandHelp(command));
@@ -215,7 +216,7 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
     } else if (subcommand === "network") {
       await runNetwork(rest, runtime);
     } else {
-      process.stderr.write(`brna: unknown subcommand '${subcommand}'\n`);
+      process.stderr.write(formatUnknownSubcommand(subcommand));
       return 4;
     }
     return 0;
@@ -230,6 +231,10 @@ function replaceEnv(next: NodeJS.ProcessEnv): void {
     delete process.env[key];
   }
   Object.assign(process.env, next);
+}
+
+function formatUnknownSubcommand(value: string): string {
+  return `brna: unknown subcommand '${escapeControlCharacters(value)}'\n`;
 }
 
 function formatDuration(ms: number): string {

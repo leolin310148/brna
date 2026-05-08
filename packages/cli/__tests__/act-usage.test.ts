@@ -56,6 +56,22 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("unknown subcommand diagnostics escape terminal control characters", () => {
+    const r = run(["wat\x1b[31m"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("unknown subcommand 'wat\\x1b[31m'");
+    expect(r.stderr).not.toContain("\x1b");
+    expect(r.stdout).toBe("");
+  });
+
+  test("help diagnostics escape terminal control characters in unknown subcommands", () => {
+    const r = run(["help", "wat\x1b[31m"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("unknown subcommand 'wat\\x1b[31m'");
+    expect(r.stderr).not.toContain("\x1b");
+    expect(r.stdout).toBe("");
+  });
+
   test("act with no verb exits 4", () => {
     const r = run(["act"]);
     expect(r.status).toBe(4);
