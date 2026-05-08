@@ -5,7 +5,7 @@
       "snap"
     ],
     "description": "Capture the current app snapshot from a connected brna runtime.",
-    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path>] [--metro <url>] [--timeout <ms>] [--device <id>]",
+    "usage": "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url>] [--timeout <ms>] [--device <id>]",
     "options": [
       {
         "name": "--format",
