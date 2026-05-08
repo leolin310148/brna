@@ -132,6 +132,7 @@ export function isValidNetworkRecord(value: unknown): value is NetworkRecord {
     typeof v.id === "string" &&
     isFiniteNumber(v.timestamp) &&
     typeof v.method === "string" &&
+    isHttpMethodToken(v.method) &&
     typeof v.url === "string" &&
     isOptionalHttpStatus(v.status) &&
     isOptionalNonNegativeFiniteNumber(v.duration_ms) &&

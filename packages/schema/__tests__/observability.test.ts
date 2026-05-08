@@ -65,6 +65,14 @@ describe("observability schema helpers", () => {
     expect(isValidNetworkRecord({
       id: "n",
       timestamp: 1,
+      method: "GET /admin",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
       method: "GET",
       url: "x",
       state: "completed",
