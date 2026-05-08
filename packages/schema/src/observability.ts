@@ -138,7 +138,7 @@ export function parseLogsRequestOptions(value: unknown): LogsRequestOptions {
   const out: LogsRequestOptions = {};
   if (isNonNegativeFiniteNumber(v.since)) out.since = v.since;
   if (typeof v.level === "string") {
-    const level = v.level.trim();
+    const level = v.level.trim().toLowerCase();
     if (isLogLevel(level)) out.level = level;
   }
   if (typeof v.limit === "number" && Number.isFinite(v.limit) && v.limit > 0) {
