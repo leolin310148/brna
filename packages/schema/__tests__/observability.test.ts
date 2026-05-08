@@ -62,6 +62,7 @@ describe("observability schema helpers", () => {
       redaction: { rules: [] },
     });
     expect(parseLogsRequestOptions({ since: Number.NaN, level: "verbose", limit: 0 })).toEqual({});
+    expect(parseLogsRequestOptions({ since: -1 })).toEqual({});
   });
 
   test("parses network request options defensively", () => {
@@ -91,6 +92,7 @@ describe("observability schema helpers", () => {
       statusMax: 299.5,
       limit: -1,
     })).toEqual({});
+    expect(parseNetworkRequestOptions({ since: -1 })).toEqual({});
   });
 
   test("rejects impossible network status filters", () => {

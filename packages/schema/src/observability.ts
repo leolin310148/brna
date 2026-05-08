@@ -89,6 +89,10 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0;
+}
+
 function isOptionalFiniteNumber(value: unknown): boolean {
   return value === undefined || isFiniteNumber(value);
 }
@@ -128,7 +132,7 @@ export function parseLogsRequestOptions(value: unknown): LogsRequestOptions {
   if (!value || typeof value !== "object") return {};
   const v = value as Record<string, unknown>;
   const out: LogsRequestOptions = {};
-  if (typeof v.since === "number" && Number.isFinite(v.since)) out.since = v.since;
+  if (isNonNegativeFiniteNumber(v.since)) out.since = v.since;
   if (typeof v.level === "string") {
     const level = v.level.trim();
     if (isLogLevel(level)) out.level = level;
@@ -146,7 +150,7 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
   if (!value || typeof value !== "object") return {};
   const v = value as Record<string, unknown>;
   const out: NetworkRequestOptions = {};
-  if (typeof v.since === "number" && Number.isFinite(v.since)) out.since = v.since;
+  if (isNonNegativeFiniteNumber(v.since)) out.since = v.since;
   if (typeof v.method === "string") {
     const method = v.method.trim();
     if (method.length > 0) out.method = method.toUpperCase();
