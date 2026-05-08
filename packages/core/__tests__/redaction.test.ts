@@ -81,4 +81,22 @@ describe("snapshot redaction", () => {
     const out = toMarkdown(snap);
     expect(out).toContain('input#password "Password" = "" [secure]');
   });
+
+  test("redacts secure accessibility text when it mirrors the value", () => {
+    const snap = snapshot();
+    snap.tree.children = [
+      {
+        id: "secret",
+        kind: "input",
+        accessibility_label: "myPassword123",
+        accessibility_hint: "myPassword123",
+        value: "myPassword123",
+        state: ["secure"],
+      },
+    ];
+    const out = toJSON(snap);
+    expect(out).toContain('"accessibility_label": "<redacted>"');
+    expect(out).toContain('"accessibility_hint": "<redacted>"');
+    expect(out).not.toContain("myPassword123");
+  });
 });

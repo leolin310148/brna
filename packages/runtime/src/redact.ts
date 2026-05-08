@@ -29,8 +29,7 @@ function redactNode(
   for (const key of ["name", "text", "accessibility_label", "accessibility_hint", "url"] as const) {
     const value = node[key];
     if (typeof value !== "string") continue;
-    const mirrorsSecureValue =
-      secure && (key === "name" || key === "text") && typeof node.value === "string" && value === node.value;
+    const mirrorsSecureValue = secure && typeof node.value === "string" && value === node.value;
     node[key] = mirrorsSecureValue ? redactSecureString(value) : applyRules(value, rules);
   }
 

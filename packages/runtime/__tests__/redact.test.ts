@@ -97,4 +97,29 @@ describe("redactSnapshot", () => {
     expect(pin?.name).toBe("PIN");
     expect(pin?.value).toBe("<redacted>");
   });
+
+  test("redacts secure accessibility text when it mirrors the value", () => {
+    const out = redactSnapshot(
+      makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            {
+              id: "secret",
+              kind: "input",
+              accessibility_label: "hunter2",
+              accessibility_hint: "hunter2",
+              value: "hunter2",
+              state: ["secure"],
+            },
+          ],
+        },
+      }),
+    );
+
+    const secret = out.tree.children?.[0];
+    expect(secret?.accessibility_label).toBe("<redacted>");
+    expect(secret?.accessibility_hint).toBe("<redacted>");
+  });
 });
