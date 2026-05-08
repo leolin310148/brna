@@ -114,6 +114,20 @@ describe("parseCaptureArgs", () => {
     expect(result.code).toBe(4);
     expect(result.stderr).toContain("unknown flag '--bogus'");
   });
+
+  test("unknown flag diagnostics escape terminal control characters", () => {
+    const result = captureProcessExit(() => parseCaptureArgs(["--bad\x1b[31m"]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("unknown flag '--bad\\x1b[31m'");
+    expect(result.stderr).not.toContain("\x1b");
+  });
+
+  test("--native-platform diagnostics escape terminal control characters", () => {
+    const result = captureProcessExit(() => parseCaptureArgs(["--native-platform", "android\x1b[31m"]));
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("'--native-platform' must be 'android' or 'ios', got 'android\\x1b[31m'");
+    expect(result.stderr).not.toContain("\x1b");
+  });
 });
 
 describe("buildNativeCommand", () => {

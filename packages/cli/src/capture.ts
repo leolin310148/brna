@@ -17,6 +17,7 @@ import {
   parseNativeDevice,
   parseTimeout,
 } from "./options.js";
+import { escapeControlCharacters } from "./format.js";
 import { getCacheDir, getSessionId } from "./session.js";
 import { renderOverlay, type OverlayInput } from "./overlay.js";
 
@@ -95,11 +96,11 @@ export function parseCaptureArgs(rest: string[]): ParsedCaptureArgs {
     } else if (token === "--native-platform") {
       const value = rest[++i];
       if (value !== "android" && value !== "ios") {
-        fail(4, `'--native-platform' must be 'android' or 'ios', got '${value ?? ""}'`);
+        fail(4, `'--native-platform' must be 'android' or 'ios', got '${escapeControlCharacters(value ?? "")}'`);
       }
       nativePlatform = value;
     } else {
-      fail(4, `unknown flag '${token}'`);
+      fail(4, `unknown flag '${escapeControlCharacters(token)}'`);
     }
   }
 
