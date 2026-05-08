@@ -206,6 +206,19 @@ describe("brna logs", () => {
     expect(res.stderr).toContain("no runtime connected");
   });
 
+  test("502 runtime diagnostics escape terminal control characters", async () => {
+    const res = await run([], {
+      status: 502,
+      body: { code: "E_RUNTIME\x1b[31m", message: "boom\u202e" },
+    });
+
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("E_RUNTIME\\x1b[31m");
+    expect(res.stderr).toContain("boom\\u202e");
+    expect(res.stderr).not.toContain("\x1b");
+    expect(res.stderr).not.toContain("\u202e");
+  });
+
   test("HTML success responses explain that Metro middleware is missing", async () => {
     const res = await run([], {
       response: new Response("<!doctype html><html><body>Metro</body></html>", {

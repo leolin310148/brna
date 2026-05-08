@@ -141,7 +141,12 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
     } catch {
       /* ignore */
     }
-    failWith(3, `runtime error: ${body.code ?? "unknown"} — ${body.message ?? "no message"}`, stderr, exit);
+    failWith(
+      3,
+      `runtime error: ${formatRuntimeDiagnosticValue(body.code, "unknown")} — ${formatRuntimeDiagnosticValue(body.message, "no message")}`,
+      stderr,
+      exit,
+    );
   }
   if (!response.ok) {
     const diagnosis = await diagnoseMetroResponse(response, "logs endpoint");
@@ -184,4 +189,9 @@ export function formatLogsTable(records: LogRecord[]): string {
       })
       .join("\n") + "\n"
   );
+}
+
+function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback;
+  return escapeControlCharacters(String(value));
 }
