@@ -302,6 +302,19 @@ describe("snapshot --diff", () => {
     expect(result.writes).toEqual([]);
   });
 
+  test("HTML snapshot 404 diagnoses missing Metro middleware", async () => {
+    const result = await runSnapshotInMemory([], {
+      fetchResponse: new Response("<!DOCTYPE html><html></html>", {
+        status: 404,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("brna Metro middleware is not mounted");
+    expect(result.stderr).not.toContain("unknown device");
+    expect(result.writes).toEqual([]);
+  });
+
   test("cache write warning does not fail successful snapshot", async () => {
     const result = await runSnapshotInMemory([], { writeWarning: "ENOSPC" });
     expect(result.code).toBe(0);

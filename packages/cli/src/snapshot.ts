@@ -233,6 +233,10 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     failWith(3, `no runtime connected — start the app first${metro === DEFAULT_METRO_URL ? "" : ` with Metro at ${metro}`}, then run brna devices`, stderr, exit);
   }
   if (response.status === 404) {
+    const diagnosis = await diagnoseMetroResponse(response, "snapshot endpoint");
+    if (diagnosis?.includes("brna Metro middleware is not mounted")) {
+      failWith(3, diagnosis, stderr, exit);
+    }
     failWith(3, `unknown device '${device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);
   }
   if (response.status === 504) {
