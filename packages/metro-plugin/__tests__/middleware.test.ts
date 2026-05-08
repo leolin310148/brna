@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { BrnaBridge } from "../src/bridge.js";
-import { handleAction, handleDevices, handleSnapshot, handleSnapshotPost } from "../src/middleware.js";
+import {
+  brnaMiddleware,
+  handleAction,
+  handleDevices,
+  handleSnapshot,
+  handleSnapshotPost,
+} from "../src/middleware.js";
 
 interface MockSocket extends EventEmitter {
   readyState: number;
@@ -60,6 +66,7 @@ interface MockReq extends EventEmitter {
   url: string;
   method: string;
   headers: Record<string, string>;
+  socket?: { server?: object };
 }
 
 function makeMockReq(): MockReq {
@@ -85,6 +92,24 @@ function attachRuntime(bridge: BrnaBridge): MockSocket {
 }
 
 const OVERSIZED_JSON_BODY = JSON.stringify({ text: "x".repeat(65 * 1024) });
+
+describe("brnaMiddleware", () => {
+  test("passes through paths that only share a brna endpoint prefix", () => {
+    const req = makeMockReq();
+    req.method = "GET";
+    req.url = "/brna/networking";
+    req.socket = {};
+    const res = makeMockRes();
+    let nextCalled = false;
+
+    brnaMiddleware()(req as never, res as never, () => {
+      nextCalled = true;
+    });
+
+    expect(nextCalled).toBe(true);
+    expect(res.ended).toBe(false);
+  });
+});
 
 describe("handleAction", () => {
   test("returns 204 with empty body on action.response", async () => {

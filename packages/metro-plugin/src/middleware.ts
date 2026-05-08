@@ -52,6 +52,10 @@ function readDeviceHeader(req: IncomingMessage): string | undefined {
   return undefined;
 }
 
+function matchesPath(url: string, path: string): boolean {
+  return url === path || url.startsWith(`${path}?`);
+}
+
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -424,27 +428,27 @@ export function brnaMiddleware(): Middleware {
     const bridge = getBridge();
     const deviceId = readDeviceHeader(req);
 
-    if (req.method === "GET" && url.startsWith(DEVICES_PATH)) {
+    if (req.method === "GET" && matchesPath(url, DEVICES_PATH)) {
       handleDevices(bridge, res);
       return;
     }
-    if (req.method === "GET" && url.startsWith(SNAPSHOT_PATH)) {
+    if (req.method === "GET" && matchesPath(url, SNAPSHOT_PATH)) {
       handleSnapshot(bridge, res, deviceId);
       return;
     }
-    if (req.method === "POST" && url.startsWith(SNAPSHOT_PATH)) {
+    if (req.method === "POST" && matchesPath(url, SNAPSHOT_PATH)) {
       void handleSnapshotPost(bridge, req, res, deviceId);
       return;
     }
-    if (req.method === "POST" && url.startsWith(ACTION_PATH)) {
+    if (req.method === "POST" && matchesPath(url, ACTION_PATH)) {
       void handleAction(bridge, req, res, deviceId);
       return;
     }
-    if ((req.method === "GET" || req.method === "POST") && url.startsWith(LOGS_PATH)) {
+    if ((req.method === "GET" || req.method === "POST") && matchesPath(url, LOGS_PATH)) {
       void handleLogs(bridge, req, res, deviceId);
       return;
     }
-    if ((req.method === "GET" || req.method === "POST") && url.startsWith(NETWORK_PATH)) {
+    if ((req.method === "GET" || req.method === "POST") && matchesPath(url, NETWORK_PATH)) {
       void handleNetwork(bridge, req, res, deviceId);
       return;
     }
