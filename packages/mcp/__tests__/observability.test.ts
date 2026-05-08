@@ -140,7 +140,7 @@ describe("MCP observability", () => {
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
-          params: { name: "logs", arguments: { level: "warn", limit: 10 } },
+          params: { name: "logs", arguments: { level: " warn ", limit: 10, method: "POST", status: 201 } },
         },
       ],
       { logs: records, recordCalls: calls },
@@ -148,8 +148,7 @@ describe("MCP observability", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]!.method).toBe("POST");
     const sent = JSON.parse(calls[0]!.body!) as { level?: string; limit?: number };
-    expect(sent.level).toBe("warn");
-    expect(sent.limit).toBe(10);
+    expect(sent).toEqual({ level: "warn", limit: 10 });
     const result = responses[0]!.result as { content: Array<{ text: string }> };
     const parsed = JSON.parse(result.content[0]!.text) as { records: unknown[] };
     expect(parsed.records).toEqual(records);
@@ -174,14 +173,14 @@ describe("MCP observability", () => {
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
-          params: { name: "network", arguments: { method: "POST" } },
+          params: { name: "network", arguments: { method: "post", level: "warn" } },
         },
       ],
       { network: records, recordCalls: calls },
     );
     expect(calls).toHaveLength(1);
     const sent = JSON.parse(calls[0]!.body!) as { method?: string };
-    expect(sent.method).toBe("POST");
+    expect(sent).toEqual({ method: "POST" });
     const result = responses[0]!.result as { content: Array<{ text: string }> };
     const parsed = JSON.parse(result.content[0]!.text) as { records: unknown[] };
     expect(parsed.records).toEqual(records);

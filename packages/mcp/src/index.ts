@@ -11,7 +11,15 @@ import {
   ReadResourceRequestSchema,
   type JSONRPCMessage,
 } from "@modelcontextprotocol/sdk/types.js";
-import { ACTION_KEYS, validateActionRequest, validateSnapshot, type Node, type Snapshot } from "@brna/schema";
+import {
+  ACTION_KEYS,
+  parseLogsRequestOptions,
+  parseNetworkRequestOptions,
+  validateActionRequest,
+  validateSnapshot,
+  type Node,
+  type Snapshot,
+} from "@brna/schema";
 import { resolve as resolveSelector, toMarkdown } from "@brna/core";
 
 const SERVER_INFO = { name: "brna-mcp", version: "0.0.0" };
@@ -416,10 +424,7 @@ class BrnaMcpApp {
   ): Promise<unknown[]> {
     const headers: Record<string, string> = {};
     if (this.deps.device !== undefined) headers[DEVICE_HEADER] = this.deps.device;
-    const options: Record<string, unknown> = {};
-    for (const key of ["since", "level", "method", "status", "statusMin", "statusMax", "limit"]) {
-      if (args[key] !== undefined) options[key] = args[key];
-    }
+    const options = kind === "logs" ? parseLogsFilters(args) : parseNetworkFilters(args);
     const useBody = Object.keys(options).length > 0;
     const url = `${this.deps.metroUrl}/brna/${kind}`;
     const res = await this.deps.fetch(url, {
@@ -479,6 +484,25 @@ class BrnaMcpApp {
       : `action HTTP ${res.status}`;
     throw new Error(message);
   }
+}
+
+function parseLogsFilters(args: Record<string, unknown>): ReturnType<typeof parseLogsRequestOptions> {
+  return parseLogsRequestOptions({
+    since: args.since,
+    level: args.level,
+    limit: args.limit,
+  });
+}
+
+function parseNetworkFilters(args: Record<string, unknown>): ReturnType<typeof parseNetworkRequestOptions> {
+  return parseNetworkRequestOptions({
+    since: args.since,
+    method: args.method,
+    status: args.status,
+    statusMin: args.statusMin,
+    statusMax: args.statusMax,
+    limit: args.limit,
+  });
 }
 
 function stringField(args: Record<string, unknown>, name: string): string {
