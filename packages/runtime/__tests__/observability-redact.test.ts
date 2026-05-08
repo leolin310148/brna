@@ -119,6 +119,25 @@ describe("redactNetworkRecord", () => {
     expect(user.name).toBe("leo");
   });
 
+  test("redacts sensitive URL query parameters by default", () => {
+    const out = redactNetworkRecord(
+      baseNet({
+        url: "https://api.example.test/search?q=orders&access_token=abc&client%5Fsecret=xyz#results",
+      }),
+      {},
+    );
+
+    expect(out.url).toBe(
+      "https://api.example.test/search?q=orders&access_token=<redacted>&client%5Fsecret=<redacted>#results",
+    );
+
+    const fragmentOnly = redactNetworkRecord(
+      baseNet({ url: "https://api.example.test/search#access_token=abc" }),
+      {},
+    );
+    expect(fragmentOnly.url).toBe("https://api.example.test/search#access_token=abc");
+  });
+
   test("applies configured rules to URL, body and headers", () => {
     const out = redactNetworkRecord(
       baseNet({
@@ -151,10 +170,12 @@ describe("redactNetworkRecord", () => {
     const out = redactNetworkRecord(
       baseNet({
         request_headers: [{ name: "Authorization", value: "Bearer abc" }],
+        url: "https://api.example.test/search?access_token=abc",
       }),
       { redactSensitiveDefaults: false },
     );
     expect(out.request_headers?.[0]?.value).toBe("Bearer abc");
+    expect(out.url).toContain("access_token=abc");
   });
 
   test("invalid regex rules are ignored", () => {

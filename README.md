@@ -292,6 +292,8 @@ the runtime only after redaction:
 
 - `Authorization`, `Cookie`, `Set-Cookie`, and similar sensitive headers are
   always replaced with `<redacted>`.
+- URL query parameters whose names look like tokens, secrets, or API keys are
+  replaced with `<redacted>`.
 - JSON body fields whose names look like tokens, passwords, secrets, or session
   ids are replaced with `<redacted>`.
 - Custom `redact` rules from `brna.config.ts` apply to log messages, network

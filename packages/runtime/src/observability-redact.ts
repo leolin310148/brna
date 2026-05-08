@@ -85,7 +85,7 @@ export function redactNetworkRecord(
     id: record.id,
     timestamp: record.timestamp,
     method: record.method,
-    url: applyRules(record.url, rules),
+    url: redactUrl(record.url, rules, sensitiveDefaults),
     state: record.state,
     source: record.source,
   };
@@ -141,6 +141,47 @@ function redactBodyPreview(
     }
   }
   return applyRules(body, rules);
+}
+
+function redactUrl(
+  url: string,
+  rules: CompiledRule[],
+  sensitiveDefaults: boolean,
+): string {
+  const redacted = sensitiveDefaults ? redactSensitiveQueryParams(url) : url;
+  return applyRules(redacted, rules);
+}
+
+function redactSensitiveQueryParams(url: string): string {
+  const queryStart = url.indexOf("?");
+  if (queryStart < 0) return url;
+  const fragmentStart = url.indexOf("#");
+  if (fragmentStart >= 0 && fragmentStart < queryStart) return url;
+  const queryEnd = fragmentStart < 0 ? url.length : fragmentStart;
+  const query = url.slice(queryStart + 1, queryEnd);
+  if (query.length === 0) return url;
+
+  const redactedQuery = query
+    .split("&")
+    .map((part) => redactQueryParam(part))
+    .join("&");
+  return `${url.slice(0, queryStart + 1)}${redactedQuery}${url.slice(queryEnd)}`;
+}
+
+function redactQueryParam(part: string): string {
+  if (part.length === 0) return part;
+  const eq = part.indexOf("=");
+  const name = eq < 0 ? part : part.slice(0, eq);
+  if (!SENSITIVE_FIELD_PATTERN.test(decodeQueryParamName(name))) return part;
+  return `${name}=${REDACTED}`;
+}
+
+function decodeQueryParamName(name: string): string {
+  try {
+    return decodeURIComponent(name.replace(/\+/g, " "));
+  } catch {
+    return name;
+  }
 }
 
 function redactJsonValue(
