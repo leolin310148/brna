@@ -51,7 +51,7 @@ function parseMetroValue(value: string | undefined): string {
   try {
     return normalizeMetroUrl(value);
   } catch {
-    throw new DevicesUsageError(`malformed URL for '--metro': ${value}`);
+    throw new DevicesUsageError(`malformed URL for '--metro': ${escapeControlCharacters(value)}`);
   }
 }
 
@@ -61,7 +61,7 @@ function parseTimeoutValue(value: string | undefined): number {
   }
   const n = parseDecimalInteger(value);
   if (n === undefined || n <= 0) {
-    throw new DevicesUsageError(`'--timeout' must be a positive integer, got '${value}'`);
+    throw new DevicesUsageError(`'--timeout' must be a positive integer, got '${escapeControlCharacters(value)}'`);
   }
   return n;
 }
@@ -75,7 +75,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     if (token === "--metro") metro = parseMetroValue(rest[++i]);
     else if (token === "--timeout") timeoutMs = parseTimeoutValue(rest[++i]);
     else if (token === "--json") json = true;
-    else throw new DevicesUsageError(`unknown flag '${token}'`);
+    else throw new DevicesUsageError(`unknown flag '${escapeControlCharacters(token)}'`);
   }
   return { metro, timeoutMs, json };
 }

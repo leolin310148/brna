@@ -62,6 +62,14 @@ describe("brna devices", () => {
     expect(res.stderr).toContain("unknown flag '--bogus'");
   });
 
+  test("unknown flag diagnostics escape terminal control characters", async () => {
+    const res = await run(["--bogus\x1b[31m"], []);
+    expect(res.code).toBe(4);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toContain("--bogus\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+  });
+
   test("--metro validates missing and malformed values via injected runtime", async () => {
     const missing = await run(["--metro"], []);
     expect(missing.code).toBe(4);
@@ -70,6 +78,13 @@ describe("brna devices", () => {
     const malformed = await run(["--metro", "not-a-url"], []);
     expect(malformed.code).toBe(4);
     expect(malformed.stderr).toContain("malformed URL for '--metro': not-a-url");
+  });
+
+  test("--metro diagnostics escape terminal control characters", async () => {
+    const res = await run(["--metro", "bad\nurl"], []);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("bad\\nurl");
+    expect(res.stderr).not.toContain("bad\nurl");
   });
 
   test("--timeout validates positive integer values via injected runtime", async () => {
@@ -88,6 +103,13 @@ describe("brna devices", () => {
     const res = await run(["--timeout", "   "], []);
     expect(res.code).toBe(4);
     expect(res.stderr).toContain("missing value for '--timeout'");
+  });
+
+  test("--timeout diagnostics escape terminal control characters", async () => {
+    const res = await run(["--timeout", "\x1b[31m"], []);
+    expect(res.code).toBe(4);
+    expect(res.stderr).toContain("\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
   });
 });
 
