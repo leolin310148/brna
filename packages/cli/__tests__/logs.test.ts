@@ -239,4 +239,13 @@ describe("formatLogsTable", () => {
     expect(out).toContain("first\\nsecond\\rthird");
     expect(out.trimEnd().split("\n")).toHaveLength(1);
   });
+
+  test("escapes terminal control characters in messages", () => {
+    const out = formatLogsTable([
+      { id: "log-control", timestamp: 1700000000000, level: "error", message: "\x1b[31mboom\x1b[0m" },
+    ]);
+
+    expect(out).toContain("\\x1b[31mboom\\x1b[0m");
+    expect(out).not.toContain("\x1b");
+  });
 });

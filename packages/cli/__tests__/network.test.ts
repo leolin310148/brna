@@ -319,4 +319,21 @@ describe("formatNetworkTable", () => {
     expect(out).toContain("first\\nsecond\\rthird");
     expect(out.trimEnd().split("\n")).toHaveLength(2);
   });
+
+  test("escapes terminal control characters in URLs", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-control",
+        timestamp: 1700000000000,
+        method: "GET",
+        url: "https://api.test/\x1b[31mred\x1b[0m",
+        state: "completed",
+        source: "fetch",
+        status: 200,
+      },
+    ]);
+
+    expect(out).toContain("https://api.test/\\x1b[31mred\\x1b[0m");
+    expect(out).not.toContain("\x1b");
+  });
 });
