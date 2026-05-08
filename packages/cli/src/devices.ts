@@ -134,7 +134,10 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
       exit,
     );
   }
-  const devices = Array.isArray(payload.devices) ? payload.devices : [];
+  if (!Array.isArray(payload.devices)) {
+    failWith(3, diagnosis ?? "malformed devices response: devices must be an array", stderr, exit);
+  }
+  const devices = payload.devices;
 
   if (json) {
     stdout.write(JSON.stringify({

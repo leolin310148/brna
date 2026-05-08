@@ -8,11 +8,15 @@ interface RunResult {
 }
 
 async function run(rest: string[], devices: unknown[]): Promise<RunResult> {
+  return runWithBody(rest, { devices });
+}
+
+async function runWithBody(rest: string[], body: unknown): Promise<RunResult> {
   let stdout = "";
   let stderr = "";
   try {
     await runDevices(rest, {
-      fetch: async () => new Response(JSON.stringify({ devices }), { status: 200 }),
+      fetch: async () => new Response(JSON.stringify(body), { status: 200 }),
       stdout: { write: (c: string | Uint8Array) => ((stdout += String(c)), true) },
       stderr: { write: (c: string | Uint8Array) => ((stderr += String(c)), true) },
       exit: (code) => {
@@ -45,6 +49,13 @@ describe("brna devices", () => {
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("No devices connected");
     expect(res.stdout).toContain("does not support Expo web runtimes");
+  });
+
+  test("malformed devices payload exits with a protocol diagnostic", async () => {
+    const res = await runWithBody([], { devices: "not-an-array" });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("malformed devices response: devices must be an array");
+    expect(res.stdout).toBe("");
   });
 
   test("--json emits JSON payload", async () => {
