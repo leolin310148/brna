@@ -38,10 +38,20 @@ interface Frame {
   error?: { code: number; message: string };
 }
 
-async function exchange(requests: Frame[], opts: { fresh?: Snapshot; actionStatus?: number; actions?: unknown[] } = {}): Promise<Frame[]> {
+async function exchange(
+  requests: Frame[],
+  opts: {
+    fresh?: Snapshot;
+    actionStatus?: number;
+    actions?: unknown[];
+    argv?: string[];
+    requestUrls?: string[];
+  } = {},
+): Promise<Frame[]> {
   const fresh = opts.fresh ?? makeSnapshot();
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : (input as URL).toString();
+    opts.requestUrls?.push(url);
     if (url.endsWith("/brna/snapshot")) return new Response(JSON.stringify(fresh), { status: 200 });
     if (url.endsWith("/brna/action")) {
       if (typeof init?.body === "string") opts.actions?.push(JSON.parse(init.body));
@@ -75,7 +85,7 @@ async function exchange(requests: Frame[], opts: { fresh?: Snapshot; actionStatu
       callback();
     },
   });
-  await runMcpServer([], {
+  await runMcpServer(opts.argv ?? [], {
     metroUrl: "http://localhost:8081",
     fetch: fetchImpl,
     stdin,
@@ -120,6 +130,15 @@ describe("MCP server", () => {
     const result = responses[0]!.result as { contents: Array<{ text: string; mimeType: string }> };
     expect(result.contents[0]!.mimeType).toBe("text/markdown");
     expect(result.contents[0]!.text).toContain("# Snapshot");
+  });
+
+  test("--metro accepts bare port shorthand", async () => {
+    const requestUrls: string[] = [];
+    await exchange([
+      { jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "brna://current/snapshot" } },
+    ], { argv: ["--metro", "19000"], requestUrls });
+
+    expect(requestUrls[0]).toBe("http://localhost:19000/brna/snapshot");
   });
 
   test("tools/list exposes core action and observability tools", async () => {

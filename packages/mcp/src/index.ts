@@ -94,12 +94,12 @@ class LineTransport implements Transport {
 }
 
 function parseArgs(argv: string[], opts: ServerOptions): { metroUrl: string; device?: string } {
-  let metroUrl = trimOptional(opts.metroUrl ?? process.env.BRNA_METRO_URL) ?? DEFAULT_METRO_URL;
+  let metroUrl = normalizeMetroUrl(trimOptional(opts.metroUrl ?? process.env.BRNA_METRO_URL) ?? DEFAULT_METRO_URL);
   let device = trimOptional(opts.device);
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i]!;
     if (token === "--metro") {
-      metroUrl = parseFlagValue(argv[++i], "--metro");
+      metroUrl = normalizeMetroUrl(parseFlagValue(argv[++i], "--metro"));
     } else if (token === "--device") {
       device = parseFlagValue(argv[++i], "--device");
     } else {
@@ -123,6 +123,23 @@ function parseFlagValue(value: string | undefined, flag: string): string {
     throw new Error(`missing value for ${flag}`);
   }
   return trimmed;
+}
+
+function normalizeMetroUrl(value: string): string {
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return normalizeMetroUrl(`localhost:${trimmed}`);
+  }
+
+  const hasExplicitScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+  if (!hasExplicitScheme && !/:\d+(?:[/?#]|$)/.test(trimmed)) {
+    throw new Error("Metro URL shorthand must include a port");
+  }
+  const url = new URL(hasExplicitScheme ? trimmed : `http://${trimmed}`);
+  if ((url.protocol !== "http:" && url.protocol !== "https:") || url.host.length === 0) {
+    throw new Error("Metro URL must use http:// or https://");
+  }
+  return `${url.protocol}//${url.host}`;
 }
 
 interface McpServerDeps {
