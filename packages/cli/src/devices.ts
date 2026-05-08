@@ -6,6 +6,7 @@ import {
   normalizeMetroUrl,
   parseDecimalInteger,
 } from "./options.js";
+import { escapeControlCharacters } from "./format.js";
 
 interface DeviceInfo {
   id: string;
@@ -158,9 +159,9 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
 export function formatDevicesTable(devices: DeviceInfo[]): string {
   const headers: string[] = ["ID", "PLATFORM", "OS", "APP"];
   const rows: string[][] = devices.map((d) => [
-    d.id,
-    d.platform ?? "unknown",
-    d.os_version ?? "unknown",
+    escapeControlCharacters(d.id),
+    escapeControlCharacters(d.platform ?? "unknown"),
+    escapeControlCharacters(d.os_version ?? "unknown"),
     formatAppCell(d),
   ]);
   const widths = headers.map((h, i) =>
@@ -173,8 +174,10 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
 
 function formatAppCell(device: DeviceInfo): string {
   const label = device.app_name ?? device.app_bundle_id;
-  if (label && device.app_version) return `${label} ${device.app_version}`;
-  if (label) return label;
-  if (device.app_version) return device.app_version;
+  const escapedLabel = label ? escapeControlCharacters(label) : undefined;
+  const escapedVersion = device.app_version ? escapeControlCharacters(device.app_version) : undefined;
+  if (escapedLabel && escapedVersion) return `${escapedLabel} ${escapedVersion}`;
+  if (escapedLabel) return escapedLabel;
+  if (escapedVersion) return escapedVersion;
   return "unknown";
 }

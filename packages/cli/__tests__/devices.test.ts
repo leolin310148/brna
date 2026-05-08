@@ -115,6 +115,26 @@ describe("formatDevicesTable", () => {
     const appColumn = out.split("\n")[1]!;
     expect(appColumn).toContain("unknown");
   });
+
+  test("escapes terminal control characters in table cells", () => {
+    const out = formatDevicesTable([
+      {
+        id: "dev-\x1b[31mred\x1b[0m",
+        platform: "ios\nsim",
+        os_version: "17.4\r",
+        app_name: "Hot\tcake",
+        app_version: "1.2.3\x7f",
+      },
+    ]);
+
+    expect(out).toContain("dev-\\x1b[31mred\\x1b[0m");
+    expect(out).toContain("ios\\nsim");
+    expect(out).toContain("17.4\\r");
+    expect(out).toContain("Hot\\tcake");
+    expect(out).toContain("1.2.3\\x7f");
+    expect(out).not.toContain("\x1b");
+    expect(out.trimEnd().split("\n")).toHaveLength(2);
+  });
 });
 
 describe("brna devices --json", () => {
