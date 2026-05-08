@@ -119,6 +119,17 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("extracts JSON HTTP response messages from errors arrays", async () => {
+    const response = new Response(JSON.stringify({ errors: [{ message: "Metro resolver failed" }] }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: Metro resolver failed",
+    );
+  });
+
   test("extracts JSON string HTTP response messages", async () => {
     const response = new Response(JSON.stringify("Metro middleware crashed"), {
       status: 500,
