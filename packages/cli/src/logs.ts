@@ -176,8 +176,12 @@ export function formatLogsTable(records: LogRecord[]): string {
     records
       .map((r) => {
         const ts = formatTimestamp(r.timestamp);
-        return `${ts}  ${r.level.padEnd(5)}  ${r.message}`;
+        return `${ts}  ${r.level.padEnd(5)}  ${formatLogMessage(r.message)}`;
       })
       .join("\n") + "\n"
   );
+}
+
+function formatLogMessage(message: string): string {
+  return message.replace(/\r/g, "\\r").replace(/\n/g, "\\n");
 }

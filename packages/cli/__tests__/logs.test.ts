@@ -230,4 +230,13 @@ describe("formatLogsTable", () => {
     expect(out).toContain("invalid");
     expect(out).toContain("bad timestamp");
   });
+
+  test("keeps multiline messages on one output row", () => {
+    const out = formatLogsTable([
+      { id: "log-multiline", timestamp: 1700000000000, level: "error", message: "first\nsecond\rthird" },
+    ]);
+
+    expect(out).toContain("first\\nsecond\\rthird");
+    expect(out.trimEnd().split("\n")).toHaveLength(1);
+  });
 });
