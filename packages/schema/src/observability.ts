@@ -93,13 +93,17 @@ function isNonNegativeFiniteNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0;
 }
 
-function isOptionalFiniteNumber(value: unknown): boolean {
-  return value === undefined || isFiniteNumber(value);
+function isOptionalNonNegativeFiniteNumber(value: unknown): boolean {
+  return value === undefined || isNonNegativeFiniteNumber(value);
 }
 
 function parseHttpStatus(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
   return value >= 100 && value <= 599 ? value : undefined;
+}
+
+function isOptionalHttpStatus(value: unknown): boolean {
+  return value === undefined || parseHttpStatus(value) !== undefined;
 }
 
 export function isValidLogRecord(value: unknown): value is LogRecord {
@@ -121,8 +125,8 @@ export function isValidNetworkRecord(value: unknown): value is NetworkRecord {
     isFiniteNumber(v.timestamp) &&
     typeof v.method === "string" &&
     typeof v.url === "string" &&
-    isOptionalFiniteNumber(v.status) &&
-    isOptionalFiniteNumber(v.duration_ms) &&
+    isOptionalHttpStatus(v.status) &&
+    isOptionalNonNegativeFiniteNumber(v.duration_ms) &&
     (v.state === "started" || v.state === "completed" || v.state === "errored") &&
     (v.source === "fetch" || v.source === "xhr")
   );

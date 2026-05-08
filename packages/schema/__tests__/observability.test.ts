@@ -44,6 +44,33 @@ describe("observability schema helpers", () => {
       source: "fetch",
       status: Number.POSITIVE_INFINITY,
     })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      status: 99,
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      status: 200.5,
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      duration_ms: -1,
+    })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "done", source: "fetch" })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "started", source: "socket" })).toBe(false);
   });
