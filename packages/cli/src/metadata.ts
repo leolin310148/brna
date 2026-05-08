@@ -261,8 +261,9 @@ function commandLabel(command: CliCommandMetadata): string {
 
 export function formatCommandHelp(command: CliCommandMetadata): string {
   const aliases = command.aliases?.length ? `\nAliases:\n  ${command.aliases.join(", ")}` : "";
+  const optionNameWidth = Math.max(0, ...command.options.map((option) => option.name.length));
   const options = command.options.length
-    ? `\nOptions:\n${command.options.map((option) => `  ${option.name.padEnd(12)} ${option.description}`).join("\n")}`
+    ? `\nOptions:\n${command.options.map((option) => `  ${option.name.padEnd(optionNameWidth)} ${option.description}`).join("\n")}`
     : "";
   const examples = command.examples.length
     ? `\nExamples:\n${command.examples.map((example) => `  ${example}`).join("\n")}`

@@ -29,6 +29,17 @@ describe("CLI metadata", () => {
     expect(help).toContain("brna daemon status");
   });
 
+  test("command help aligns options to the longest flag", () => {
+    const command = commandByName("capture");
+    expect(command).toBeDefined();
+
+    const help = formatCommandHelp(command!);
+    const optionLines = help.split("\n").filter((line) => line.startsWith("  --"));
+    const descriptionColumns = optionLines.map((line) => line.search(/\s[A-Z]/));
+
+    expect(new Set(descriptionColumns).size).toBe(1);
+  });
+
   test("global help aligns command descriptions when aliases are shown", () => {
     const help = formatGlobalHelp();
     const commandLines = help
