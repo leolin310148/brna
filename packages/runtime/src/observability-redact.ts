@@ -115,7 +115,10 @@ function redactHeaders(
 ): NetworkHeaderEntry[] {
   return headers.map((h) => {
     const lower = h.name.toLowerCase();
-    if (sensitiveDefaults && DEFAULT_SENSITIVE_HEADERS.has(lower)) {
+    if (
+      sensitiveDefaults &&
+      (DEFAULT_SENSITIVE_HEADERS.has(lower) || SENSITIVE_FIELD_PATTERN.test(lower))
+    ) {
       return { name: h.name, value: REDACTED };
     }
     return { name: h.name, value: applyRules(h.value, rules) };

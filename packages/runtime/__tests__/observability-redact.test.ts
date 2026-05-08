@@ -88,6 +88,8 @@ describe("redactNetworkRecord", () => {
         request_headers: [
           { name: "Authorization", value: "Bearer abc" },
           { name: "Cookie", value: "sid=xyz" },
+          { name: "X-Client-Secret", value: "super-secret" },
+          { name: "X-Session-Id", value: "session-123" },
           { name: "Accept", value: "application/json" },
         ],
         response_headers: [
@@ -99,6 +101,8 @@ describe("redactNetworkRecord", () => {
     expect(out.request_headers).toEqual([
       { name: "Authorization", value: "<redacted>" },
       { name: "Cookie", value: "<redacted>" },
+      { name: "X-Client-Secret", value: "<redacted>" },
+      { name: "X-Session-Id", value: "<redacted>" },
       { name: "Accept", value: "application/json" },
     ]);
     expect(out.response_headers).toEqual([
