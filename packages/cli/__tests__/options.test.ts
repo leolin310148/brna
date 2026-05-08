@@ -80,6 +80,12 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("usage diagnostics escape terminal control characters", () => {
+    const result = captureProcessExit(() => parseSince("\x1b[31m", "--since"));
+    expect(result.stderr).toContain("\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+  });
+
   test("since flags still accept decimal durations", () => {
     const before = Date.now();
     const parsed = parseSince("  1500.5  ", "--since");

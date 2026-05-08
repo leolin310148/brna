@@ -1,3 +1,5 @@
+import { escapeControlCharacters } from "./format.js";
+
 export const DEFAULT_METRO_URL = "http://localhost:8081";
 export const DEFAULT_TIMEOUT_MS = 10000;
 const IN_FLIGHT_RETRY_MS = 2000;
@@ -15,7 +17,7 @@ export function parseMetro(value: string | undefined): string {
   try {
     return normalizeMetroUrl(value);
   } catch {
-    fail(4, `malformed URL for '--metro': ${value}`);
+    fail(4, `malformed URL for '--metro': ${formatCliValue(value)}`);
   }
 }
 
@@ -42,7 +44,7 @@ export function parseTimeout(value: string | undefined): number {
   if (typeof value !== "string" || value.trim().length === 0) fail(4, "missing value for '--timeout'");
   const n = parseDecimalInteger(value);
   if (n === undefined || n <= 0) {
-    fail(4, `'--timeout' must be a positive integer, got '${value}'`);
+    fail(4, `'--timeout' must be a positive integer, got '${formatCliValue(value)}'`);
   }
   return n;
 }
@@ -51,7 +53,7 @@ export function parsePositiveInt(value: string | undefined, flag: string): numbe
   if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
   const n = parseDecimalInteger(value);
   if (n === undefined || n <= 0) {
-    fail(4, `'${flag}' must be a positive integer, got '${value}'`);
+    fail(4, `'${flag}' must be a positive integer, got '${formatCliValue(value)}'`);
   }
   return n;
 }
@@ -60,7 +62,7 @@ export function parseNonNegativeInt(value: string | undefined, flag: string): nu
   if (typeof value !== "string" || value.trim().length === 0) fail(4, `missing value for '${flag}'`);
   const n = parseDecimalInteger(value);
   if (n === undefined) {
-    fail(4, `'${flag}' must be a non-negative integer, got '${value}'`);
+    fail(4, `'${flag}' must be a non-negative integer, got '${formatCliValue(value)}'`);
   }
   return n;
 }
@@ -71,11 +73,11 @@ export function parseSince(value: string | undefined, flag = "--since"): number 
   }
   const trimmed = value.trim();
   if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) {
-    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${value}'`);
+    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${formatCliValue(value)}'`);
   }
   const n = Number(trimmed);
   if (!Number.isFinite(n)) {
-    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${value}'`);
+    fail(4, `'${flag}' must be a non-negative number (ms duration or absolute ms timestamp), got '${formatCliValue(value)}'`);
   }
   // Heuristic: small numbers (< ~1980 epoch) are interpreted as durations from now;
   // large numbers are treated as absolute timestamps.
@@ -143,6 +145,10 @@ export function parseDecimalInteger(value: string): number | undefined {
   if (!/^\d+$/.test(trimmed)) return undefined;
   const n = Number(trimmed);
   return Number.isSafeInteger(n) ? n : undefined;
+}
+
+function formatCliValue(value: string): string {
+  return escapeControlCharacters(value);
 }
 
 export function failWith(

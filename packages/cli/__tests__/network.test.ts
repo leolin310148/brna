@@ -142,6 +142,14 @@ describe("brna network", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("--method diagnostics escape terminal control characters", () => {
+    const res = runCli(["network", "--method", "GET\x1b[31m"]);
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("GET\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+    expect(res.stdout).toBe("");
+  });
+
   test("--since rejects negative values", async () => {
     const res = runCli(["network", "--since", "-1"]);
     expect(res.status).toBe(4);

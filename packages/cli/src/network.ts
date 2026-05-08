@@ -49,14 +49,15 @@ function parseStatusArg(value: string | undefined): {
   statusMin?: number;
   statusMax?: number;
 } {
-  const trimmed = typeof value === "string" ? value.trim() : "";
+  const raw = value ?? "";
+  const trimmed = raw.trim();
   if (trimmed.length === 0) {
     fail(4, "missing value for '--status'");
   }
   if (/^\d+$/.test(trimmed)) {
     const status = Number(trimmed);
     if (isHttpStatus(status)) return { status };
-    fail(4, `'--status' must be an HTTP status code from 100 to 599, got '${value}'`);
+    fail(4, `'--status' must be an HTTP status code from 100 to 599, got '${escapeControlCharacters(raw)}'`);
   }
   const range = /^(\d+)\s*-\s*(\d+)$/.exec(trimmed);
   if (range) {
@@ -72,7 +73,7 @@ function parseStatusArg(value: string | undefined): {
     const base = Number(cls[1]) * 100;
     return { statusMin: base, statusMax: base + 99 };
   }
-  fail(4, `'--status' must be a code or range (e.g. 200, 200-299, 4xx), got '${value}'`);
+  fail(4, `'--status' must be a code or range (e.g. 200, 200-299, 4xx), got '${escapeControlCharacters(raw)}'`);
 }
 
 function isHttpStatus(value: number): boolean {
@@ -80,10 +81,11 @@ function isHttpStatus(value: number): boolean {
 }
 
 function parseMethodArg(value: string | undefined): string {
-  const trimmed = typeof value === "string" ? value.trim() : "";
+  const raw = value ?? "";
+  const trimmed = raw.trim();
   if (trimmed.length === 0) fail(4, "missing value for '--method'");
   if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(trimmed)) {
-    fail(4, `'--method' must be an HTTP method token, got '${value}'`);
+    fail(4, `'--method' must be an HTTP method token, got '${escapeControlCharacters(raw)}'`);
   }
   return trimmed.toUpperCase();
 }

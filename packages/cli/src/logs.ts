@@ -42,11 +42,12 @@ interface LogsResponseBody {
 }
 
 function parseLevelArg(value: string | undefined): LogLevel {
-  const level = typeof value === "string" ? value.trim() : "";
+  const raw = value ?? "";
+  const level = raw.trim();
   if (level.length === 0) fail(4, "missing value for '--level'");
   const normalized = level.toLowerCase();
   if (!isLogLevel(normalized)) {
-    fail(4, `'--level' must be one of debug|log|info|warn|error, got '${value}'`);
+    fail(4, `'--level' must be one of debug|log|info|warn|error, got '${escapeControlCharacters(raw)}'`);
   }
   return normalized;
 }
