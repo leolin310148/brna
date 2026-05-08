@@ -108,6 +108,9 @@ function parseArgs(rest: string[]): ParsedArgs {
     else if (token === "--method") method = parseMethodArg(rest[++i]);
     else if (token === "--status") {
       const parsed = parseStatusArg(rest[++i]);
+      status = undefined;
+      statusMin = undefined;
+      statusMax = undefined;
       if (parsed.status !== undefined) status = parsed.status;
       if (parsed.statusMin !== undefined) statusMin = parsed.statusMin;
       if (parsed.statusMax !== undefined) statusMax = parsed.statusMax;

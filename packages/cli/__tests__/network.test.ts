@@ -165,6 +165,18 @@ describe("brna network", () => {
     expect(body.statusMax).toBe(299);
   });
 
+  test("repeated --status uses the last filter", async () => {
+    const res = await run(["--status", "404", "--status", "5xx"], { body: { records: [] } });
+    const body = JSON.parse(String(res.requestInit?.body)) as {
+      status?: number;
+      statusMin?: number;
+      statusMax?: number;
+    };
+    expect(body.status).toBeUndefined();
+    expect(body.statusMin).toBe(500);
+    expect(body.statusMax).toBe(599);
+  });
+
   test("--status rejects values outside HTTP status range", async () => {
     const tooLow = runCli(["network", "--status", "99"]);
     expect(tooLow.status).toBe(4);
