@@ -138,6 +138,10 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
     failWith(3, diagnosis ?? "malformed devices response: devices must be an array", stderr, exit);
   }
   const devices = payload.devices;
+  const malformedDevice = firstMalformedDeviceField(devices);
+  if (malformedDevice) {
+    failWith(3, diagnosis ?? `malformed devices response: ${malformedDevice}`, stderr, exit);
+  }
 
   if (json) {
     stdout.write(JSON.stringify({
@@ -173,6 +177,31 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
   const fmt = (cells: string[]): string =>
     cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}
+
+function firstMalformedDeviceField(devices: unknown[]): string | undefined {
+  const optionalStringFields = [
+    "platform",
+    "os_version",
+    "app_version",
+    "app_name",
+    "app_bundle_id",
+  ];
+  for (const [index, device] of devices.entries()) {
+    if (!device || typeof device !== "object" || Array.isArray(device)) {
+      return `devices[${index}] must be an object`;
+    }
+    const record = device as Record<string, unknown>;
+    if (typeof record.id !== "string") {
+      return `devices[${index}].id must be a string`;
+    }
+    for (const field of optionalStringFields) {
+      if (record[field] !== undefined && typeof record[field] !== "string") {
+        return `devices[${index}].${field} must be a string`;
+      }
+    }
+  }
+  return undefined;
 }
 
 function formatAppCell(device: DeviceInfo): string {

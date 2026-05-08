@@ -58,6 +58,18 @@ describe("brna devices", () => {
     expect(res.stdout).toBe("");
   });
 
+  test("malformed device rows exit with a protocol diagnostic", async () => {
+    const missingId = await runWithBody([], { devices: [{ platform: "ios" }] });
+    expect(missingId.code).toBe(3);
+    expect(missingId.stderr).toContain("malformed devices response: devices[0].id must be a string");
+    expect(missingId.stdout).toBe("");
+
+    const badMetadata = await runWithBody([], { devices: [{ id: "dev-a", app_version: 123 }] });
+    expect(badMetadata.code).toBe(3);
+    expect(badMetadata.stderr).toContain("malformed devices response: devices[0].app_version must be a string");
+    expect(badMetadata.stdout).toBe("");
+  });
+
   test("--json emits JSON payload", async () => {
     const res = await run(["--json"], [{ id: "dev-a", platform: "ios" }]);
     expect(res.code).toBe(0);
