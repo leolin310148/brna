@@ -302,4 +302,21 @@ describe("formatNetworkTable", () => {
     expect(out).toContain("invalid");
     expect(out).toContain("https://api.test/bad-time");
   });
+
+  test("keeps multiline URLs on one output row", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-multiline",
+        timestamp: 1700000000000,
+        method: "GET",
+        url: "https://api.test/search?q=first\nsecond\rthird",
+        state: "completed",
+        source: "fetch",
+        status: 200,
+      },
+    ]);
+
+    expect(out).toContain("first\\nsecond\\rthird");
+    expect(out.trimEnd().split("\n")).toHaveLength(2);
+  });
 });

@@ -231,7 +231,7 @@ export function formatNetworkTable(records: NetworkRecord[]): string {
     r.method,
     r.status !== undefined ? String(r.status) : r.state === "errored" ? "ERR" : "-",
     r.duration_ms !== undefined ? String(r.duration_ms) : "-",
-    r.url,
+    formatNetworkUrl(r.url),
   ]);
   const widths = headers.map((h, i) =>
     Math.max(h.length, ...rows.map((row) => (row[i] ?? "").length)),
@@ -239,4 +239,8 @@ export function formatNetworkTable(records: NetworkRecord[]): string {
   const fmt = (cells: string[]): string =>
     cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}
+
+function formatNetworkUrl(url: string): string {
+  return url.replace(/\r/g, "\\r").replace(/\n/g, "\\n");
 }
