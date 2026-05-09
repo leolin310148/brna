@@ -32,6 +32,11 @@ describe("CLI option parsing", () => {
     expect(() => normalizeMetroUrl("brna://metro")).toThrow();
   });
 
+  test("rejects Metro URLs with credentials", () => {
+    expect(() => normalizeMetroUrl("http://user:pass@localhost:8081")).toThrow();
+    expect(() => normalizeMetroUrl("http://localhost:8081@evil.test")).toThrow();
+  });
+
   test("rejects whitespace-only device ids", () => {
     const result = captureProcessExit(() => parseDevice("   "));
     expect(result.code).toBe(4);
