@@ -130,7 +130,7 @@ function redactBodyPreview(
   rules: CompiledRule[],
   sensitiveDefaults: boolean,
 ): string {
-  // Try to parse as JSON; if it parses, redact known sensitive fields. Otherwise treat as plain text.
+  // Prefer structured redaction when body previews look like JSON or URL-encoded form data.
   if (sensitiveDefaults) {
     const trimmed = body.trimStart();
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
@@ -142,6 +142,7 @@ function redactBodyPreview(
         /* fall through to text rules */
       }
     }
+    return applyRules(redactSensitiveFormParams(body), rules);
   }
   return applyRules(body, rules);
 }
@@ -202,6 +203,11 @@ function redactQueryParam(part: string): string {
   const name = eq < 0 ? part : part.slice(0, eq);
   if (!SENSITIVE_FIELD_PATTERN.test(decodeQueryParamName(name))) return part;
   return `${name}=${REDACTED}`;
+}
+
+function redactSensitiveFormParams(body: string): string {
+  if (!body.includes("=")) return body;
+  return body.split("&").map((part) => redactQueryParam(part)).join("&");
 }
 
 function decodeQueryParamName(name: string): string {

@@ -123,6 +123,19 @@ describe("redactNetworkRecord", () => {
     expect(user.name).toBe("leo");
   });
 
+  test("redacts sensitive URL-encoded body fields", () => {
+    const out = redactNetworkRecord(
+      baseNet({
+        request_body_preview: "grant_type=password&access_token=abc&client%5Fsecret=xyz&scope=openid",
+      }),
+      {},
+    );
+
+    expect(out.request_body_preview).toBe(
+      "grant_type=password&access_token=<redacted>&client%5Fsecret=<redacted>&scope=openid",
+    );
+  });
+
   test("redacts sensitive URL query parameters by default", () => {
     const out = redactNetworkRecord(
       baseNet({
