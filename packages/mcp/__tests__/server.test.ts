@@ -103,7 +103,7 @@ async function exchange(
 
 describe("MCP server", () => {
   test("argv diagnostics escape bidi formatting controls", async () => {
-    await expect(runMcpServer(["--bad\u200fflag"], {
+    await expect(runMcpServer(["--bad\u061c\u200fflag"], {
       stdin: Readable.from([""]),
       stdout: new Writable({
         write(_chunk, _encoding, callback) {
@@ -111,7 +111,7 @@ describe("MCP server", () => {
         },
       }),
       stderr: { write: () => true },
-    })).rejects.toThrow("--bad\\u200fflag");
+    })).rejects.toThrow("--bad\\u061c\\u200fflag");
   });
 
   test("initialize returns protocol info", async () => {
