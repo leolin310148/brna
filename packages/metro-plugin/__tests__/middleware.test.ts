@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { BrnaBridge } from "../src/bridge.js";
+import { BrnaBridge, getBridge } from "../src/bridge.js";
 import {
   brnaMiddleware,
   handleAction,
@@ -109,6 +109,30 @@ describe("brnaMiddleware", () => {
 
     expect(nextCalled).toBe(true);
     expect(res.ended).toBe(false);
+  });
+
+  test("trims device id headers before routing snapshot requests", async () => {
+    const bridge = getBridge();
+    const ws = attachRuntime(bridge);
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "hello", device_id: "dev-a" })));
+
+    const req = makeMockReq();
+    req.method = "GET";
+    req.url = "/brna/snapshot";
+    req.headers = { "x-brna-device-id": "  dev-a  " };
+    req.socket = {};
+    const res = makeMockRes();
+
+    brnaMiddleware()(req as never, res as never, () => {
+      throw new Error("middleware should handle snapshot request");
+    });
+
+    const frame = lastSent(ws);
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "snapshot.response", id: frame.id, snapshot: { ok: true } })));
+    await new Promise((r) => setImmediate(r));
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ ok: true });
   });
 });
 

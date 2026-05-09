@@ -45,9 +45,13 @@ function sendEmpty(res: ServerResponse, status: number): void {
 
 function readDeviceHeader(req: IncomingMessage): string | undefined {
   const raw = req.headers[DEVICE_HEADER];
-  if (typeof raw === "string" && raw.length > 0) return raw;
-  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "string" && raw[0].length > 0) {
-    return raw[0];
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (Array.isArray(raw)) {
+    const first = raw.find((value) => typeof value === "string" && value.trim().length > 0);
+    return first?.trim();
   }
   return undefined;
 }
