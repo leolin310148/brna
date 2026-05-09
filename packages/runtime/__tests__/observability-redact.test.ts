@@ -142,6 +142,19 @@ describe("redactNetworkRecord", () => {
     expect(fragmentOnly.url).toBe("https://api.example.test/search#access_token=abc");
   });
 
+  test("redacts URL credentials by default", () => {
+    const out = redactNetworkRecord(
+      baseNet({
+        url: "https://user:secret@example.test/orders?access_token=abc#details",
+      }),
+      {},
+    );
+
+    expect(out.url).toBe("https://<redacted>@example.test/orders?access_token=<redacted>#details");
+    expect(out.url).not.toContain("user");
+    expect(out.url).not.toContain("secret");
+  });
+
   test("applies configured rules to URL, body and headers", () => {
     const out = redactNetworkRecord(
       baseNet({

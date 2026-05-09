@@ -151,8 +151,33 @@ function redactUrl(
   rules: CompiledRule[],
   sensitiveDefaults: boolean,
 ): string {
-  const redacted = sensitiveDefaults ? redactSensitiveQueryParams(url) : url;
+  const redacted = sensitiveDefaults
+    ? redactSensitiveQueryParams(redactUrlCredentials(url))
+    : url;
   return applyRules(redacted, rules);
+}
+
+function redactUrlCredentials(url: string): string {
+  const scheme = /^[a-z][a-z\d+.-]*:\/\//i.exec(url);
+  if (!scheme) return url;
+
+  const authorityStart = scheme[0].length;
+  const authorityEnd = firstUrlPartIndex(url, authorityStart);
+  const authority = url.slice(authorityStart, authorityEnd);
+  const credentialsEnd = authority.lastIndexOf("@");
+  if (credentialsEnd < 0 || credentialsEnd === authority.length - 1) return url;
+
+  const host = authority.slice(credentialsEnd + 1);
+  return `${url.slice(0, authorityStart)}${REDACTED}@${host}${url.slice(authorityEnd)}`;
+}
+
+function firstUrlPartIndex(url: string, start: number): number {
+  const slash = url.indexOf("/", start);
+  const query = url.indexOf("?", start);
+  const fragment = url.indexOf("#", start);
+  return [slash, query, fragment]
+    .filter((index) => index >= 0)
+    .reduce((min, index) => Math.min(min, index), url.length);
 }
 
 function redactSensitiveQueryParams(url: string): string {
