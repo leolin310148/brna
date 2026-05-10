@@ -7,8 +7,16 @@ describe("parseSelector", () => {
     expect(parseSelector("#submit-btn")).toEqual({ kind: "id", id: "submit-btn" });
   });
 
+  test("# selector trims accidental whitespace around id", () => {
+    expect(parseSelector("#  submit-btn  ")).toEqual({ kind: "id", id: "submit-btn" });
+  });
+
   test("@email-input → testID selector", () => {
     expect(parseSelector("@email-input")).toEqual({ kind: "testid", testID: "email-input" });
+  });
+
+  test("@ selector trims accidental whitespace around testID", () => {
+    expect(parseSelector("@  email-input  ")).toEqual({ kind: "testid", testID: "email-input" });
   });
 
   test("button:Sign In → role-name", () => {

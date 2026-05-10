@@ -22,7 +22,7 @@ export function parseSelector(input: string): SelectorAST {
   }
 
   if (raw.startsWith("#")) {
-    const id = raw.slice(1);
+    const id = raw.slice(1).trim();
     if (id.length === 0) {
       throw new BrnaSelectorParseError({
         code: "missing_id",
@@ -34,7 +34,7 @@ export function parseSelector(input: string): SelectorAST {
   }
 
   if (raw.startsWith("@")) {
-    const testID = raw.slice(1);
+    const testID = raw.slice(1).trim();
     if (testID.length === 0) {
       throw new BrnaSelectorParseError({
         code: "missing_testid",
