@@ -301,6 +301,16 @@ brna network --method POST
 brna network --status 4xx --json
 ```
 
+Useful options:
+
+- `--since <ms-or-timestamp>` returns records after a duration or absolute
+  millisecond timestamp.
+- `--level debug|log|info|warn|error` filters logs to that severity and above.
+- `--method <verb>` filters network records by HTTP method.
+- `--status <code-or-range>` filters network records by status code, numeric
+  range, or class shortcut such as `4xx`.
+- `--limit <n>` returns only the most recent matching records.
+
 The runtime keeps a small bounded ring buffer of recent `console.*` calls,
 captured runtime errors, and `fetch` / `XMLHttpRequest` activity. Records leave
 the runtime only after redaction:
