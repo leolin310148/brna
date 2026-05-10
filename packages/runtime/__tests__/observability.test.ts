@@ -152,6 +152,25 @@ describe("installObservability — console", () => {
     expect(logs.length).toBe(1);
     expect(logs[0]!.message).toContain("hi");
   });
+
+  test("captures args without JSON text representation", () => {
+    const fn = function namedCaptureArg() {};
+    const fakeConsole = {
+      log: () => {},
+      warn: () => {},
+      info: () => {},
+      error: () => {},
+      debug: () => {},
+    } as unknown as Console;
+    const g = { console: fakeConsole } as Record<string, unknown> & { console: Console };
+    installObservability({ globalObject: g });
+
+    fakeConsole.log(undefined, Symbol("token"), fn);
+
+    const logs = getLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]!.message).toBe("undefined Symbol(token) function namedCaptureArg() {}");
+  });
 });
 
 describe("installObservability — fetch", () => {
@@ -378,7 +397,7 @@ describe("installObservability — XMLHttpRequest", () => {
       url: "https://api.test/xhr",
       state: "completed",
       source: "xhr",
-      request_headers: [{ name: "X-Token", value: "secret" }],
+      request_headers: [{ name: "X-Token", value: "<redacted>" }],
       request_body_preview: "payl",
       status: 202,
       status_text: "Accepted",

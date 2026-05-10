@@ -554,7 +554,8 @@ function formatConsoleMessage(args: unknown[]): string {
       if (typeof a === "string") return a;
       if (a instanceof Error) return a.message;
       try {
-        return JSON.stringify(a);
+        const json = JSON.stringify(a);
+        return typeof json === "string" ? json : String(a);
       } catch {
         return String(a);
       }
