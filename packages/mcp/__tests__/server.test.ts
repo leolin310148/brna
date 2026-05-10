@@ -126,6 +126,18 @@ describe("MCP server", () => {
     })).rejects.toThrow("--bad\\u200b\\u2060flag");
   });
 
+  test("argv diagnostics escape unicode line separators", async () => {
+    await expect(runMcpServer(["--bad\u2028\u2029flag"], {
+      stdin: Readable.from([""]),
+      stdout: new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      stderr: { write: () => true },
+    })).rejects.toThrow("--bad\\u2028\\u2029flag");
+  });
+
   test("initialize returns protocol info", async () => {
     const responses = await exchange([{
       jsonrpc: "2.0",
