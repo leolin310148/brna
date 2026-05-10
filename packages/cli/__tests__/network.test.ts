@@ -323,6 +323,8 @@ describe("formatNetworkTable", () => {
     ]);
     expect(out).toContain("ERR");
     expect(out).toContain("https://api.test/dead");
+    expect(out).toContain("ERROR");
+    expect(out).toContain("ENOTFOUND");
   });
 
   test("renders invalid timestamps without throwing", () => {
@@ -408,5 +410,23 @@ describe("formatNetworkTable", () => {
 
     expect(out).toContain("GET\\x1b[31m");
     expect(out).not.toContain("\x1b");
+  });
+
+  test("escapes terminal control characters in error messages", () => {
+    const out = formatNetworkTable([
+      {
+        id: "net-error-control",
+        timestamp: 1700000000000,
+        method: "GET",
+        url: "https://api.test/orders",
+        state: "errored",
+        source: "fetch",
+        error_message: "boom\x1b[31m\u202e",
+      },
+    ]);
+
+    expect(out).toContain("boom\\x1b[31m\\u202e");
+    expect(out).not.toContain("\x1b");
+    expect(out).not.toContain("\u202e");
   });
 });

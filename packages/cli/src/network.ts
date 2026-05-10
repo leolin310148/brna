@@ -236,14 +236,21 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
 }
 
 export function formatNetworkTable(records: NetworkRecord[]): string {
-  const headers: string[] = ["TIME", "METHOD", "STATUS", "DUR(ms)", "URL"];
-  const rows: string[][] = records.map((r) => [
-    formatTimestamp(r.timestamp),
-    escapeControlCharacters(r.method),
-    r.status !== undefined ? String(r.status) : r.state === "errored" ? "ERR" : "-",
-    r.duration_ms !== undefined ? String(r.duration_ms) : "-",
-    escapeControlCharacters(r.url),
-  ]);
+  const includeError = records.some((r) => r.error_message !== undefined && r.error_message.length > 0);
+  const headers: string[] = includeError
+    ? ["TIME", "METHOD", "STATUS", "DUR(ms)", "URL", "ERROR"]
+    : ["TIME", "METHOD", "STATUS", "DUR(ms)", "URL"];
+  const rows: string[][] = records.map((r) => {
+    const row = [
+      formatTimestamp(r.timestamp),
+      escapeControlCharacters(r.method),
+      r.status !== undefined ? String(r.status) : r.state === "errored" ? "ERR" : "-",
+      r.duration_ms !== undefined ? String(r.duration_ms) : "-",
+      escapeControlCharacters(r.url),
+    ];
+    if (includeError) row.push(escapeControlCharacters(r.error_message ?? ""));
+    return row;
+  });
   const widths = headers.map((h, i) =>
     Math.max(h.length, ...rows.map((row) => (row[i] ?? "").length)),
   );
