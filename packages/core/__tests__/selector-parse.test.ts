@@ -86,6 +86,25 @@ describe("parseSelector", () => {
     });
   });
 
+  test("malformed quoted role names report specific parse errors", () => {
+    const cases = [
+      ['button:"Save', "unterminated_quote"],
+      ['button:"Save\\q"', "quoted_name"],
+      ['button:"Save" near #form', "trailing_selector"],
+      ['button:"Save" in screen', "scope"],
+    ] as const;
+
+    for (const [selector, code] of cases) {
+      try {
+        parseSelector(selector);
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrnaSelectorParseError);
+        expect((err as BrnaSelectorParseError).code).toBe(code);
+      }
+    }
+  });
+
   test("Forgot...password → text fragment", () => {
     expect(parseSelector("Forgot...password")).toEqual({
       kind: "text",
