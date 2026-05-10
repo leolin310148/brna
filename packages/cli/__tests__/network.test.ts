@@ -315,6 +315,13 @@ describe("brna network", () => {
     const res = await run(["--device", "android-1"], { body: { records: [] } });
     expect((res.requestInit?.headers as Record<string, string>)["x-brna-device-id"]).toBe("android-1");
   });
+
+  test("404 unknown device diagnostics escape terminal control characters", async () => {
+    const res = await run(["--device", "bad\x1b[31m"], { status: 404 });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("bad\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+  });
 });
 
 describe("formatNetworkTable", () => {
