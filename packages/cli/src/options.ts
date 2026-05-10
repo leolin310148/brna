@@ -264,9 +264,9 @@ function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
     "description",
     "reason",
     "title",
-    "error",
     "errors",
     "data",
+    "error",
   ]) {
     const picked = record[key];
     if (typeof picked === "string" && picked.trim().length > 0) return picked.trim();
