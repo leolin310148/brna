@@ -78,9 +78,10 @@ export function validateSnapshot(snapshot: Snapshot): void {
       detail: validator.errors,
     });
   }
-  walkNode(snapshot.tree, "$.tree");
+  const seenNodeIds = new Set<string>();
+  walkNode(snapshot.tree, "$.tree", seenNodeIds);
   if (snapshot.overlays) {
-    snapshot.overlays.forEach((overlay, i) => walkNode(overlay, `$.overlays[${i}]`));
+    snapshot.overlays.forEach((overlay, i) => walkNode(overlay, `$.overlays[${i}]`, seenNodeIds));
   }
 }
 
@@ -137,14 +138,14 @@ function validateDiffEvent(event: unknown, path: string): void {
   switch (ev.type) {
     case "added":
     case "removed":
-      walkNode(ev.node as Node, `${path}.node`);
+      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
       return;
     case "modified":
-      walkNode(ev.node as Node, `${path}.node`);
+      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
       validateModifiedChanges(ev.changes, `${path}.changes`);
       return;
     case "moved":
-      walkNode(ev.node as Node, `${path}.node`);
+      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
       if (typeof ev.from_parent !== "string") {
         throw new BrnaValidationError({
           code: "shape",
@@ -191,7 +192,7 @@ function validateModifiedChanges(value: unknown, path: string): asserts value is
   });
 }
 
-function walkNode(node: Node, path: string): void {
+function walkNode(node: Node, path: string, seenNodeIds: Set<string>): void {
   if (!node || typeof node !== "object") {
     throw new BrnaValidationError({
       code: "shape",
@@ -217,6 +218,14 @@ function walkNode(node: Node, path: string): void {
       message: "node.id must be a non-empty string",
     });
   }
+  if (seenNodeIds.has(node.id)) {
+    throw new BrnaValidationError({
+      code: "duplicate_id",
+      path: `${path}.id`,
+      message: `duplicate node id '${node.id}'`,
+    });
+  }
+  seenNodeIds.add(node.id);
   if (!NODE_KIND_SET.has(node.kind as string)) {
     throw new BrnaValidationError({
       code: "kind",
@@ -310,7 +319,7 @@ function walkNode(node: Node, path: string): void {
         message: "node.children must be an array",
       });
     }
-    node.children.forEach((child, i) => walkNode(child, `${path}.children[${i}]`));
+    node.children.forEach((child, i) => walkNode(child, `${path}.children[${i}]`, seenNodeIds));
   }
 }
 

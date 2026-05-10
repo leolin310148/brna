@@ -112,6 +112,19 @@ describe("structural validation", () => {
     });
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
+
+  test("rejects duplicate node ids across tree and overlays", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        children: [{ id: "duplicate", kind: "button" }],
+      },
+      overlays: [{ id: "duplicate", kind: "modal" }],
+    });
+
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
 });
 
 describe("accessibility fields and range", () => {
@@ -525,6 +538,11 @@ describe("diff validation", () => {
       { type: "added", id: "x", node: { id: "x", kind: "list_item", index: -1 } },
       { type: "added", id: "x", node: { id: "x", kind: "button", suggested_selectors: "bad" } },
       { type: "added", id: "x", node: { id: "x", kind: "group", children: "bad" } },
+      {
+        type: "added",
+        id: "x",
+        node: { id: "x", kind: "group", children: [{ id: "x", kind: "button" }] },
+      },
     ];
     for (const event of cases) {
       expect(() => validateSnapshotDiff({ events: [event] })).toThrow(BrnaValidationError);
