@@ -97,6 +97,20 @@ function isOptionalNonNegativeFiniteNumber(value: unknown): boolean {
   return value === undefined || isNonNegativeFiniteNumber(value);
 }
 
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function isValidNetworkHeaderEntries(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value)) return false;
+  return value.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const header = entry as Record<string, unknown>;
+    return typeof header.name === "string" && typeof header.value === "string";
+  });
+}
+
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
@@ -134,9 +148,15 @@ export function isValidNetworkRecord(value: unknown): value is NetworkRecord {
     typeof v.method === "string" &&
     isHttpMethodToken(v.method) &&
     typeof v.url === "string" &&
+    isValidNetworkHeaderEntries(v.request_headers) &&
+    isOptionalString(v.request_body_preview) &&
     isOptionalHttpStatus(v.status) &&
+    isOptionalString(v.status_text) &&
+    isValidNetworkHeaderEntries(v.response_headers) &&
+    isOptionalString(v.response_body_preview) &&
     isOptionalNonNegativeFiniteNumber(v.duration_ms) &&
     (v.state === "started" || v.state === "completed" || v.state === "errored") &&
+    isOptionalString(v.error_message) &&
     (v.source === "fetch" || v.source === "xhr")
   );
 }

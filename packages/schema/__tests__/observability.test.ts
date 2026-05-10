@@ -32,7 +32,12 @@ describe("observability schema helpers", () => {
       url: "https://example.test",
       state: "completed",
       source: "fetch",
+      request_headers: [{ name: "Accept", value: "application/json" }],
+      request_body_preview: "{}",
       status: 200,
+      status_text: "OK",
+      response_headers: [{ name: "Content-Type", value: "application/json" }],
+      response_body_preview: "{}",
       duration_ms: 12,
     })).toBe(true);
     expect(isValidNetworkRecord({
@@ -78,6 +83,42 @@ describe("observability schema helpers", () => {
       state: "completed",
       source: "fetch",
       duration_ms: -1,
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      request_headers: [{ name: "Accept", value: 1 }],
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      response_headers: "Content-Type: application/json",
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "completed",
+      source: "fetch",
+      response_body_preview: { ok: true },
+    })).toBe(false);
+    expect(isValidNetworkRecord({
+      id: "n",
+      timestamp: 1,
+      method: "GET",
+      url: "x",
+      state: "errored",
+      source: "fetch",
+      error_message: 500,
     })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "done", source: "fetch" })).toBe(false);
     expect(isValidNetworkRecord({ id: "n", timestamp: 1, method: "GET", url: "x", state: "started", source: "socket" })).toBe(false);
