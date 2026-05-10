@@ -153,7 +153,12 @@ export async function runWait(rest: string[], runtime: WaitRuntime = {}): Promis
       failWith(3, "no runtime connected — start the app first", stderr, exit);
     }
     if (result.kind === "unknown_device") {
-      failWith(3, `unknown device '${args.device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);
+      failWith(
+        3,
+        `unknown device '${escapeControlCharacters(args.device ?? "?")}' — run 'brna devices' to list connected runtimes`,
+        stderr,
+        exit,
+      );
     }
     if (result.kind === "runtime_error") {
       failWith(3, result.message, stderr, exit);

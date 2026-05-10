@@ -179,6 +179,16 @@ describe("brna wait", () => {
     expect(res.stderr).toContain("no runtime connected");
   });
 
+  test("unknown device diagnostics escape terminal control characters", async () => {
+    const res = await run(["text:Ready", "--device", "bad\x1b[31m"], {
+      responses: [() => new Response(JSON.stringify({ error: "unknown_device" }), { status: 404 })],
+    });
+
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("bad\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+  });
+
   test("runtime error diagnostics escape terminal control characters", async () => {
     const res = await run(["text:Ready"], {
       responses: [
