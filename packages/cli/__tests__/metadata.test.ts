@@ -7,8 +7,17 @@ describe("CLI metadata", () => {
     expect(command).toBeDefined();
 
     const help = formatCommandHelp(command!);
-    expect(help).toContain("[--image --image-to <path> [--overlay]]");
+    expect(help).toContain("[--image --image-to <path> [--overlay]");
     expect(help).toContain("--overlay");
+  });
+
+  test("snapshot help shows native capture flags in image usage", () => {
+    const command = commandByName("snapshot");
+    expect(command).toBeDefined();
+
+    const help = formatCommandHelp(command!);
+    expect(help).toContain("[--native-device <id>]");
+    expect(help).toContain("[--native-platform android|ios]");
   });
 
   test("metro option help documents port shorthand", () => {

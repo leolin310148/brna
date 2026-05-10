@@ -20,7 +20,7 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
     name: "snapshot",
     aliases: ["snap"],
     description: "Capture the current app snapshot from a connected brna runtime.",
-    usage: "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay]] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
+    usage: "brna snapshot [--format md|markdown|json|yaml] [--diff [--target <selector>]] [--active-layer] [--image --image-to <path> [--overlay] [--native-device <id>] [--native-platform android|ios]] [--metro <url-or-port>] [--timeout <ms>] [--device <id>]",
     options: [
       { name: "--format", description: "Select md/markdown, JSON, or YAML output." },
       { name: "--diff", description: "Compare against the rolling session baseline." },
