@@ -438,6 +438,13 @@ function validateVisibleRange(range: unknown, path: string): void {
         message: `visible_range.${k} must be a finite number`,
       });
     }
+    if (v < 0) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.${k}`,
+        message: `visible_range.${k} must be non-negative`,
+      });
+    }
   }
   if ((obj.start as number) > (obj.end as number)) {
     throw new BrnaValidationError({

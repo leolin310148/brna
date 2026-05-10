@@ -275,6 +275,17 @@ describe("advanced snapshot fields", () => {
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
 
+  test("rejects negative visible_range indexes", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        visible_range: { start: -1, end: 5 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
   test("rejects invalid virtualized list counts", () => {
     expect(() =>
       validateSnapshot(makeSnapshot({
