@@ -85,6 +85,14 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("unsupported verb diagnostics escape terminal control characters", () => {
+    const r = run(["act", "pinch\x1b[31m", "#x"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("unsupported action 'pinch\\x1b[31m'");
+    expect(r.stderr).not.toContain("\x1b");
+    expect(r.stdout).toBe("");
+  });
+
   test("missing swipe direction exits 4", () => {
     const r = run(["act", "swipe", "#x"]);
     expect(r.status).toBe(4);

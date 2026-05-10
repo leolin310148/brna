@@ -22,6 +22,7 @@ import {
   parsePositiveInt,
 } from "./options.js";
 import { activeTracePath, appendTraceEvent } from "./trace.js";
+import { escapeControlCharacters } from "./format.js";
 
 const VERBS = ["tap", "click", "long-press", "type", "scroll", "swipe", "key"] as const;
 type Verb = (typeof VERBS)[number];
@@ -71,7 +72,7 @@ export async function runAct(rest: string[], runtime: { exit?: (code: number) =>
   }
   const verbToken = rest[0]!;
   if (!(VERBS as readonly string[]).includes(verbToken)) {
-    fail(4, `unsupported action '${verbToken}'`);
+    fail(4, `unsupported action '${escapeControlCharacters(verbToken)}'`);
   }
   const verb = verbToken as Verb;
   const args = rest.slice(1);
