@@ -19,4 +19,12 @@ describe("CLI formatting", () => {
     expect(escaped).not.toContain("\u2060");
     expect(escaped).not.toContain("\ufeff");
   });
+
+  test("escapes unicode line and paragraph separators", () => {
+    const escaped = escapeControlCharacters("first\u2028second\u2029third");
+
+    expect(escaped).toBe("first\\u2028second\\u2029third");
+    expect(escaped).not.toContain("\u2028");
+    expect(escaped).not.toContain("\u2029");
+  });
 });
