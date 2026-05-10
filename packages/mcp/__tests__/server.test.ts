@@ -187,6 +187,16 @@ describe("MCP server", () => {
     expect(result.contents[0]!.text).toContain("# Snapshot");
   });
 
+  test("resources/read escapes control characters in unknown URI errors", async () => {
+    const responses = await exchange([
+      { jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "brna://bad\x1b[31m\u202e" } },
+    ]);
+
+    expect(responses[0]!.error?.message).toContain("brna://bad\\x1b[31m\\u202e");
+    expect(responses[0]!.error?.message).not.toContain("\x1b");
+    expect(responses[0]!.error?.message).not.toContain("\u202e");
+  });
+
   test("--metro accepts bare port shorthand", async () => {
     const requestUrls: string[] = [];
     await exchange([
@@ -334,6 +344,21 @@ describe("MCP server", () => {
     expect(actions[0]).toEqual({ kind: "key", key: "enter" });
   });
 
+  test("unknown tool errors escape control characters", async () => {
+    const responses = await exchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "bad\x1b[31m\u202e", arguments: {} },
+      },
+    ]);
+
+    expect(responses[0]!.error?.message).toContain("bad\\x1b[31m\\u202e");
+    expect(responses[0]!.error?.message).not.toContain("\x1b");
+    expect(responses[0]!.error?.message).not.toContain("\u202e");
+  });
+
   test("unknown selector returns error", async () => {
     const responses = await exchange([
       {
@@ -345,5 +370,20 @@ describe("MCP server", () => {
     ]);
     expect(responses[0]!.error).toBeDefined();
     expect(responses[0]!.error!.message).toContain("missing");
+  });
+
+  test("unknown selector errors escape control characters", async () => {
+    const responses = await exchange([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "tap", arguments: { selector: "#missing\x1b[31m\u202e" } },
+      },
+    ]);
+
+    expect(responses[0]!.error?.message).toContain("#missing\\x1b[31m\\u202e");
+    expect(responses[0]!.error?.message).not.toContain("\x1b");
+    expect(responses[0]!.error?.message).not.toContain("\u202e");
   });
 });

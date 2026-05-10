@@ -259,7 +259,7 @@ class BrnaMcpApp {
         ],
       };
     }
-    throw new Error(`unknown resource uri: ${String(uri)}`);
+    throw new Error(`unknown resource uri: ${escapeControlCharacters(String(uri))}`);
   }
 
   private listTools() {
@@ -432,7 +432,7 @@ class BrnaMcpApp {
         };
       }
       default:
-        throw new Error(`unknown tool: ${name}`);
+        throw new Error(`unknown tool: ${escapeControlCharacters(name)}`);
     }
     validateActionRequest(action);
     await this.postAction(action);
@@ -474,7 +474,7 @@ class BrnaMcpApp {
         matches: describeMatches(result.ambiguous),
       }));
     }
-    throw new Error(`selector did not match a node: ${selector}`);
+    throw new Error(`selector did not match a node: ${escapeControlCharacters(selector)}`);
   }
 
   private async fetchSnapshot(): Promise<Snapshot> {
