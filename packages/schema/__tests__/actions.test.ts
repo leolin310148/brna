@@ -136,6 +136,14 @@ describe("validateActionRequest", () => {
         duration_ms: 1.5,
       }),
     ).toThrow(/duration/);
+    expect(() =>
+      validateActionRequest({
+        kind: "long_press",
+        selector: "#m",
+        target_id: "m",
+        duration_ms: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    ).toThrow(/duration/);
   });
 
   test("rejects type with non-string text", () => {
@@ -163,6 +171,15 @@ describe("validateActionRequest", () => {
         target_id: "f",
         direction: "up",
         by: 0,
+      }),
+    ).toThrow(/by/);
+    expect(() =>
+      validateActionRequest({
+        kind: "scroll",
+        selector: "#f",
+        target_id: "f",
+        direction: "up",
+        by: Number.MAX_SAFE_INTEGER + 1,
       }),
     ).toThrow(/by/);
   });

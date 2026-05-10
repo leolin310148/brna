@@ -120,7 +120,7 @@ function nonEmptyString(value: unknown, path: string, label: string): string {
 }
 
 function positiveInteger(value: unknown, path: string, message: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
     fail(path, message);
   }
   return value;
