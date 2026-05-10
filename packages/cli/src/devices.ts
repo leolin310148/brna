@@ -221,8 +221,11 @@ function firstMalformedDeviceField(devices: unknown[], fieldName: string): strin
       }
     }
     for (const field of optionalNumberFields) {
-      if (record[field] !== undefined && typeof record[field] !== "number") {
-        return `${fieldName}[${index}].${field} must be a number`;
+      if (
+        record[field] !== undefined &&
+        (typeof record[field] !== "number" || !Number.isFinite(record[field]))
+      ) {
+        return `${fieldName}[${index}].${field} must be a finite number`;
       }
     }
   }

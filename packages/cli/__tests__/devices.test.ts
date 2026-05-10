@@ -12,11 +12,15 @@ async function run(rest: string[], devices: unknown[]): Promise<RunResult> {
 }
 
 async function runWithBody(rest: string[], body: unknown): Promise<RunResult> {
+  return runWithRawBody(rest, JSON.stringify(body));
+}
+
+async function runWithRawBody(rest: string[], body: string): Promise<RunResult> {
   let stdout = "";
   let stderr = "";
   try {
     await runDevices(rest, {
-      fetch: async () => new Response(JSON.stringify(body), { status: 200 }),
+      fetch: async () => new Response(body, { status: 200 }),
       stdout: { write: (c: string | Uint8Array) => ((stdout += String(c)), true) },
       stderr: { write: (c: string | Uint8Array) => ((stderr += String(c)), true) },
       exit: (code) => {
@@ -73,6 +77,13 @@ describe("brna devices", () => {
     expect(badNativeHint.code).toBe(3);
     expect(badNativeHint.stderr).toContain("malformed devices response: devices[0].is_simulator must be a boolean");
     expect(badNativeHint.stdout).toBe("");
+
+    const badTimestamp = await runWithRawBody([], '{"devices":[{"id":"dev-a","registered_at":1e999}]}');
+    expect(badTimestamp.code).toBe(3);
+    expect(badTimestamp.stderr).toContain(
+      "malformed devices response: devices[0].registered_at must be a finite number",
+    );
+    expect(badTimestamp.stdout).toBe("");
   });
 
   test("malformed recent disconnected rows exit with a protocol diagnostic", async () => {
