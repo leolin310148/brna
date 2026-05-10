@@ -91,6 +91,18 @@ describe("unifiedDiff", () => {
 });
 
 describe("brna verify", () => {
+  test("missing golden usage includes timeout flag", () => {
+    const res = spawnSync("bun", ["run", CLI_PATH, "verify"], {
+      env: { ...process.env, BRNA_NO_DAEMON: "1", NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+
+    expect(res.status).toBe(4);
+    expect(res.stderr).toContain("usage: brna verify");
+    expect(res.stderr).toContain("[--timeout <ms>]");
+  });
+
   test("unknown flag diagnostics escape terminal control characters", () => {
     const res = spawnSync("bun", ["run", CLI_PATH, "verify", "--bad\x1b[31m"], {
       env: { ...process.env, BRNA_NO_DAEMON: "1", NO_COLOR: "1" },

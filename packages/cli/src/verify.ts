@@ -46,7 +46,7 @@ function parseArgs(rest: string[]): ParsedArgs {
     else fail(4, `unexpected argument '${escapeControlCharacters(token)}'`);
   }
   if (goldenPath === undefined) {
-    fail(4, "usage: brna verify <golden-path> [--active-layer] [--metro <url>] [--device <id>]");
+    fail(4, "usage: brna verify <golden-path> [--active-layer] [--metro <url>] [--device <id>] [--timeout <ms>]");
   }
   const result: ParsedArgs = { metro, timeoutMs, goldenPath, activeLayer };
   if (device !== undefined) result.device = device;
