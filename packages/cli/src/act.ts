@@ -491,6 +491,6 @@ async function postAction(shared: SharedFlags, action: ActionRequest): Promise<v
   fail(6, diagnosis ?? `unexpected HTTP ${response.status} from Metro`);
 }
 
-function unknownDeviceMessage(device: string | undefined): string {
-  return `unknown device '${device ?? "?"}' — run 'brna devices' to list connected runtimes`;
+export function unknownDeviceMessage(device: string | undefined): string {
+  return `unknown device '${escapeControlCharacters(device ?? "?")}' — run 'brna devices' to list connected runtimes`;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { unknownDeviceMessage } from "../src/act.js";
 
 const CLI_PATH = resolve(import.meta.dir, "../src/cli.ts");
 
@@ -91,6 +92,13 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stderr).toContain("unsupported action 'pinch\\x1b[31m'");
     expect(r.stderr).not.toContain("\x1b");
     expect(r.stdout).toBe("");
+  });
+
+  test("unknown device diagnostics escape terminal control characters", () => {
+    const message = unknownDeviceMessage("bad\x1b[31m\u202e");
+    expect(message).toContain("bad\\x1b[31m\\u202e");
+    expect(message).not.toContain("\x1b");
+    expect(message).not.toContain("\u202e");
   });
 
   test("missing swipe direction exits 4", () => {
