@@ -219,6 +219,17 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("extracts JSON HTTP response messages from nested errors arrays", async () => {
+    const response = new Response(JSON.stringify({ error: { errors: [{ message: "Metro graph failed" }] } }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: Metro graph failed",
+    );
+  });
+
   test("extracts JSON HTTP response messages from data wrappers", async () => {
     const response = new Response(JSON.stringify({ error: { data: { message: "Metro transform failed" } } }), {
       status: 500,

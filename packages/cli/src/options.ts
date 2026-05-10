@@ -245,7 +245,7 @@ function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
   }
-  if (!value || typeof value !== "object" || depth > 2) return undefined;
+  if (!value || typeof value !== "object" || depth > 4) return undefined;
 
   if (Array.isArray(value)) {
     for (const entry of value) {
