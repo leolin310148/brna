@@ -317,6 +317,7 @@ describe("act selector failures", () => {
   });
 
   test("auto-prefers a single interactive candidate and prints a note", async () => {
+    const selector = "Responder...Release";
     state.snapshotResponder = (_req, res) =>
       jsonReply(
         res,
@@ -326,19 +327,19 @@ describe("act selector failures", () => {
             id: "screen:root",
             kind: "screen",
             children: [
-              { id: "check", kind: "group", bounds: { x: 350, y: 57, w: 24, h: 24 } },
+              { id: "check-container", kind: "group", name: "Responder Release", bounds: { x: 350, y: 57, w: 24, h: 24 } },
               { id: "check", kind: "button", name: "Responder Release", bounds: { x: 350, y: 57, w: 24, h: 24 } },
             ],
           },
         }),
       );
-    const r = await runAct(["tap", "#check"]);
+    const r = await runAct(["tap", selector]);
     expect(r.status).toBe(0);
     expect(r.stdout).toBe("");
     expect(r.stderr).toContain("auto-selected interactive button (check)");
     expect(JSON.parse(state.lastActionBody!)).toEqual({
       kind: "tap",
-      selector: "#check",
+      selector,
       target_id: "check",
     });
   });
