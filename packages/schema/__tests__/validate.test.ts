@@ -274,6 +274,19 @@ describe("advanced snapshot fields", () => {
     });
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
+
+  test("rejects invalid virtualized list counts", () => {
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "feed", kind: "list", total_count: Number.POSITIVE_INFINITY },
+      })),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "row-1", kind: "list_item", index: -1 },
+      })),
+    ).toThrow(BrnaValidationError);
+  });
 });
 
 describe("node _dev.source", () => {
@@ -497,6 +510,8 @@ describe("diff validation", () => {
       { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: null } },
       { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: 0, extra: 1 } } },
       { type: "added", id: "x", node: { id: "x", kind: "list", visible_range: { start: "0", end: 1 } } },
+      { type: "added", id: "x", node: { id: "x", kind: "list", total_count: Number.POSITIVE_INFINITY } },
+      { type: "added", id: "x", node: { id: "x", kind: "list_item", index: -1 } },
       { type: "added", id: "x", node: { id: "x", kind: "button", suggested_selectors: "bad" } },
       { type: "added", id: "x", node: { id: "x", kind: "group", children: "bad" } },
     ];

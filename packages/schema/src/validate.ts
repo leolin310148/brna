@@ -269,6 +269,12 @@ function walkNode(node: Node, path: string): void {
   if (node.visible_range !== undefined) {
     validateVisibleRange(node.visible_range, `${path}.visible_range`);
   }
+  if (node.total_count !== undefined) {
+    validateNonNegativeFiniteNumber(node.total_count, `${path}.total_count`, "node.total_count");
+  }
+  if (node.index !== undefined) {
+    validateNonNegativeFiniteNumber(node.index, `${path}.index`, "node.index");
+  }
   if (node.suggested_selectors !== undefined) {
     if (!Array.isArray(node.suggested_selectors)) {
       throw new BrnaValidationError({
@@ -305,6 +311,16 @@ function walkNode(node: Node, path: string): void {
       });
     }
     node.children.forEach((child, i) => walkNode(child, `${path}.children[${i}]`));
+  }
+}
+
+function validateNonNegativeFiniteNumber(value: unknown, path: string, label: string): void {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: `${label} must be a non-negative finite number`,
+    });
   }
 }
 
