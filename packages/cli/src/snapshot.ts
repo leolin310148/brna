@@ -250,7 +250,12 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     if (device === undefined) {
       failWith(3, diagnosis ?? "snapshot endpoint returned HTTP 404 from Metro", stderr, exit);
     }
-    failWith(3, `unknown device '${device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);
+    failWith(
+      3,
+      `unknown device '${escapeControlCharacters(device ?? "?")}' — run 'brna devices' to list connected runtimes`,
+      stderr,
+      exit,
+    );
   }
   if (response.status === 504) {
     failWith(3, `runtime timed out — Metro middleware reported ${response.status}`, stderr, exit);

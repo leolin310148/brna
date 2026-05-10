@@ -350,6 +350,19 @@ describe("snapshot --diff", () => {
     expect(result.writes).toEqual([]);
   });
 
+  test("snapshot unknown device diagnostics escape terminal control characters", async () => {
+    const result = await runSnapshotInMemory(["--device", "bad\x1b[31m"], {
+      fetchResponse: new Response(JSON.stringify({ error: "unknown_device" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("bad\\x1b[31m");
+    expect(result.stderr).not.toContain("\x1b");
+    expect(result.writes).toEqual([]);
+  });
+
   test("cache write warning does not fail successful snapshot", async () => {
     const result = await runSnapshotInMemory([], { writeWarning: "ENOSPC" });
     expect(result.code).toBe(0);
