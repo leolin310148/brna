@@ -337,6 +337,19 @@ describe("snapshot --diff", () => {
     expect(result.writes).toEqual([]);
   });
 
+  test("snapshot 404 without device reports endpoint diagnostic", async () => {
+    const result = await runSnapshotInMemory([], {
+      fetchResponse: new Response(JSON.stringify({ error: "not_found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("snapshot endpoint returned HTTP 404: not_found");
+    expect(result.stderr).not.toContain("unknown device");
+    expect(result.writes).toEqual([]);
+  });
+
   test("cache write warning does not fail successful snapshot", async () => {
     const result = await runSnapshotInMemory([], { writeWarning: "ENOSPC" });
     expect(result.code).toBe(0);

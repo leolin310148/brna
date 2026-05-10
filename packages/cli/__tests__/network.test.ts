@@ -301,6 +301,16 @@ describe("brna network", () => {
     expect(res.stderr).not.toContain("unknown device");
   });
 
+  test("404 without device reports endpoint diagnostic", async () => {
+    const res = await run([], {
+      status: 404,
+      body: { error: "not_found" },
+    });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("network endpoint returned HTTP 404: not_found");
+    expect(res.stderr).not.toContain("unknown device");
+  });
+
   test("--device sets device header", async () => {
     const res = await run(["--device", "android-1"], { body: { records: [] } });
     expect((res.requestInit?.headers as Record<string, string>)["x-brna-device-id"]).toBe("android-1");

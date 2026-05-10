@@ -184,6 +184,9 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
     if (diagnosis?.includes("brna Metro middleware is not mounted")) {
       failWith(3, diagnosis, stderr, exit);
     }
+    if (parsed.device === undefined) {
+      failWith(3, diagnosis ?? "network endpoint returned HTTP 404 from Metro", stderr, exit);
+    }
     failWith(3, `unknown device '${parsed.device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);
   }
   if (response.status === 504) {
