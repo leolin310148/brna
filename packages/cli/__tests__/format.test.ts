@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { escapeControlCharacters } from "../src/format.js";
+import { escapeControlCharacters, formatTimestamp } from "../src/format.js";
 
 describe("CLI formatting", () => {
+  test("formats timestamps as ISO strings", () => {
+    expect(formatTimestamp(1700000000000)).toBe("2023-11-14T22:13:20.000Z");
+  });
+
+  test("formats invalid timestamps without throwing", () => {
+    expect(formatTimestamp(Number.NaN)).toBe("invalid");
+  });
+
   test("escapes bidi formatting controls", () => {
     const escaped = escapeControlCharacters("safe\u061c\u200fgnirts\u200e");
 
