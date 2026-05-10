@@ -114,6 +114,18 @@ describe("MCP server", () => {
     })).rejects.toThrow("--bad\\u061c\\u200fflag");
   });
 
+  test("argv diagnostics escape zero-width formatting controls", async () => {
+    await expect(runMcpServer(["--bad\u200b\u2060flag"], {
+      stdin: Readable.from([""]),
+      stdout: new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      stderr: { write: () => true },
+    })).rejects.toThrow("--bad\\u200b\\u2060flag");
+  });
+
   test("initialize returns protocol info", async () => {
     const responses = await exchange([{
       jsonrpc: "2.0",

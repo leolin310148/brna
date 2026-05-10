@@ -10,4 +10,13 @@ describe("CLI formatting", () => {
     expect(escaped).not.toContain("\u200f");
     expect(escaped).not.toContain("\u200e");
   });
+
+  test("escapes invisible zero-width formatting controls", () => {
+    const escaped = escapeControlCharacters("zero\u200bwidth\u2060space\ufeff");
+
+    expect(escaped).toBe("zero\\u200bwidth\\u2060space\\ufeff");
+    expect(escaped).not.toContain("\u200b");
+    expect(escaped).not.toContain("\u2060");
+    expect(escaped).not.toContain("\ufeff");
+  });
 });
