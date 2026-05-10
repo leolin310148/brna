@@ -123,7 +123,10 @@ export function handleSnapshot(
         return;
       }
       if (result.kind === "timeout") {
-        sendJson(res, 504, { error: "runtime_timeout", timeout_ms: SNAPSHOT_TIMEOUT_MS });
+        sendJson(res, 504, {
+          error: "runtime_timeout",
+          timeout_ms: Math.max(SNAPSHOT_TIMEOUT_MS, options.measureTimeoutMs ?? 0),
+        });
         return;
       }
       if (result.kind === "unknown_device") {

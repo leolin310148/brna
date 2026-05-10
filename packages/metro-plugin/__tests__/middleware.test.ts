@@ -334,6 +334,20 @@ describe("handleSnapshot", () => {
     }
   });
 
+  test("reports custom measurement timeout in snapshot timeout responses", async () => {
+    const bridge = {
+      hasRuntime: () => true,
+      acquireSlot: () => true,
+      releaseSlot: () => {},
+      requestSnapshot: async () => ({ kind: "timeout" }),
+    } as unknown as BrnaBridge;
+    const res = makeMockRes();
+    handleSnapshot(bridge, res as never, undefined, { measureTimeoutMs: 7000 });
+    await new Promise((r) => setImmediate(r));
+    expect(res.statusCode).toBe(504);
+    expect(JSON.parse(res.body)).toEqual({ error: "runtime_timeout", timeout_ms: 7000 });
+  });
+
   test("returns 429 when the shared slot is unavailable", () => {
     const bridge = {
       hasRuntime: () => true,

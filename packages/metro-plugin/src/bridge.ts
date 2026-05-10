@@ -387,7 +387,8 @@ export class BrnaBridge {
   }
 
   async requestSnapshot(deviceId?: string, options: SnapshotRequestOptions = {}): Promise<SnapshotResult> {
-    return this.sendRuntimeRequest(deviceId, "snapshot", this.snapshotTimeoutMs, (id) => ({
+    const timeoutMs = Math.max(this.snapshotTimeoutMs, options.measureTimeoutMs ?? 0);
+    return this.sendRuntimeRequest(deviceId, "snapshot", timeoutMs, (id) => ({
       type: "snapshot.request",
       id,
       options,

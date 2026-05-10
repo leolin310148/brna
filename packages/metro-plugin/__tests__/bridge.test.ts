@@ -185,6 +185,19 @@ describe("BrnaBridge timeout", () => {
     );
     // no observable side effect; if we got here without unhandled rejection, OK
   });
+
+  test("requestSnapshot honors measurement timeouts longer than the bridge default", async () => {
+    const bridge = new BrnaBridge({ snapshotTimeoutMs: 5 });
+    const ws = makeMockSocket();
+    bridge.onConnection(ws as unknown as Parameters<BrnaBridge["onConnection"]>[0]);
+    const promise = bridge.requestSnapshot(undefined, { measureTimeoutMs: 50 });
+    const frame = lastSentFrame(ws);
+
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    ws.emit("message", Buffer.from(JSON.stringify({ type: "snapshot.response", id: frame.id, snapshot: {} })));
+
+    expect((await promise).kind).toBe("snapshot");
+  });
 });
 
 describe("BrnaBridge frame routing isolation", () => {
