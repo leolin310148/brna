@@ -216,4 +216,13 @@ describe("redactNetworkRecord", () => {
     );
     expect(out.url).toBe("https://api.example.test/things");
   });
+
+  test("non-array regex rules are ignored", () => {
+    const out = redactNetworkRecord(
+      baseNet({ url: "https://api.example.test/things?access_token=abc" }),
+      { rules: {} as never },
+    );
+
+    expect(out.url).toBe("https://api.example.test/things?access_token=<redacted>");
+  });
 });

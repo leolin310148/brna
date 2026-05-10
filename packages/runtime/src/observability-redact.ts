@@ -31,7 +31,7 @@ export function compileRules(
   rules: SerializableRedactionRule[] | undefined,
 ): CompiledRule[] {
   const out: CompiledRule[] = [];
-  if (!rules) return out;
+  if (!Array.isArray(rules)) return out;
   for (const rule of rules) {
     try {
       const flags = rule.match.flags?.includes("g")

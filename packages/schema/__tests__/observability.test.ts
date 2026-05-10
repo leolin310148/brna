@@ -155,6 +155,23 @@ describe("observability schema helpers", () => {
     expect(parseLogsRequestOptions({ since: -1 })).toEqual({});
   });
 
+  test("parses logs redaction options defensively", () => {
+    expect(parseLogsRequestOptions({
+      redaction: {
+        rules: [{ match: { source: "secret", flags: "gi" }, replace: "<secret>" }],
+        redactSensitiveDefaults: false,
+      },
+    })).toEqual({
+      redaction: {
+        rules: [{ match: { source: "secret", flags: "gi" }, replace: "<secret>" }],
+        redactSensitiveDefaults: false,
+      },
+    });
+    expect(parseLogsRequestOptions({ redaction: { rules: {} } })).toEqual({});
+    expect(parseLogsRequestOptions({ redaction: { rules: [{ match: {}, replace: "x" }] } })).toEqual({});
+    expect(parseLogsRequestOptions({ redaction: { redactSensitiveDefaults: "false" } })).toEqual({});
+  });
+
   test("parses network request options defensively", () => {
     expect(parseNetworkRequestOptions(undefined)).toEqual({});
     expect(parseNetworkRequestOptions({
@@ -187,6 +204,20 @@ describe("observability schema helpers", () => {
     expect(parseNetworkRequestOptions({ limit: 3.5 })).toEqual({});
     expect(parseNetworkRequestOptions({ limit: Number.MAX_SAFE_INTEGER + 1 })).toEqual({});
     expect(parseNetworkRequestOptions({ since: -1 })).toEqual({});
+  });
+
+  test("parses network redaction options defensively", () => {
+    expect(parseNetworkRequestOptions({
+      redaction: {
+        rules: [{ match: { source: "secret" }, replace: "<secret>" }],
+      },
+    })).toEqual({
+      redaction: {
+        rules: [{ match: { source: "secret" }, replace: "<secret>" }],
+      },
+    });
+    expect(parseNetworkRequestOptions({ redaction: [] })).toEqual({});
+    expect(parseNetworkRequestOptions({ redaction: { rules: [{ match: "secret", replace: "x" }] } })).toEqual({});
   });
 
   test("rejects impossible network status filters", () => {

@@ -132,6 +132,28 @@ function isOptionalHttpStatus(value: unknown): boolean {
   return value === undefined || parseHttpStatus(value) !== undefined;
 }
 
+function isSerializableRedactionRule(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const rule = value as Record<string, unknown>;
+  if (typeof rule.replace !== "string") return false;
+  const match = rule.match;
+  if (!match || typeof match !== "object" || Array.isArray(match)) return false;
+  const m = match as Record<string, unknown>;
+  return typeof m.source === "string" && (m.flags === undefined || typeof m.flags === "string");
+}
+
+function isObservabilityRedactionOptions(value: unknown): value is ObservabilityRedactionOptions {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const options = value as Record<string, unknown>;
+  return (
+    (
+      options.rules === undefined ||
+      (Array.isArray(options.rules) && options.rules.every(isSerializableRedactionRule))
+    ) &&
+    (options.redactSensitiveDefaults === undefined || typeof options.redactSensitiveDefaults === "boolean")
+  );
+}
+
 export function isValidLogRecord(value: unknown): value is LogRecord {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -178,8 +200,8 @@ export function parseLogsRequestOptions(value: unknown): LogsRequestOptions {
     if (isLogLevel(level)) out.level = level;
   }
   if (isPositiveSafeInteger(v.limit)) out.limit = v.limit;
-  if (v.redaction && typeof v.redaction === "object") {
-    out.redaction = v.redaction as ObservabilityRedactionOptions;
+  if (isObservabilityRedactionOptions(v.redaction)) {
+    out.redaction = v.redaction;
   }
   return out;
 }
@@ -203,8 +225,8 @@ export function parseNetworkRequestOptions(value: unknown): NetworkRequestOption
     if (statusMax !== undefined) out.statusMax = statusMax;
   }
   if (isPositiveSafeInteger(v.limit)) out.limit = v.limit;
-  if (v.redaction && typeof v.redaction === "object") {
-    out.redaction = v.redaction as ObservabilityRedactionOptions;
+  if (isObservabilityRedactionOptions(v.redaction)) {
+    out.redaction = v.redaction;
   }
   return out;
 }
