@@ -311,6 +311,17 @@ describe("bounds_unavailable warning", () => {
     });
     expect(() => validateSnapshot(snap)).not.toThrow();
   });
+
+  test("rejects negative bounds dimensions", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "screen",
+        bounds: { x: -10, y: -20, w: -1, h: 40 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
 });
 
 describe("usability warning payloads", () => {

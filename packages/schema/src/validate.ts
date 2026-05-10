@@ -335,6 +335,13 @@ function validateBounds(bounds: unknown, path: string): void {
         message: `bounds.${key} must be a finite number`,
       });
     }
+    if ((key === "w" || key === "h") && value < 0) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.${key}`,
+        message: `bounds.${key} must be non-negative`,
+      });
+    }
   }
 }
 
