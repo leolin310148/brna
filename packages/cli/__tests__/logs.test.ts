@@ -261,6 +261,13 @@ describe("brna logs", () => {
     expect(res.code).toBe(3);
     expect(res.stderr).toContain("nope");
   });
+
+  test("404 unknown device diagnostics escape terminal control characters", async () => {
+    const res = await run(["--device", "bad\x1b[31m"], { status: 404 });
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("bad\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+  });
 });
 
 describe("formatLogsTable", () => {

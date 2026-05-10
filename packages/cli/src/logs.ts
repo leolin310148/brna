@@ -132,7 +132,12 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
     if (parsed.device === undefined) {
       failWith(3, diagnosis ?? "logs endpoint returned HTTP 404 from Metro", stderr, exit);
     }
-    failWith(3, `unknown device '${parsed.device ?? "?"}' — run 'brna devices' to list connected runtimes`, stderr, exit);
+    failWith(
+      3,
+      `unknown device '${escapeControlCharacters(parsed.device ?? "?")}' — run 'brna devices' to list connected runtimes`,
+      stderr,
+      exit,
+    );
   }
   if (response.status === 504) {
     failWith(3, "runtime timed out reading logs", stderr, exit);
