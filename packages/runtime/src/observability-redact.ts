@@ -20,7 +20,7 @@ const DEFAULT_SENSITIVE_HEADERS = new Set<string>([
   "x-csrf-token",
 ]);
 
-const SENSITIVE_FIELD_PATTERN = /(token|password|passwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret|authorization|session[_-]?id|refresh[_-]?token)/i;
+const SENSITIVE_FIELD_PATTERN = /(token|jwt|password|passwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret|authorization|session[_-]?id|refresh[_-]?token)/i;
 
 interface CompiledRule {
   match: RegExp;

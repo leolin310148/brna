@@ -44,11 +44,12 @@ describe("redactLogRecord", () => {
 
   test("redacts sensitive object args", () => {
     const out = redactLogRecord(
-      baseLog({ args: [{ access_token: "abc", id: 7 }] }),
+      baseLog({ args: [{ access_token: "abc", jwt: "header.payload.signature", id: 7 }] }),
       {},
     );
     const arg = (out.args as Array<Record<string, unknown>>)[0]!;
     expect(arg.access_token).toBe("<redacted>");
+    expect(arg.jwt).toBe("<redacted>");
     expect(arg.id).toBe(7);
   });
 
@@ -139,13 +140,13 @@ describe("redactNetworkRecord", () => {
   test("redacts sensitive URL query parameters by default", () => {
     const out = redactNetworkRecord(
       baseNet({
-        url: "https://api.example.test/search?q=orders&access_token=abc&client%5Fsecret=xyz#results",
+        url: "https://api.example.test/search?q=orders&access_token=abc&jwt=header.payload.signature&client%5Fsecret=xyz#results",
       }),
       {},
     );
 
     expect(out.url).toBe(
-      "https://api.example.test/search?q=orders&access_token=<redacted>&client%5Fsecret=<redacted>#results",
+      "https://api.example.test/search?q=orders&access_token=<redacted>&jwt=<redacted>&client%5Fsecret=<redacted>#results",
     );
 
     const fragmentOnly = redactNetworkRecord(
