@@ -219,6 +219,17 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("extracts primitive JSON HTTP response diagnostics", async () => {
+    const response = new Response(JSON.stringify({ error: 404 }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 404: 404",
+    );
+  });
+
   test("prefers JSON errors arrays over terse error codes", async () => {
     const response = new Response(
       JSON.stringify({
