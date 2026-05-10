@@ -269,7 +269,7 @@ class BrnaMcpApp {
         description: "Tap a node identified by a brna selector.",
         inputSchema: {
           type: "object",
-          properties: { selector: { type: "string" }, at: { type: "number", minimum: 0 } },
+          properties: { selector: { type: "string" }, at: { type: "integer", minimum: 0 } },
           required: ["selector"],
         },
       },
@@ -281,7 +281,7 @@ class BrnaMcpApp {
           properties: {
             selector: { type: "string" },
             text: { type: "string" },
-            at: { type: "number", minimum: 0 },
+            at: { type: "integer", minimum: 0 },
           },
           required: ["selector", "text"],
         },
@@ -294,8 +294,8 @@ class BrnaMcpApp {
           properties: {
             selector: { type: "string" },
             direction: { type: "string", enum: ["up", "down", "left", "right"] },
-            by: { type: "number" },
-            at: { type: "number", minimum: 0 },
+            by: { type: "integer", minimum: 1 },
+            at: { type: "integer", minimum: 0 },
           },
           required: ["selector", "direction"],
         },
@@ -308,8 +308,8 @@ class BrnaMcpApp {
           properties: {
             selector: { type: "string" },
             direction: { type: "string", enum: ["up", "down", "left", "right"] },
-            by: { type: "number" },
-            at: { type: "number", minimum: 0 },
+            by: { type: "integer", minimum: 1 },
+            at: { type: "integer", minimum: 0 },
           },
           required: ["selector", "direction"],
         },
@@ -321,8 +321,8 @@ class BrnaMcpApp {
           type: "object",
           properties: {
             selector: { type: "string" },
-            duration_ms: { type: "number" },
-            at: { type: "number", minimum: 0 },
+            duration_ms: { type: "integer", minimum: 1 },
+            at: { type: "integer", minimum: 0 },
           },
           required: ["selector"],
         },

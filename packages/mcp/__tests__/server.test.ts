@@ -221,12 +221,21 @@ describe("MCP server", () => {
   test("tools/list exposes core action and observability tools", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
     const result = responses[0]!.result as {
-      tools: Array<{ name: string; inputSchema?: { properties?: Record<string, { enum?: readonly string[] }> } }>;
+      tools: Array<{
+        name: string;
+        inputSchema?: { properties?: Record<string, { enum?: readonly string[]; minimum?: number; type?: string }> };
+      }>;
     };
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual(["key", "logs", "long_press", "network", "scroll", "swipe", "tap", "type"]);
     const keyTool = result.tools.find((t) => t.name === "key");
     expect(keyTool?.inputSchema?.properties?.key?.enum).toEqual(ACTION_KEYS);
+    const tapTool = result.tools.find((t) => t.name === "tap");
+    const swipeTool = result.tools.find((t) => t.name === "swipe");
+    const longPressTool = result.tools.find((t) => t.name === "long_press");
+    expect(tapTool?.inputSchema?.properties?.at).toEqual({ type: "integer", minimum: 0 });
+    expect(swipeTool?.inputSchema?.properties?.by).toEqual({ type: "integer", minimum: 1 });
+    expect(longPressTool?.inputSchema?.properties?.duration_ms).toEqual({ type: "integer", minimum: 1 });
   });
 
   test("tools/call tap with core selector posts action", async () => {
