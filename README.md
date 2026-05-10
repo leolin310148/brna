@@ -26,6 +26,7 @@ brna act tap "#save"
 brna act type "input:Email" "leo@example.com"
 brna act scroll "#feed" --direction down --by 300
 brna act swipe "#screen:root" --direction up --by 600
+brna wait "text:Saved"
 brna capture --to screen.png
 brna logs --level warn
 brna network --method POST
@@ -206,6 +207,20 @@ match, the error lists indexed candidates; re-run with `--at <index>` to pick on
 ```sh
 brna act tap "#check" --at 0
 ```
+
+### `wait`
+
+Poll snapshots until a selector appears or disappears.
+
+```sh
+brna wait "text:Saved"
+brna wait "text:Loading" --gone --timeout 5000
+brna wait "button:Continue" --interval 250
+```
+
+Use `wait` when the app needs time to settle after navigation, async work, or
+animations. `--gone` waits for a selector to stop matching. `--timeout` controls
+the total wait time, and `--interval` controls the polling cadence.
 
 ### `capture`
 
