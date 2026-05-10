@@ -174,6 +174,11 @@ function formatArgValue(value: string | undefined): string {
   return escapeControlCharacters(value ?? "");
 }
 
+function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback;
+  return escapeControlCharacters(String(value));
+}
+
 export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {}): Promise<void> {
   const parsed = parseArgs(rest);
   const {
@@ -254,7 +259,12 @@ export async function runSnapshot(rest: string[], runtime: SnapshotRuntime = {})
     } catch {
       /* ignore */
     }
-    failWith(3, `runtime error: ${body.code ?? "unknown"} — ${body.message ?? "no message"}`, stderr, exit);
+    failWith(
+      3,
+      `runtime error: ${formatRuntimeDiagnosticValue(body.code, "unknown")} — ${formatRuntimeDiagnosticValue(body.message, "no message")}`,
+      stderr,
+      exit,
+    );
   }
   if (response.status === 429) {
     failWith(3, "another snapshot request is in flight; retry this brna command after the previous command finishes", stderr, exit);

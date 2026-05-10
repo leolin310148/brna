@@ -378,6 +378,22 @@ describe("snapshot --diff", () => {
     expect(result.writes).toEqual([]);
   });
 
+  test("runtime error diagnostics escape terminal control characters", async () => {
+    const result = await runSnapshotInMemory([], {
+      fetchResponse: new Response(
+        JSON.stringify({ code: "E_RUNTIME\x1b[31m", message: "Failed\u202e" }),
+        { status: 502 },
+      ),
+    });
+
+    expect(result.code).toBe(3);
+    expect(result.stderr).toContain("E_RUNTIME\\x1b[31m");
+    expect(result.stderr).toContain("Failed\\u202e");
+    expect(result.stderr).not.toContain("\x1b");
+    expect(result.stderr).not.toContain("\u202e");
+    expect(result.writes).toEqual([]);
+  });
+
   test("--active-layer projects only modal-like markdown nodes", async () => {
     const fresh = makeSnapshot({
       tree: {
