@@ -279,10 +279,10 @@ function walkNode(node: Node, path: string, seenNodeIds: Set<string>): void {
     validateVisibleRange(node.visible_range, `${path}.visible_range`);
   }
   if (node.total_count !== undefined) {
-    validateNonNegativeFiniteNumber(node.total_count, `${path}.total_count`, "node.total_count");
+    validateNonNegativeInteger(node.total_count, `${path}.total_count`, "node.total_count");
   }
   if (node.index !== undefined) {
-    validateNonNegativeFiniteNumber(node.index, `${path}.index`, "node.index");
+    validateNonNegativeInteger(node.index, `${path}.index`, "node.index");
   }
   if (node.suggested_selectors !== undefined) {
     if (!Array.isArray(node.suggested_selectors)) {
@@ -323,12 +323,12 @@ function walkNode(node: Node, path: string, seenNodeIds: Set<string>): void {
   }
 }
 
-function validateNonNegativeFiniteNumber(value: unknown, path: string, label: string): void {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+function validateNonNegativeInteger(value: unknown, path: string, label: string): void {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new BrnaValidationError({
       code: "shape",
       path,
-      message: `${label} must be a non-negative finite number`,
+      message: `${label} must be a non-negative integer`,
     });
   }
 }
@@ -440,11 +440,11 @@ function validateVisibleRange(range: unknown, path: string): void {
   }
   for (const k of ["start", "end"] as const) {
     const v = obj[k];
-    if (typeof v !== "number" || !Number.isFinite(v)) {
+    if (typeof v !== "number" || !Number.isSafeInteger(v)) {
       throw new BrnaValidationError({
         code: "shape",
         path: `${path}.${k}`,
-        message: `visible_range.${k} must be a finite number`,
+        message: `visible_range.${k} must be an integer`,
       });
     }
     if (v < 0) {

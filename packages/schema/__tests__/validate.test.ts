@@ -299,6 +299,17 @@ describe("advanced snapshot fields", () => {
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
 
+  test("rejects fractional visible_range indexes", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "feed",
+        kind: "list",
+        visible_range: { start: 1.5, end: 5 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
   test("rejects invalid virtualized list counts", () => {
     expect(() =>
       validateSnapshot(makeSnapshot({
@@ -308,6 +319,19 @@ describe("advanced snapshot fields", () => {
     expect(() =>
       validateSnapshot(makeSnapshot({
         tree: { id: "row-1", kind: "list_item", index: -1 },
+      })),
+    ).toThrow(BrnaValidationError);
+  });
+
+  test("rejects fractional virtualized list counts and item indexes", () => {
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "feed", kind: "list", total_count: 10.5 },
+      })),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "row-1", kind: "list_item", index: 1.5 },
       })),
     ).toThrow(BrnaValidationError);
   });
