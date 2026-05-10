@@ -100,6 +100,30 @@ describe("MCP observability", () => {
     expect((calls[0]!.headers as Record<string, string>)["x-brna-device-id"]).toBe("ios-1");
   });
 
+  test("BRNA_DEVICE provides a default device header", async () => {
+    const calls: Array<{ url: string; method?: string; body?: string; headers?: HeadersInit }> = [];
+    await withEnv("BRNA_DEVICE", " android-1 ", async () => {
+      await exchange(
+        [{ jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "brna://current/logs" } }],
+        { recordCalls: calls },
+      );
+    });
+
+    expect((calls[0]!.headers as Record<string, string>)["x-brna-device-id"]).toBe("android-1");
+  });
+
+  test("--device overrides BRNA_DEVICE", async () => {
+    const calls: Array<{ url: string; method?: string; body?: string; headers?: HeadersInit }> = [];
+    await withEnv("BRNA_DEVICE", "env-device", async () => {
+      await exchange(
+        [{ jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "brna://current/logs" } }],
+        { argv: ["--device", "cli-device"], recordCalls: calls },
+      );
+    });
+
+    expect((calls[0]!.headers as Record<string, string>)["x-brna-device-id"]).toBe("cli-device");
+  });
+
   test("resources/list includes logs and network", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "resources/list" }]);
     const result = responses[0]!.result as { resources: Array<{ uri: string }> };
@@ -224,3 +248,14 @@ describe("MCP observability", () => {
     expect(sent.statusMax).toBe(499);
   });
 });
+
+async function withEnv(name: string, value: string, fn: () => Promise<void>): Promise<void> {
+  const previous = process.env[name];
+  process.env[name] = value;
+  try {
+    await fn();
+  } finally {
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
+  }
+}
