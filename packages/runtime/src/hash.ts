@@ -1,4 +1,4 @@
-import type { Node, Snapshot } from "@brna/schema";
+import { fnv1a32, type Node, type Snapshot } from "@brna/schema";
 
 const EXCLUDED_KEYS = new Set(["bounds", "_dev", "suggested_selectors"]);
 
@@ -7,7 +7,7 @@ export function computeSnapshotHash(snapshot: Pick<Snapshot, "tree" | "overlays"
     tree: canonicalPublicNode(snapshot.tree),
     ...(snapshot.overlays ? { overlays: snapshot.overlays.map(canonicalPublicNode) } : {}),
   };
-  return fnv1a32(stableStringify(input)).toString(16).padStart(8, "0");
+  return fnv1a32(stableStringify(input));
 }
 
 function canonicalPublicNode(node: Node): Record<string, unknown> {
@@ -39,13 +39,4 @@ function canonicalizeValue(value: unknown): unknown {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value);
-}
-
-function fnv1a32(value: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
 }
