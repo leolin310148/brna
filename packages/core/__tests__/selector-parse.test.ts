@@ -70,6 +70,24 @@ describe("parseSelector", () => {
     });
   });
 
+  test("quoted role names can be scoped to testID selectors", () => {
+    expect(parseSelector('button:"Save in @toolbar" in @form')).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Save in @toolbar",
+      in: { kind: "testid", testID: "form" },
+    });
+  });
+
+  test("quoted role names can be scoped to role-name selectors", () => {
+    expect(parseSelector('button:"Save in region:Toolbar" in region:Settings')).toEqual({
+      kind: "role-name",
+      role: "button",
+      name: "Save in region:Toolbar",
+      in: { kind: "role-name", role: "region", name: "Settings" },
+    });
+  });
+
   test("quoted role names can contain text-fragment punctuation", () => {
     expect(parseSelector('text:"Loading...done"')).toEqual({
       kind: "role-name",
