@@ -172,6 +172,18 @@ describe("MCP server", () => {
     expect(requestUrls[0]).toBe("http://localhost:19000/brna/snapshot");
   });
 
+  test("--metro rejects credentials", async () => {
+    await expect(runMcpServer(["--metro", "http://user:pass@localhost:8081"], {
+      stdin: Readable.from([""]),
+      stdout: new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      stderr: { write: () => true },
+    })).rejects.toThrow("Metro URL must not include credentials");
+  });
+
   test("tools/list exposes core action and observability tools", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
     const result = responses[0]!.result as {

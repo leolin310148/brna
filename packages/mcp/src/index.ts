@@ -167,6 +167,9 @@ function normalizeMetroUrl(value: string): string {
   if ((url.protocol !== "http:" && url.protocol !== "https:") || url.host.length === 0) {
     throw new Error("Metro URL must use http:// or https://");
   }
+  if (url.username.length > 0 || url.password.length > 0) {
+    throw new Error("Metro URL must not include credentials");
+  }
   return `${url.protocol}//${url.host}`;
 }
 
