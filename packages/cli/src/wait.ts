@@ -7,6 +7,7 @@ import {
   DEVICE_HEADER,
   diagnoseMetroResponse,
   failWith,
+  formatMetroUrlDiagnostic,
   normalizeMetroUrl,
   parseDecimalInteger,
 } from "./options.js";
@@ -27,8 +28,8 @@ function parseUrlValue(value: string | undefined): string {
   }
   try {
     return normalizeMetroUrl(value);
-  } catch {
-    throw new WaitUsageError(`malformed URL for '--metro': ${formatCliValue(value)}`);
+  } catch (err) {
+    throw new WaitUsageError(formatMetroUrlDiagnostic(value, err));
   }
 }
 

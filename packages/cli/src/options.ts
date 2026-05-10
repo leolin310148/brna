@@ -16,8 +16,8 @@ export function parseMetro(value: string | undefined): string {
   }
   try {
     return normalizeMetroUrl(value);
-  } catch {
-    fail(4, `malformed URL for '--metro': ${formatCliValue(value)}`);
+  } catch (err) {
+    fail(4, formatMetroUrlDiagnostic(value, err));
   }
 }
 
@@ -152,6 +152,30 @@ export function parseDecimalInteger(value: string): number | undefined {
 
 function formatCliValue(value: string): string {
   return escapeControlCharacters(value);
+}
+
+export function formatMetroUrlDiagnostic(value: string, err?: unknown): string {
+  const reason = err instanceof Error && err.message.length > 0
+    ? ` (${escapeControlCharacters(err.message)})`
+    : "";
+  return `malformed URL for '--metro': ${formatMetroUrlValue(value)}${reason}`;
+}
+
+function formatMetroUrlValue(value: string): string {
+  const trimmed = value.trim();
+  const hasExplicitScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+  try {
+    const url = new URL(hasExplicitScheme ? trimmed : `http://${trimmed}`);
+    if (url.username.length === 0 && url.password.length === 0) return formatCliValue(value);
+    const auth = [
+      url.username.length > 0 ? "<redacted>" : "",
+      url.password.length > 0 ? "<redacted>" : "",
+    ].filter(Boolean).join(":");
+    const redacted = `${url.protocol}//${auth}@${url.host}`;
+    return formatCliValue(hasExplicitScheme ? redacted : redacted.replace(/^http:\/\//, ""));
+  } catch {
+    return formatCliValue(value.replace(/(^|:\/\/)([^/@\s:]+)(?::([^/@\s]+))?@/, "$1<redacted>@"));
+  }
 }
 
 export function failWith(

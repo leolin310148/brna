@@ -3,6 +3,7 @@ import {
   diagnoseMetroResponse,
   normalizeMetroUrl,
   parseDevice,
+  parseMetro,
   parseNativeDevice,
   parseNonNegativeInt,
   parsePositiveInt,
@@ -35,6 +36,15 @@ describe("CLI option parsing", () => {
   test("rejects Metro URLs with credentials", () => {
     expect(() => normalizeMetroUrl("http://user:pass@localhost:8081")).toThrow();
     expect(() => normalizeMetroUrl("http://localhost:8081@evil.test")).toThrow();
+  });
+
+  test("Metro URL diagnostics explain and redact rejected credentials", () => {
+    const result = captureProcessExit(() => parseMetro("http://user:pass@localhost:8081"));
+
+    expect(result.code).toBe(4);
+    expect(result.stderr).toContain("Metro URL must not include credentials");
+    expect(result.stderr).toContain("http://<redacted>:<redacted>@localhost:8081");
+    expect(result.stderr).not.toContain("user:pass");
   });
 
   test("rejects whitespace-only device ids", () => {

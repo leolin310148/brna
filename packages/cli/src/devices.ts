@@ -3,6 +3,7 @@ import {
   DEFAULT_TIMEOUT_MS,
   diagnoseMetroResponse,
   failWith,
+  formatMetroUrlDiagnostic,
   normalizeMetroUrl,
   parseDecimalInteger,
 } from "./options.js";
@@ -53,8 +54,8 @@ function parseMetroValue(value: string | undefined): string {
   }
   try {
     return normalizeMetroUrl(value);
-  } catch {
-    throw new DevicesUsageError(`malformed URL for '--metro': ${escapeControlCharacters(value)}`);
+  } catch (err) {
+    throw new DevicesUsageError(formatMetroUrlDiagnostic(value, err));
   }
 }
 
