@@ -202,7 +202,12 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
     } else if (subcommand === "verify") {
       await runVerify(rest, runtime);
     } else if (subcommand === "mcp") {
-      await runMcp(rest);
+      try {
+        await runMcp(rest);
+      } catch (err) {
+        process.stderr.write(`brna: ${(err as Error).message}\n`);
+        return 4;
+      }
     } else if (subcommand === "config") {
       await runConfig(rest);
     } else if (subcommand === "trace") {

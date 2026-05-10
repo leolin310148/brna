@@ -73,6 +73,15 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("mcp startup diagnostics are formatted without a stack trace", () => {
+    const r = run(["mcp", "--bad\x1b[31m"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("brna: unknown flag: --bad\\x1b[31m");
+    expect(r.stderr).not.toContain("at parseArgs");
+    expect(r.stderr).not.toContain("\x1b");
+    expect(r.stdout).toBe("");
+  });
+
   test("act with no verb exits 4", () => {
     const r = run(["act"]);
     expect(r.status).toBe(4);
