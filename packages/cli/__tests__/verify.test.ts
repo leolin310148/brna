@@ -111,6 +111,18 @@ describe("brna verify", () => {
     expect(res.stdout).toContain("Verification passed");
   });
 
+  test("unknown device diagnostics escape terminal control characters", async () => {
+    const res = await run(["golden.md", "--device", "bad\x1b[31m"], {
+      golden: toMarkdown(makeSnapshot()),
+      fresh: makeSnapshot(),
+      fetch: async () => new Response(JSON.stringify({ error: "unknown_device" }), { status: 404 }),
+    });
+
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("bad\\x1b[31m");
+    expect(res.stderr).not.toContain("\x1b");
+  });
+
   test("timestamp-only markdown header changes pass", async () => {
     const fresh = makeSnapshot({
       meta: {

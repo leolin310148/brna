@@ -98,7 +98,7 @@ export async function runVerify(rest: string[], runtime: VerifyRuntime = {}): Pr
     failWith(3, "no runtime connected — start the app first", stderr, exit);
   }
   if (response.status === 404) {
-    failWith(3, `unknown device '${device ?? "?"}'`, stderr, exit);
+    failWith(3, `unknown device '${escapeControlCharacters(device ?? "?")}'`, stderr, exit);
   }
   if (!response.ok) {
     failWith(3, `unexpected HTTP ${response.status} from Metro`, stderr, exit);
