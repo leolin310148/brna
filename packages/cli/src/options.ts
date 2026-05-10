@@ -232,12 +232,23 @@ function firstUsefulDiagnosticLine(body: string): string {
 
 function diagnosticLineFromJson(body: string): string | undefined {
   const trimmed = body.trim();
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[") && !trimmed.startsWith("\"")) return undefined;
+  if (!looksLikeJsonDiagnosticBody(trimmed)) return undefined;
   try {
     return pickJsonDiagnostic(JSON.parse(trimmed));
   } catch {
     return undefined;
   }
+}
+
+function looksLikeJsonDiagnosticBody(value: string): boolean {
+  return (
+    value.startsWith("{") ||
+    value.startsWith("[") ||
+    value.startsWith("\"") ||
+    value === "true" ||
+    value === "false" ||
+    /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(value)
+  );
 }
 
 function pickJsonDiagnostic(value: unknown, depth = 0): string | undefined {

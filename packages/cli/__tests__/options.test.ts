@@ -230,6 +230,17 @@ describe("CLI option parsing", () => {
     );
   });
 
+  test("extracts top-level primitive JSON HTTP response diagnostics", async () => {
+    const response = new Response("false", {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(diagnoseMetroResponse(response, "/brna/snapshot")).resolves.toBe(
+      "/brna/snapshot returned HTTP 500: false",
+    );
+  });
+
   test("prefers JSON errors arrays over terse error codes", async () => {
     const response = new Response(
       JSON.stringify({
