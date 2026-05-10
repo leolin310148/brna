@@ -101,6 +101,10 @@ function isOptionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
 }
 
+function isOptionalUnknownArray(value: unknown): boolean {
+  return value === undefined || Array.isArray(value);
+}
+
 function isValidNetworkHeaderEntries(value: unknown): boolean {
   if (value === undefined) return true;
   if (!Array.isArray(value)) return false;
@@ -135,7 +139,10 @@ export function isValidLogRecord(value: unknown): value is LogRecord {
     typeof v.id === "string" &&
     isFiniteNumber(v.timestamp) &&
     isLogLevel(v.level) &&
-    typeof v.message === "string"
+    typeof v.message === "string" &&
+    isOptionalUnknownArray(v.args) &&
+    isOptionalString(v.stack) &&
+    (v.source === undefined || v.source === "console" || v.source === "error")
   );
 }
 

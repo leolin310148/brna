@@ -21,8 +21,20 @@ describe("observability schema helpers", () => {
 
   test("validates log and network record shapes", () => {
     expect(isValidLogRecord({ id: "l", timestamp: 1, level: "warn", message: "hi" })).toBe(true);
+    expect(isValidLogRecord({
+      id: "l",
+      timestamp: 1,
+      level: "error",
+      message: "boom",
+      args: [{ ok: true }],
+      stack: "Error: boom",
+      source: "error",
+    })).toBe(true);
     expect(isValidLogRecord({ id: "l", timestamp: Number.NaN, level: "warn", message: "hi" })).toBe(false);
     expect(isValidLogRecord({ id: "l", timestamp: 1, level: "verbose", message: "hi" })).toBe(false);
+    expect(isValidLogRecord({ id: "l", timestamp: 1, level: "warn", message: "hi", args: "oops" })).toBe(false);
+    expect(isValidLogRecord({ id: "l", timestamp: 1, level: "warn", message: "hi", stack: 1 })).toBe(false);
+    expect(isValidLogRecord({ id: "l", timestamp: 1, level: "warn", message: "hi", source: "native" })).toBe(false);
     expect(isValidLogRecord(null)).toBe(false);
 
     expect(isValidNetworkRecord({
