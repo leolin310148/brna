@@ -201,6 +201,15 @@ function validateModifiedChanges(value: unknown, path: string): asserts value is
         message: `unknown modified field '${String(c.field)}'`,
       });
     }
+    for (const key of ["before", "after"] as const) {
+      if (!Object.hasOwn(c, key)) {
+        throw new BrnaValidationError({
+          code: "shape",
+          path: `${changePath}.${key}`,
+          message: `modified field change must include '${key}'`,
+        });
+      }
+    }
   });
 }
 

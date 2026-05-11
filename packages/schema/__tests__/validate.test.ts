@@ -520,6 +520,19 @@ describe("diff validation", () => {
     ).toThrow(BrnaValidationError);
   });
 
+  test("rejects modified changes missing before or after values", () => {
+    expect(() =>
+      validateSnapshotDiff({
+        events: [{ type: "modified", id: "x", node, changes: [{ field: "name", after: "Submit" }] }],
+      }),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshotDiff({
+        events: [{ type: "modified", id: "x", node, changes: [{ field: "name", before: "Old" }] }],
+      }),
+    ).toThrow(BrnaValidationError);
+  });
+
   test("rejects malformed diff containers and events", () => {
     expect(() => validateSnapshotDiff(null)).toThrow(BrnaValidationError);
     expect(() => validateSnapshotDiff({})).toThrow(BrnaValidationError);
