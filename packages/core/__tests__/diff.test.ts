@@ -187,6 +187,26 @@ describe("diff serialisation", () => {
     expect(fromDiffYAML(toDiffYAML(d))).toEqual(d);
   });
 
+  test("generated field additions and removals round-trip through JSON and YAML", () => {
+    const d = diff(
+      snap([{ id: "x", kind: "input", value: "a" }]),
+      snap([{ id: "x", kind: "input", name: "Email" }]),
+    );
+    expect(d.events).toEqual([
+      {
+        type: "modified",
+        id: "x",
+        node: { id: "x", kind: "input", name: "Email" },
+        changes: [
+          { field: "name", before: null, after: "Email" },
+          { field: "value", before: "a", after: null },
+        ],
+      },
+    ]);
+    expect(fromDiffJSON(toDiffJSON(d))).toEqual(d);
+    expect(fromDiffYAML(toDiffYAML(d))).toEqual(d);
+  });
+
   test("JSON and YAML parsers reject invalid diffs", () => {
     expect(() => fromDiffJSON('{"events":[{"type":"removed","id":"x"}]}')).toThrow();
     expect(() => fromDiffYAML("events:\n  - type: removed\n    id: x\n")).toThrow();

@@ -83,13 +83,17 @@ function compareNodes(prev: Node, next: Node): ModifiedFieldChange[] {
     const before = prev[field];
     const after = next[field];
     if (before !== after) {
-      out.push({ field, before, after });
+      out.push({ field, before: serializableChangeValue(before), after: serializableChangeValue(after) });
     }
   }
   if (!stateEqual(prev.state, next.state)) {
     out.push({ field: "state", before: prev.state ?? [], after: next.state ?? [] });
   }
   return out;
+}
+
+function serializableChangeValue(value: unknown): unknown {
+  return value === undefined ? null : value;
 }
 
 function stateEqual(a: StateFlag[] | undefined, b: StateFlag[] | undefined): boolean {
