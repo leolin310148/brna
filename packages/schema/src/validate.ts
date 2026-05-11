@@ -305,6 +305,15 @@ function walkNode(node: Node, path: string, seenNodeIds: Set<string>): void {
   if (node.index !== undefined) {
     validateNonNegativeInteger(node.index, `${path}.index`, "node.index");
   }
+  if (node.total_count !== undefined && node.visible_range !== undefined) {
+    if (node.visible_range.end >= node.total_count) {
+      throw new BrnaValidationError({
+        code: "shape",
+        path: `${path}.visible_range.end`,
+        message: "visible_range.end must be less than total_count",
+      });
+    }
+  }
   if (node.suggested_selectors !== undefined) {
     if (!Array.isArray(node.suggested_selectors)) {
       throw new BrnaValidationError({

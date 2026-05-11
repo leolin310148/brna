@@ -369,6 +369,29 @@ describe("advanced snapshot fields", () => {
     ).toThrow(BrnaValidationError);
   });
 
+  test("rejects visible_range.end at or beyond total_count", () => {
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: {
+          id: "feed",
+          kind: "list",
+          total_count: 10,
+          visible_range: { start: 0, end: 10 },
+        },
+      })),
+    ).toThrow(BrnaValidationError);
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: {
+          id: "feed",
+          kind: "list",
+          total_count: 0,
+          visible_range: { start: 0, end: 0 },
+        },
+      })),
+    ).toThrow(BrnaValidationError);
+  });
+
   test("rejects fractional virtualized list counts and item indexes", () => {
     expect(() =>
       validateSnapshot(makeSnapshot({
