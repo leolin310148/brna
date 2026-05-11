@@ -190,6 +190,52 @@ describe("accessibility fields and range", () => {
     expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
   });
 
+  test("rejects range with min greater than max", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "slider",
+        range: { min: 100, max: 0 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("rejects range with now below min", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "slider",
+        range: { min: 0, max: 100, now: -1 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("rejects range with now above max", () => {
+    const snap = makeSnapshot({
+      tree: {
+        id: "root",
+        kind: "slider",
+        range: { min: 0, max: 100, now: 101 },
+      },
+    });
+    expect(() => validateSnapshot(snap)).toThrow(BrnaValidationError);
+  });
+
+  test("accepts range with now equal to min or max", () => {
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "root", kind: "slider", range: { min: 0, max: 100, now: 0 } },
+      })),
+    ).not.toThrow();
+    expect(() =>
+      validateSnapshot(makeSnapshot({
+        tree: { id: "root", kind: "slider", range: { min: 0, max: 100, now: 100 } },
+      })),
+    ).not.toThrow();
+  });
+
   test("range coexists with value", () => {
     const snap = makeSnapshot({
       tree: {

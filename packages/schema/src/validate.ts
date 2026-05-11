@@ -439,6 +439,30 @@ function validateRange(range: unknown, path: string): void {
       message: "range must contain at least one of min/max/now/text",
     });
   }
+  const min = obj.min as number | undefined;
+  const max = obj.max as number | undefined;
+  const now = obj.now as number | undefined;
+  if (typeof min === "number" && typeof max === "number" && min > max) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "range.min must be less than or equal to range.max",
+    });
+  }
+  if (typeof now === "number" && typeof min === "number" && now < min) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "range.now must be greater than or equal to range.min",
+    });
+  }
+  if (typeof now === "number" && typeof max === "number" && now > max) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path,
+      message: "range.now must be less than or equal to range.max",
+    });
+  }
 }
 
 function validateVisibleRange(range: unknown, path: string): void {
