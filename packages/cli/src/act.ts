@@ -294,7 +294,10 @@ async function runKey(positional: string[], shared: SharedFlags): Promise<void> 
   }
   const normalized = SUPPORTED_KEYS.get(key.toLowerCase());
   if (!normalized) {
-    fail(4, `unsupported key '${key}' (expected tab|enter|escape|arrow-up|arrow-down|arrow-left|arrow-right)`);
+    fail(
+      4,
+      `unsupported key '${escapeControlCharacters(key)}' (expected tab|enter|escape|arrow-up|arrow-down|arrow-left|arrow-right)`,
+    );
   }
   if (positional.length > 1) {
     fail(4, `unexpected argument '${positional[1]}'`);

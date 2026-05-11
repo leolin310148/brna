@@ -125,6 +125,14 @@ describe("act usage errors (no Metro contact)", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("unsupported key diagnostics escape terminal control characters", () => {
+    const r = run(["act", "key", "space\x1b[31m"]);
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain("unsupported key 'space\\x1b[31m'");
+    expect(r.stderr).not.toContain("\x1b");
+    expect(r.stdout).toBe("");
+  });
+
   test("missing key exits 4", () => {
     const r = run(["act", "key"]);
     expect(r.status).toBe(4);
