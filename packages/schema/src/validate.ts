@@ -160,6 +160,13 @@ function validateDiffEvent(event: unknown, path: string): void {
           message: "moved diff event to_parent must be a string",
         });
       }
+      if (ev.from_parent === ev.to_parent) {
+        throw new BrnaValidationError({
+          code: "shape",
+          path,
+          message: "moved diff event from_parent and to_parent must differ",
+        });
+      }
       return;
   }
 }

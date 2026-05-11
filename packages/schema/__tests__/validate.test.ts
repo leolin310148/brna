@@ -627,6 +627,14 @@ describe("diff validation", () => {
     ).toThrow(BrnaValidationError);
   });
 
+  test("rejects moved event whose from_parent equals to_parent", () => {
+    expect(() =>
+      validateSnapshotDiff({
+        events: [{ type: "moved", id: "x", node, from_parent: "same", to_parent: "same" }],
+      }),
+    ).toThrow(BrnaValidationError);
+  });
+
   test("rejects malformed diff nodes", () => {
     const cases: unknown[] = [
       { type: "added", id: "x", node: null },
