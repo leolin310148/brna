@@ -113,6 +113,21 @@ describe("brna config", () => {
     expect(readFileSync(join(cwd, "brna.config.ts"), "utf8")).toContain("redactSecureFields");
   });
 
+  test("config init refuses to shadow an existing JavaScript config", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
+    writeFileSync(join(cwd, "brna.config.js"), "export default {};\n", "utf8");
+
+    const result = spawnSync("bun", ["run", CLI_PATH, "config", "init"], {
+      cwd,
+      env: { ...process.env, NO_COLOR: "1" },
+      encoding: "utf8",
+      timeout: 5000,
+    });
+
+    expect(result.status).toBe(4);
+    expect(result.stderr).toContain("brna.config.js already exists");
+  });
+
   test("config path and show report the active config", () => {
     const cwd = mkdtempSync(join(tmpdir(), "brna-config-"));
     const configPath = join(cwd, "brna.config.ts");

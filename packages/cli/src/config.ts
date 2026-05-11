@@ -29,8 +29,9 @@ export async function runConfig(rest: string[]): Promise<void> {
   const sub = rest[0];
   if (sub === "init") {
     if (rest.length > 1) fail(4, `unexpected argument '${escapeControlCharacters(rest[1]!)}'`);
+    const existing = findConfigPath(process.cwd());
+    if (existing) fail(4, `${basename(existing)} already exists`);
     const target = join(process.cwd(), "brna.config.ts");
-    if (existsSync(target)) fail(4, "brna.config.ts already exists");
     await writeFile(target, defaultConfigText(), "utf8");
     process.stdout.write(`${target}\n`);
     process.exit(0);
@@ -76,13 +77,18 @@ function serializeConfig(config: BrnaConfig): Record<string, unknown> {
 }
 
 export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {
+  const path = findConfigPath(cwd);
+  if (!path) return { config: {} };
+  const mod = await importFreshConfig(path);
+  return { path, config: mod.default ?? mod.config ?? {} };
+}
+
+function findConfigPath(cwd: string): string | undefined {
   for (const name of ["brna.config.ts", "brna.config.js"]) {
     const path = join(cwd, name);
-    if (!existsSync(path)) continue;
-    const mod = await importFreshConfig(path);
-    return { path, config: mod.default ?? mod.config ?? {} };
+    if (existsSync(path)) return path;
   }
-  return { config: {} };
+  return undefined;
 }
 
 async function importFreshConfig(path: string): Promise<{ default?: BrnaConfig; config?: BrnaConfig }> {
