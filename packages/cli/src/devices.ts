@@ -7,7 +7,7 @@ import {
   normalizeMetroUrl,
   parseDecimalInteger,
 } from "./options.js";
-import { escapeControlCharacters } from "./format.js";
+import { escapeControlCharacters, formatTimestamp } from "./format.js";
 
 interface DeviceInfo {
   id: string;
@@ -165,7 +165,7 @@ export async function runDevices(rest: string[], runtime: DevicesRuntime = {}): 
   }
 
   if (devices.length === 0) {
-    stdout.write("No devices connected. brna does not support Expo web runtimes; open an iOS/Android simulator or device.\n");
+    stdout.write(formatNoDevicesMessage(recentDisconnected));
     exit(0);
   }
 
@@ -188,6 +188,38 @@ export function formatDevicesTable(devices: DeviceInfo[]): string {
   const fmt = (cells: string[]): string =>
     cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join("  ").trimEnd();
   return [fmt(headers), ...rows.map(fmt)].join("\n") + "\n";
+}
+
+function formatNoDevicesMessage(recentDisconnected: DeviceInfo[]): string {
+  const base = "No devices connected. brna does not support Expo web runtimes; open an iOS/Android simulator or device.";
+  const recent = newestRecentDisconnected(recentDisconnected);
+  if (!recent) return `${base}\n`;
+  return `${base}\nMost recent disconnected runtime: ${formatDisconnectedDevice(recent)}.\n`;
+}
+
+function newestRecentDisconnected(devices: DeviceInfo[]): DeviceInfo | undefined {
+  let newest: DeviceInfo | undefined;
+  for (const device of devices) {
+    if (!newest) {
+      newest = device;
+      continue;
+    }
+    const nextLastSeen = device.last_seen_at ?? Number.NEGATIVE_INFINITY;
+    const newestLastSeen = newest.last_seen_at ?? Number.NEGATIVE_INFINITY;
+    if (nextLastSeen > newestLastSeen) newest = device;
+  }
+  return newest;
+}
+
+function formatDisconnectedDevice(device: DeviceInfo): string {
+  const parts = [
+    escapeControlCharacters(device.id),
+    device.platform ? escapeControlCharacters(device.platform) : undefined,
+    device.os_version ? escapeControlCharacters(device.os_version) : undefined,
+    device.device_name ? escapeControlCharacters(device.device_name) : undefined,
+    device.last_seen_at !== undefined ? `last seen ${formatTimestamp(device.last_seen_at)}` : undefined,
+  ].filter((part): part is string => Boolean(part));
+  return parts.join(", ");
 }
 
 function firstMalformedDeviceField(devices: unknown[], fieldName: string): string | undefined {

@@ -55,6 +55,30 @@ describe("brna devices", () => {
     expect(res.stdout).toContain("does not support Expo web runtimes");
   });
 
+  test("empty registry includes the most recent disconnected runtime", async () => {
+    const res = await runWithBody([], {
+      devices: [],
+      recent_disconnected: [
+        { id: "older", platform: "ios", last_seen_at: 1700000000000 },
+        {
+          id: "newer",
+          platform: "android",
+          os_version: "14",
+          device_name: "Pixel 8",
+          last_seen_at: 1700000005000,
+        },
+      ],
+    });
+
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("Most recent disconnected runtime");
+    expect(res.stdout).toContain("newer");
+    expect(res.stdout).toContain("android");
+    expect(res.stdout).toContain("Pixel 8");
+    expect(res.stdout).toContain("2023-11-14T22:13:25.000Z");
+    expect(res.stdout).not.toContain("older");
+  });
+
   test("malformed devices payload exits with a protocol diagnostic", async () => {
     const res = await runWithBody([], { devices: "not-an-array" });
     expect(res.code).toBe(3);
