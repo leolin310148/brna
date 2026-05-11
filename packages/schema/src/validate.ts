@@ -138,14 +138,14 @@ function validateDiffEvent(event: unknown, path: string): void {
   switch (ev.type) {
     case "added":
     case "removed":
-      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
+      validateDiffEventNode(ev, path);
       return;
     case "modified":
-      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
+      validateDiffEventNode(ev, path);
       validateModifiedChanges(ev.changes, `${path}.changes`);
       return;
     case "moved":
-      walkNode(ev.node as Node, `${path}.node`, new Set<string>());
+      validateDiffEventNode(ev, path);
       if (typeof ev.from_parent !== "string") {
         throw new BrnaValidationError({
           code: "shape",
@@ -161,6 +161,18 @@ function validateDiffEvent(event: unknown, path: string): void {
         });
       }
       return;
+  }
+}
+
+function validateDiffEventNode(event: Record<string, unknown>, path: string): void {
+  const node = event.node as Node;
+  walkNode(node, `${path}.node`, new Set<string>());
+  if (event.id !== node.id) {
+    throw new BrnaValidationError({
+      code: "shape",
+      path: `${path}.node.id`,
+      message: "diff event node.id must match event id",
+    });
   }
 }
 

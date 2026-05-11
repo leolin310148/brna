@@ -506,6 +506,12 @@ describe("diff validation", () => {
     );
   });
 
+  test("rejects diff events whose node id does not match the event id", () => {
+    expect(() =>
+      validateSnapshotDiff({ events: [{ type: "added", id: "event-id", node: { id: "node-id", kind: "button" } }] }),
+    ).toThrow(BrnaValidationError);
+  });
+
   test("rejects invalid modified field", () => {
     expect(() =>
       validateSnapshotDiff({
