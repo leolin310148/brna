@@ -235,6 +235,28 @@ describe("annotateSuggestedSelectors", () => {
     }
   });
 
+  test("labels with invisible formatting controls are escaped in generated selectors", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [
+        {
+          id: "auto:unsafe-label",
+          kind: "button",
+          role: "button",
+          name: "Pay\u202eNow",
+        },
+      ],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:unsafe-label");
+    expect(btn.suggested_selectors).toContain('button:"Pay\\u202eNow"');
+    expect(btn.suggested_selectors?.join("\n")).not.toContain("\u202e");
+    for (const selector of btn.suggested_selectors ?? []) {
+      const resolved = resolve(selector, result);
+      expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:unsafe-label");
+    }
+  });
+
   test("text fragment fallback resolves uniquely", () => {
     const result = annotated({
       id: "root",
