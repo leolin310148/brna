@@ -66,10 +66,20 @@ describe("snapshot redaction", () => {
   test("redacts secure non-string field values by default", () => {
     const snap = snapshot();
     snap.tree.children = [
-      { id: "pin", kind: "input", name: "PIN", value: 1234, state: ["secure"] },
+      {
+        id: "pin",
+        kind: "input",
+        name: "PIN",
+        text: "1234",
+        accessibility_label: "1234",
+        value: 1234,
+        state: ["secure"],
+      },
     ];
     const out = toJSON(snap);
     expect(out).toContain('"value": "<redacted>"');
+    expect(out).toContain('"text": "<redacted>"');
+    expect(out).toContain('"accessibility_label": "<redacted>"');
     expect(out).not.toContain("1234");
   });
 

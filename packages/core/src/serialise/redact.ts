@@ -29,7 +29,7 @@ function redactNode(node: Node, rules: CompiledRule[], redactSecureFields: boole
   for (const key of ["name", "text", "accessibility_label", "accessibility_hint", "url"] as const) {
     const value = node[key];
     if (typeof value === "string") {
-      const mirrorsSecureValue = secure && typeof node.value === "string" && value === node.value;
+      const mirrorsSecureValue = secureValue !== undefined && value === secureValue;
       node[key] = mirrorsSecureValue ? redactSecureString(value) : applyRules(value, rules);
     }
   }

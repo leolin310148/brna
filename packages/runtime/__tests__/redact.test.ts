@@ -74,7 +74,7 @@ describe("redactSnapshot", () => {
     expect(password?.value).toBe("<redacted>");
   });
 
-  test("redacts secure non-string values", () => {
+  test("redacts secure non-string values and mirrored text", () => {
     const out = redactSnapshot(
       makeSnapshot({
         tree: {
@@ -85,6 +85,8 @@ describe("redactSnapshot", () => {
               id: "pin",
               kind: "input",
               name: "PIN",
+              text: "1234",
+              accessibility_label: "1234",
               value: 1234,
               state: ["secure"],
             },
@@ -95,6 +97,8 @@ describe("redactSnapshot", () => {
 
     const pin = out.tree.children?.[0];
     expect(pin?.name).toBe("PIN");
+    expect(pin?.text).toBe("<redacted>");
+    expect(pin?.accessibility_label).toBe("<redacted>");
     expect(pin?.value).toBe("<redacted>");
   });
 
