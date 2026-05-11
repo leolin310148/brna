@@ -13,6 +13,11 @@ const checks = [
     sources: ["packages/metro-plugin/src"],
     outputs: ["packages/metro-plugin/dist/index.cjs"],
   },
+  {
+    name: "@brna/expo-plugin",
+    sources: ["packages/expo-plugin/src"],
+    outputs: ["packages/expo-plugin/dist/index.cjs"],
+  },
 ];
 
 let failed = false;
