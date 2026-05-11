@@ -342,9 +342,9 @@ class BrnaMcpApp {
         inputSchema: {
           type: "object",
           properties: {
-            since: { type: "number" },
+            since: { type: "number", minimum: 0 },
             level: { type: "string", enum: ["debug", "log", "info", "warn", "error"] },
-            limit: { type: "number" },
+            limit: { type: "integer", minimum: 1 },
           },
         },
       },
@@ -354,12 +354,12 @@ class BrnaMcpApp {
         inputSchema: {
           type: "object",
           properties: {
-            since: { type: "number" },
+            since: { type: "number", minimum: 0 },
             method: { type: "string" },
-            status: { type: "number" },
-            statusMin: { type: "number" },
-            statusMax: { type: "number" },
-            limit: { type: "number" },
+            status: { type: "integer", minimum: 100, maximum: 599 },
+            statusMin: { type: "integer", minimum: 100, maximum: 599 },
+            statusMax: { type: "integer", minimum: 100, maximum: 599 },
+            limit: { type: "integer", minimum: 1 },
           },
         },
       },

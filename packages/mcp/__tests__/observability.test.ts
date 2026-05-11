@@ -218,15 +218,26 @@ describe("MCP observability", () => {
     expect(parsed.records).toEqual(records);
   });
 
-  test("tools/list advertises network status range filters", async () => {
+  test("tools/list advertises bounded observability filters", async () => {
     const responses = await exchange([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
     const result = responses[0]!.result as {
-      tools: Array<{ name: string; inputSchema?: { properties?: Record<string, { type?: string }> } }>;
+      tools: Array<{
+        name: string;
+        inputSchema?: {
+          properties?: Record<string, { maximum?: number; minimum?: number; type?: string }>;
+        };
+      }>;
     };
+    const logsTool = result.tools.find((tool) => tool.name === "logs");
     const networkTool = result.tools.find((tool) => tool.name === "network");
 
-    expect(networkTool?.inputSchema?.properties?.statusMin?.type).toBe("number");
-    expect(networkTool?.inputSchema?.properties?.statusMax?.type).toBe("number");
+    expect(logsTool?.inputSchema?.properties?.since).toEqual({ type: "number", minimum: 0 });
+    expect(logsTool?.inputSchema?.properties?.limit).toEqual({ type: "integer", minimum: 1 });
+    expect(networkTool?.inputSchema?.properties?.since).toEqual({ type: "number", minimum: 0 });
+    expect(networkTool?.inputSchema?.properties?.status).toEqual({ type: "integer", minimum: 100, maximum: 599 });
+    expect(networkTool?.inputSchema?.properties?.statusMin).toEqual({ type: "integer", minimum: 100, maximum: 599 });
+    expect(networkTool?.inputSchema?.properties?.statusMax).toEqual({ type: "integer", minimum: 100, maximum: 599 });
+    expect(networkTool?.inputSchema?.properties?.limit).toEqual({ type: "integer", minimum: 1 });
   });
 
   test("tools/call network forwards status range filters", async () => {
