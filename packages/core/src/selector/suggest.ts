@@ -2,7 +2,7 @@ import type { Node, Snapshot } from "@brna/schema";
 import { canonicalSelectorFor } from "./canonical.js";
 import { resolve } from "./resolve.js";
 import { displayLabel } from "./inferred-label.js";
-import { formatRoleSelector } from "./format.js";
+import { formatRoleSelector, isSelectorRoleToken } from "./format.js";
 
 const MAX_SUGGESTIONS = 4;
 const MAX_TEXT_FRAGMENT_PARTS = 3;
@@ -68,7 +68,7 @@ function generateForNode(
     push(`@${node.id}`);
   }
 
-  const roleOrKind = node.role ?? node.kind;
+  const roleOrKind = node.role && isSelectorRoleToken(node.role) ? node.role : node.kind;
   if (roleOrKind && node.name) {
     const display = displayLabel(node) ?? node.name;
     // Prefer the normalized label (e.g. `button:Sitemap` over

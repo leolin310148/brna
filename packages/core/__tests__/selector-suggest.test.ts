@@ -87,6 +87,21 @@ describe("annotateSuggestedSelectors", () => {
     expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:sitemap");
   });
 
+  test("falls back to kind when role cannot be used as a selector token", () => {
+    const result = annotated({
+      id: "root",
+      kind: "screen",
+      children: [{ id: "auto:menu-item", kind: "button", role: "menu item", name: "Open" }],
+    });
+    const btn = findNode(result, (n) => n.id === "auto:menu-item");
+    expect(btn.selector).toBe("button:Open in #root");
+    expect(btn.suggested_selectors).toContain("button:Open");
+    for (const selector of btn.suggested_selectors ?? []) {
+      const resolved = resolve(selector, result);
+      expect("ok" in resolved ? resolved.ok.id : null).toBe("auto:menu-item");
+    }
+  });
+
   test("unlabeled input fallback names produce addressable selectors", () => {
     const result = annotated({
       id: "root",
