@@ -189,6 +189,16 @@ describe("brna wait", () => {
     expect(res.stderr).not.toContain("\x1b");
   });
 
+  test("404 without an unknown-device body reports the endpoint diagnostic", async () => {
+    const res = await run(["text:Ready"], {
+      responses: [() => new Response("Cannot GET /brna/snapshot", { status: 404 })],
+    });
+
+    expect(res.code).toBe(3);
+    expect(res.stderr).toContain("snapshot endpoint returned HTTP 404: Cannot GET /brna/snapshot");
+    expect(res.stderr).not.toContain("unknown device");
+  });
+
   test("runtime error diagnostics escape terminal control characters", async () => {
     const res = await run(["text:Ready"], {
       responses: [

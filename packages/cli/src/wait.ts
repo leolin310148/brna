@@ -207,7 +207,13 @@ async function fetchSnapshot(
     if (diagnosis?.includes("brna Metro middleware is not mounted")) {
       return { kind: "runtime_error", message: diagnosis };
     }
-    return { kind: "unknown_device" };
+    if ((await readErrorCode(response)) === "unknown_device") {
+      return { kind: "unknown_device" };
+    }
+    return {
+      kind: "runtime_error",
+      message: diagnosis ?? "snapshot endpoint returned HTTP 404 from Metro",
+    };
   }
   if (response.status === 504) return { kind: "runtime_error", message: "runtime timed out" };
   if (response.status === 429) {
@@ -250,6 +256,15 @@ async function fetchSnapshot(
     return { kind: "runtime_error", message: `invalid snapshot received — ${(err as Error).message}` };
   }
   return { kind: "snapshot", snapshot };
+}
+
+async function readErrorCode(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.clone().json()) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function matches(ast: SelectorAST, snapshot: Snapshot, wantGone: boolean): boolean {
