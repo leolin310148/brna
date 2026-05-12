@@ -112,6 +112,10 @@ describe("brna network", () => {
   });
 
   test("malformed records payload exits with a protocol diagnostic", async () => {
+    const nullPayload = await run([], { response: new Response("null", { status: 200 }) });
+    expect(nullPayload.code).toBe(3);
+    expect(nullPayload.stderr).toContain("malformed network response");
+
     const missingArray = await run([], { body: { records: "not-an-array" } });
     expect(missingArray.code).toBe(3);
     expect(missingArray.stderr).toContain("malformed network response");

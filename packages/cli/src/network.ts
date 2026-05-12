@@ -217,16 +217,16 @@ export async function runNetwork(rest: string[], runtime: NetworkRuntime = {}): 
   }
 
   const diagnosis = await diagnoseMetroResponse(response, "network endpoint");
-  let payload: NetworkResponseBody;
+  let payload: unknown;
   try {
-    payload = (await response.json()) as NetworkResponseBody;
+    payload = await response.json();
   } catch (err) {
     failWith(3, diagnosis ?? `malformed network response: ${(err as Error).message}`, stderr, exit);
   }
-  if (!Array.isArray(payload.records) || !payload.records.every(isValidNetworkRecord)) {
+  const records = pickNetworkRecords(payload);
+  if (!records) {
     failWith(3, diagnosis ?? "malformed network response: records must be an array of network records", stderr, exit);
   }
-  const records = payload.records;
 
   if (parsed.json) {
     stdout.write(JSON.stringify({ records }, null, 2));
@@ -270,4 +270,10 @@ export function formatNetworkTable(records: NetworkRecord[]): string {
 function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
   if (value === undefined || value === null) return fallback;
   return escapeControlCharacters(String(value));
+}
+
+function pickNetworkRecords(payload: unknown): NetworkRecord[] | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const records = (payload as Partial<NetworkResponseBody>).records;
+  return Array.isArray(records) && records.every(isValidNetworkRecord) ? records : undefined;
 }

@@ -162,16 +162,16 @@ export async function runLogs(rest: string[], runtime: LogsRuntime = {}): Promis
   }
 
   const diagnosis = await diagnoseMetroResponse(response, "logs endpoint");
-  let payload: LogsResponseBody;
+  let payload: unknown;
   try {
-    payload = (await response.json()) as LogsResponseBody;
+    payload = await response.json();
   } catch (err) {
     failWith(3, diagnosis ?? `malformed logs response: ${(err as Error).message}`, stderr, exit);
   }
-  if (!Array.isArray(payload.records) || !payload.records.every(isValidLogRecord)) {
+  const records = pickLogRecords(payload);
+  if (!records) {
     failWith(3, diagnosis ?? "malformed logs response: records must be an array of log records", stderr, exit);
   }
-  const records = payload.records;
 
   if (parsed.json) {
     stdout.write(JSON.stringify({ records }, null, 2));
@@ -202,4 +202,10 @@ export function formatLogsTable(records: LogRecord[]): string {
 function formatRuntimeDiagnosticValue(value: unknown, fallback: string): string {
   if (value === undefined || value === null) return fallback;
   return escapeControlCharacters(String(value));
+}
+
+function pickLogRecords(payload: unknown): LogRecord[] | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const records = (payload as Partial<LogsResponseBody>).records;
+  return Array.isArray(records) && records.every(isValidLogRecord) ? records : undefined;
 }
