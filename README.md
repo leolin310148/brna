@@ -410,8 +410,8 @@ Other useful maintainer commands:
 
 ```sh
 bun run build:schema
-bun --filter '@brna/docs' run extract:cli
-bun --filter '@brna/docs' run dev
+bun --filter '@brna/docs' extract:cli
+bun --filter '@brna/docs' dev
 bun run e2e:expo-sample
 ```
 
