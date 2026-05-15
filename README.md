@@ -2,6 +2,10 @@
 
 Agent-friendly snapshots and actions for React Native apps.
 
+<p align="center">
+  <img src="docs/assets/brna-demo.gif" alt="brna CLI reading and controlling a React Native app from the terminal" width="900">
+</p>
+
 `brna` is an **agent-time inspect/act primitive** for development workflows. It
 lets a coding agent read the current screen of a running React Native dev app
 and drive it with stable selectors. It is **not** an end-to-end test runner
