@@ -22,7 +22,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "build": "node -e \"require('node:fs').rmSync('dist/brna',{force:true})\" && bun build ./src/cli.ts --target=node --outfile dist/brna.js",
+    "build": "node -e \"require('node:fs').rmSync('dist/brna',{force:true})\" && bun build ./src/cli.ts --target=node --conditions brna-source --outfile dist/brna.js",
     "prepack": "bun run build",
     "start": "bun run ./src/cli.ts"
   },
