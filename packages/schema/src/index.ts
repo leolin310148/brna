@@ -9,6 +9,8 @@
  * - SnapshotDiff, Trace         diff and trace data structures.
  * - deriveNodeId                priority-ordered stable id derivation (testID > a11yId > positional FNV-1a).
  * - deriveNodeIdsForSiblings    collision-aware sibling ids with `id_collision` warnings.
+ * - dedupeNodeIdsGlobally       extends `#N`/`id_collision` disambiguation across a whole forest.
+ * - dedupeFlatHitIds            same disambiguation over a flat hit list (live action targets).
  * - fnv1a32                     32-bit FNV-1a hash returning 8-hex (used by deriveNodeId).
  * - validateSnapshot            walks the tree, enforces structural and sentinel rules, throws on violation.
  * - validateSnapshotDiff        validates SnapshotDiff event payloads, node context, and modified fields.

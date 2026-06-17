@@ -1,5 +1,5 @@
 import type { Node, NodeKind, NodeRange, StateFlag } from "@brna/schema";
-import { deriveNodeIdsForSiblings } from "@brna/schema";
+import { deriveNodeIdsForSiblings, dedupeFlatHitIds } from "@brna/schema";
 import type { SnapshotWarning } from "@brna/schema";
 import type { AnyFiber, FiberRoot } from "./devtools.js";
 
@@ -852,6 +852,11 @@ export function walkLive(roots: FiberRoot[], rootParentId: string): IdentifiedHi
     collectHostFibers(root.current.child, hits);
     walkLiveLevel(hits, rootParentId, out);
   }
+  // Sibling-level id derivation only disambiguates within a parent; the same
+  // explicit id can recur across parents. Disambiguate the flat hit list with
+  // the same `#N` scheme used by snapshot capture so action target ids stay
+  // unique and match the deduped snapshot ids.
+  dedupeFlatHitIds(out);
   return out;
 }
 

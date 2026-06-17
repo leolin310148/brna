@@ -125,6 +125,47 @@ describe("walkLive id parity with walkFiberRoot", () => {
   });
 });
 
+describe("walkLive global id dedup", () => {
+  // Two tappable surfaces in different parent subtrees share a testID — the
+  // common RN case where wrappers default testID to a non-unique value (icon
+  // name, etc.). Sibling-level derivation cannot disambiguate across parents,
+  // so walkLive must dedupe the flat hit list to keep action targets unique
+  // and consistent with the snapshot.
+  const twoHeartsUnderDifferentParents = () =>
+    makeRoot(
+      makeFiber({
+        type: "RCTView",
+        props: {},
+        children: [
+          {
+            type: "RCTView",
+            props: {},
+            children: [{ type: "RCTView", props: { onResponderRelease: () => {}, testID: "heart" } }],
+          },
+          {
+            type: "RCTView",
+            props: {},
+            children: [{ type: "RCTView", props: { onResponderRelease: () => {}, testID: "heart" } }],
+          },
+        ],
+      }),
+    );
+
+  test("disambiguates same testID under different parents", () => {
+    const root = twoHeartsUnderDifferentParents();
+    const liveIds = walkLive([root], ROOT_ID).map((h) => h.id);
+    expect(liveIds.filter((id) => id === "heart")).toHaveLength(1);
+    expect(liveIds.filter((id) => id === "heart#1")).toHaveLength(1);
+    expect(new Set(liveIds).size).toBe(liveIds.length);
+  });
+
+  test("findHostFiberById can target the disambiguated duplicate", () => {
+    const root = twoHeartsUnderDifferentParents();
+    expect(findHostFiberById([root], ROOT_ID, "heart")).not.toBe(null);
+    expect(findHostFiberById([root], ROOT_ID, "heart#1")).not.toBe(null);
+  });
+});
+
 describe("findHostFiberById", () => {
   test("returns null for unknown id (target_stale precondition)", () => {
     const root = makeRoot(

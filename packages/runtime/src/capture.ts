@@ -1,6 +1,6 @@
 import { Platform, Dimensions, NativeModules } from "react-native";
 import type { Node, Snapshot, SnapshotRedactionOptions, SnapshotWarning } from "@brna/schema";
-import { SCHEMA_VERSION } from "@brna/schema";
+import { SCHEMA_VERSION, dedupeNodeIdsGlobally } from "@brna/schema";
 import { annotateSuggestedSelectors, populateSelectors } from "@brna/core/selector";
 import { findRenderer, getFiberRoots } from "./devtools.js";
 import { countInferredLabels, findFirstSource, walkFiberRoot, type MeasureTarget } from "./walker.js";
@@ -102,9 +102,17 @@ export async function captureSnapshot(options: CaptureOptions = {}): Promise<Sna
   };
 
   const primarySource = findFirstSource(allChildren);
+
+  // Explicit ids (testID/accessibilityIdentifier) are only unique among siblings,
+  // so the same id can recur across parents (list .map(), repeated icons/badges).
+  // Disambiguate the whole forest before selectors/hash so capture stays globally
+  // unique and passes validateSnapshot. Tree and overlays share one pass so their
+  // ids are unique as a set, matching validateSnapshot's combined uniqueness check.
+  const overlays = getNativeAlertOverlays();
+  dedupeNodeIdsGlobally([rawTree, ...overlays], warnings);
+
   const tree = populateSelectors(rawTree);
 
-  const overlays = getNativeAlertOverlays();
   const baseSnapshot: Snapshot = {
     meta: {
       schema_version: SCHEMA_VERSION,
