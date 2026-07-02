@@ -54,12 +54,14 @@ describe("session id derivation", () => {
     expect(resolveSessionId({ ttyIno: 0x3a7c91, ppid: 42, pid: 99 })).toBe("tty-3a7c91");
   });
 
-  test("falls back to ppid when no tty exists", () => {
-    expect(resolveSessionId({ noTty: true, ppid: 42, pid: 99 })).toBe("ppid-42");
+  test("falls back to a stable headless id when no tty exists", () => {
+    expect(resolveSessionId({ noTty: true, ppid: 42, pid: 99 })).toBe("headless");
   });
 
-  test("falls back to pid when ppid is init", () => {
-    expect(resolveSessionId({ noTty: true, ppid: 1, pid: 99 })).toBe("pid-99");
+  test("headless fallback does not depend on volatile process ids", () => {
+    expect(resolveSessionId({ noTty: true, ppid: 42, pid: 99 })).toBe(
+      resolveSessionId({ noTty: true, ppid: 43, pid: 100 }),
+    );
   });
 
   test("memoises production session id", () => {

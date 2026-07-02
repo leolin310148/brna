@@ -7,6 +7,7 @@ import { validateSnapshot, type Snapshot } from "@brna/schema";
 
 const CACHE_TTL_MS = 86_400_000;
 const CACHE_FILE = "last-snapshot.json";
+const HEADLESS_SESSION_ID = "headless";
 
 let memoizedSessionId: string | null = null;
 
@@ -44,11 +45,7 @@ export function resolveSessionId(inputs: SessionIdInputs = {}): string {
   const ttyIno = inputs.ttyIno ?? readTtyInode(inputs.noTty);
   if (ttyIno !== null) return `tty-${Number(ttyIno).toString(16)}`;
 
-  const ppid = inputs.ppid ?? process.ppid;
-  if (Number.isInteger(ppid) && ppid > 1) return `ppid-${ppid}`;
-
-  const pid = inputs.pid ?? process.pid;
-  return `pid-${pid}`;
+  return HEADLESS_SESSION_ID;
 }
 
 export function getCacheDir(options: SessionCacheOptions = {}): string {
