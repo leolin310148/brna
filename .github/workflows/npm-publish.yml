@@ -154,12 +154,13 @@ jobs:
 
           npm pack ./packages/schema --pack-destination "$pack_dir"
           npm pack ./packages/core --pack-destination "$pack_dir"
+          npm pack ./packages/local-usage --pack-destination "$pack_dir"
           npm pack ./packages/mcp --pack-destination "$pack_dir"
           npm pack ./packages/cli --pack-destination "$pack_dir"
 
           cd "$smoke_dir"
           node -e "require('node:fs').writeFileSync('package.json', JSON.stringify({ name: 'brna-smoke', private: true }) + '\n')"
-          npm install "$pack_dir"/brna-schema-*.tgz "$pack_dir"/brna-core-*.tgz "$pack_dir"/brna-mcp-*.tgz "$pack_dir"/brna-cli-*.tgz
+          npm install "$pack_dir"/brna-schema-*.tgz "$pack_dir"/brna-core-*.tgz "$pack_dir"/brna-local-usage-*.tgz "$pack_dir"/brna-mcp-*.tgz "$pack_dir"/brna-cli-*.tgz
 
           npx brna --help
           if npx brna doctor --metro http://localhost:1; then
