@@ -100,6 +100,12 @@ jobs:
               process.stdout.write(d+'\t'+pkg.name+'\t'+pkg.version+'\n');
             }
           ")
+          # Prerelease versions go to the `next` dist-tag so `latest` keeps
+          # pointing at the newest stable release.
+          dist_tag="latest"
+          case "${{ needs.prepare-release.outputs.version }}" in
+            *-*) dist_tag="next" ;;
+          esac
           for entry in "${entries[@]}"; do
             dir="${entry%%$'\t'*}"
             rest="${entry#*$'\t'}"
@@ -109,8 +115,8 @@ jobs:
               echo "Skipping $name@$version — already published"
               continue
             fi
-            echo "Publishing $name@$version from $dir"
-            npm publish --workspace "$dir" --access public --provenance
+            echo "Publishing $name@$version from $dir (tag: $dist_tag)"
+            npm publish --workspace "$dir" --access public --provenance --tag "$dist_tag"
           done
 
   cli-smoke:
