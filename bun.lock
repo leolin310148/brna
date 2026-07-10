@@ -11,7 +11,7 @@
     },
     "packages/babel-plugin": {
       "name": "@brna/babel-plugin",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "devDependencies": {
         "@babel/core": "^7.0.0",
         "@babel/plugin-syntax-jsx": "^7.0.0",
@@ -22,27 +22,28 @@
     },
     "packages/cli": {
       "name": "@brna/cli",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "bin": {
         "brna": "./dist/brna.js",
       },
       "dependencies": {
-        "@brna/core": "workspace:*",
-        "@brna/mcp": "workspace:*",
-        "@brna/schema": "workspace:*",
+        "@brna/core": "^0.1.3",
+        "@brna/local-usage": "^0.1.3",
+        "@brna/mcp": "^0.1.3",
+        "@brna/schema": "^0.1.3",
       },
     },
     "packages/core": {
       "name": "@brna/core",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "dependencies": {
-        "@brna/schema": "^0.0.7",
+        "@brna/schema": "^0.1.3",
         "yaml": "^2.5.0",
       },
     },
     "packages/docs": {
       "name": "@brna/docs",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "dependencies": {
         "@brna/cli": "workspace:*",
         "astro": "^5.7.0",
@@ -53,26 +54,31 @@
     },
     "packages/expo-plugin": {
       "name": "@brna/expo-plugin",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "peerDependencies": {
         "expo": "*",
       },
     },
+    "packages/local-usage": {
+      "name": "@brna/local-usage",
+      "version": "0.1.3",
+    },
     "packages/mcp": {
       "name": "@brna/mcp",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "bin": {
         "brna-mcp": "./dist/brna-mcp.js",
       },
       "dependencies": {
-        "@brna/core": "workspace:*",
-        "@brna/schema": "workspace:*",
+        "@brna/core": "^0.1.3",
+        "@brna/local-usage": "^0.1.3",
+        "@brna/schema": "^0.1.3",
         "@modelcontextprotocol/sdk": "^1.29.0",
       },
     },
     "packages/metro-plugin": {
       "name": "@brna/metro-plugin",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "dependencies": {
         "@brna/schema": "workspace:*",
         "ws": "^8.18.0",
@@ -87,7 +93,7 @@
     },
     "packages/runtime": {
       "name": "@brna/runtime",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "dependencies": {
         "@brna/core": "^0.0.7",
         "@brna/schema": "^0.0.7",
@@ -99,7 +105,7 @@
     },
     "packages/schema": {
       "name": "@brna/schema",
-      "version": "0.0.7",
+      "version": "0.1.3",
       "dependencies": {
         "ajv": "^8.17.0",
       },
@@ -284,6 +290,8 @@
     "@brna/docs": ["@brna/docs@workspace:packages/docs"],
 
     "@brna/expo-plugin": ["@brna/expo-plugin@workspace:packages/expo-plugin"],
+
+    "@brna/local-usage": ["@brna/local-usage@workspace:packages/local-usage"],
 
     "@brna/mcp": ["@brna/mcp@workspace:packages/mcp"],
 

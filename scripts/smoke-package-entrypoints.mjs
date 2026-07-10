@@ -12,6 +12,7 @@ const npmCacheDir = join(workDir, "npm-cache");
 const packages = [
   "packages/schema",
   "packages/core",
+  "packages/local-usage",
   "packages/babel-plugin",
   "packages/runtime",
   "packages/metro-plugin",

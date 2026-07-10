@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@brna/core": "^0.1.3",
+    "@brna/local-usage": "^0.1.3",
     "@brna/schema": "^0.1.3",
     "@modelcontextprotocol/sdk": "^1.29.0"
   }

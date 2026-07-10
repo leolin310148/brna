@@ -21,8 +21,16 @@ import {
   type Snapshot,
 } from "@brna/schema";
 import { resolve as resolveSelector, toMarkdown } from "@brna/core";
+import {
+  sanitizeMcpResource,
+  sanitizeMcpTool,
+  startUsageOperation,
+  type SanitizedInvocation,
+  type UsageOperation,
+  type UsageRuntimeOptions,
+} from "@brna/local-usage";
 
-const SERVER_INFO = { name: "brna-mcp", version: "0.0.0" };
+const SERVER_INFO = { name: "brna-mcp", version: "0.1.3" };
 const DEFAULT_METRO_URL = "http://localhost:8081";
 const SNAPSHOT_RESOURCE_URI = "brna://current/snapshot";
 const LOGS_RESOURCE_URI = "brna://current/logs";
@@ -36,6 +44,7 @@ interface ServerOptions {
   stdin?: Readable;
   stdout?: Writable;
   stderr?: Pick<typeof process.stderr, "write">;
+  usage?: UsageRuntimeOptions | false;
 }
 
 export async function runMcpServer(argv: string[], opts: ServerOptions = {}): Promise<void> {
@@ -45,7 +54,7 @@ export async function runMcpServer(argv: string[], opts: ServerOptions = {}): Pr
   const stdout = opts.stdout ?? process.stdout;
   const stderr = opts.stderr ?? process.stderr;
 
-  const app = new BrnaMcpApp({ metroUrl, device, fetch: fetchImpl, stdout, stderr });
+  const app = new BrnaMcpApp({ metroUrl, device, fetch: fetchImpl, stdout, stderr, usage: opts.usage });
   const server = app.createServer();
   const transport = opts.stdin || opts.stdout
     ? new LineTransport(stdin, stdout)
@@ -56,6 +65,7 @@ export async function runMcpServer(argv: string[], opts: ServerOptions = {}): Pr
   if (transport instanceof LineTransport) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
+  await app.waitForIdle();
   await transport.close();
 }
 
@@ -179,10 +189,19 @@ interface McpServerDeps {
   fetch: typeof fetch;
   stdout: Writable;
   stderr: Pick<typeof process.stderr, "write">;
+  usage?: UsageRuntimeOptions | false;
 }
 
 class BrnaMcpApp {
+  private activeOperations = 0;
+  private idleResolvers: Array<() => void> = [];
+
   constructor(private deps: McpServerDeps) {}
+
+  async waitForIdle(): Promise<void> {
+    if (this.activeOperations === 0) return;
+    await new Promise<void>((resolve) => this.idleResolvers.push(resolve));
+  }
 
   createServer(): Server {
     const server = new Server(SERVER_INFO, {
@@ -192,10 +211,44 @@ class BrnaMcpApp {
       },
     });
     server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: this.listResources() }));
-    server.setRequestHandler(ReadResourceRequestSchema, async (request) => this.readResource(request.params));
+    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const invocation = sanitizeMcpResource((request.params as { uri?: unknown })?.uri);
+      return this.observe(invocation, () => this.readResource(request.params));
+    });
     server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: this.listTools() }));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params));
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const params = request.params as { name?: unknown; arguments?: unknown };
+      const invocation = sanitizeMcpTool(params?.name, params?.arguments);
+      return this.observe(invocation, () => this.callTool(request.params));
+    });
     return server;
+  }
+
+  private async observe<T>(invocation: SanitizedInvocation, run: () => Promise<T>): Promise<T> {
+    this.activeOperations += 1;
+    let usageOperation: UsageOperation | undefined;
+    try {
+      if (this.deps.usage === false) return await run();
+      const usageOptions = this.deps.usage ?? {};
+      usageOperation = await startUsageOperation({
+        ...usageOptions,
+        surface: "mcp",
+        operation: invocation.operation,
+        brnaVersion: SERVER_INFO.version,
+        ...(invocation.dimensions ? { dimensions: invocation.dimensions } : {}),
+      });
+      const result = await run();
+      await usageOperation.finishSuccess();
+      return result;
+    } catch (err) {
+      await usageOperation?.finishError(classifyMcpError(err, invocation.operation));
+      throw err;
+    } finally {
+      this.activeOperations -= 1;
+      if (this.activeOperations === 0) {
+        for (const resolve of this.idleResolvers.splice(0)) resolve();
+      }
+    }
   }
 
   private listResources() {
@@ -562,4 +615,20 @@ function candidateSelector(node: Node): string {
   const suggested = node.suggested_selectors?.[0];
   if (suggested) return suggested;
   return `#${node.id}`;
+}
+
+function classifyMcpError(err: unknown, operation: string): { errorCode: string; phase: string } {
+  const message = (err as { message?: unknown })?.message;
+  const text = typeof message === "string" ? message : "";
+  if (text.includes('"code":"ambiguous"')) return { errorCode: "selector.ambiguous", phase: "resolve" };
+  if (text.includes("selector did not match")) return { errorCode: "selector.not_found", phase: "resolve" };
+  if (text.includes("unknown tool") || text.includes("unknown resource") || text.includes("missing or empty argument")) {
+    return { errorCode: "cli.invalid_argument", phase: "parse" };
+  }
+  if (/HTTP 503\b/.test(text)) return { errorCode: "runtime.not_connected", phase: operation.startsWith("act.") ? "dispatch" : "snapshot" };
+  if (/HTTP 504\b|timed out|timeout/i.test(text)) return { errorCode: "runtime.timeout", phase: "connect" };
+  if (/HTTP 429\b|in flight/i.test(text)) return { errorCode: "request.in_flight", phase: "connect" };
+  if (/snapshot/i.test(text) && /invalid|malformed/i.test(text)) return { errorCode: "snapshot.invalid", phase: "snapshot" };
+  if (text.includes("fetch failed") || text.includes("ECONNREFUSED")) return { errorCode: "metro.unreachable", phase: "connect" };
+  return { errorCode: "internal.unexpected", phase: "internal" };
 }

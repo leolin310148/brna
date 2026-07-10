@@ -345,6 +345,44 @@ brna mcp --device ios-sim
 The MCP server exposes the current snapshot and action tools so agent clients
 can inspect and interact with the running app through one protocol.
 
+### Local usage journal
+
+Brna keeps a small, privacy-preserving usage journal on the developer's
+machine so you can see which CLI commands and MCP operations agents use, how
+long they take, which stable error categories recur, and which follow-up
+operations recover successfully. This is separate from runtime `logs`,
+`network`, and opt-in replay `trace` files.
+
+```sh
+brna usage status
+brna usage path
+brna usage summary --since 7d
+brna usage summary --json
+brna usage export --since 30d --to usage-report.json
+brna usage disable
+brna usage clear
+```
+
+The journal is local-only: Brna has no usage upload or synchronization path.
+Collection defaults to enabled for normal local execution and disabled in CI.
+`DO_NOT_TRACK=1` always disables it; `BRNA_USAGE_LOG=0` disables it explicitly,
+and `BRNA_USAGE_LOG=1` enables it explicitly outside `DO_NOT_TRACK`.
+`brna usage enable|disable` persists the global preference.
+
+Each daily JSONL record contains only an operation lifecycle, locally salted
+project/session identifiers, the Brna/platform version, safe option booleans
+or enums, duration, outcome, stable error category, and coarse counts. It does
+**not** contain prompts, selectors, typed text or its length, paths, URLs,
+device ids, project names, environment values, snapshots, application text,
+runtime logs, network records, payloads, stdout/stderr, or error messages.
+
+Daily files are kept in the platform user-state directory with private file
+permissions, retained for 30 days, and bounded to 50 MiB. `usage summary`
+ignores malformed/truncated records and reports operation counts, success
+rates, p50/p95 latency, interruptions, errors, and recovery transitions.
+`usage export` writes aggregate JSON only—never raw events or local
+identifiers—and never transmits the result.
+
 ## Manual Expo Setup
 
 Manual setup is the recommended path for managed, EAS, and dev-client Expo
@@ -386,6 +424,7 @@ This repository is a Bun workspace:
 ```text
 packages/schema        Shared snapshot and action types
 packages/core          Snapshot serialisation, selector parsing, and diffs
+packages/local-usage   Local-only usage journal, privacy filters, and summaries
 packages/runtime       In-app snapshot capture and action dispatch
 packages/babel-plugin  Runtime injection and JSX annotations
 packages/metro-plugin  Metro middleware and Expo integration helpers

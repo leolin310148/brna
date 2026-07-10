@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Readable, Writable } from "node:stream";
+import { mkdtempSync } from "node:fs";
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ACTION_KEYS, SCHEMA_VERSION, type Snapshot } from "@brna/schema";
+import { readUsageEvents, type UsageRuntimeOptions } from "@brna/local-usage";
 import { runMcpServer } from "../src/index.js";
 
 function makeSnapshot(over: Partial<Snapshot> = {}): Snapshot {
@@ -47,6 +52,7 @@ async function exchange(
     argv?: string[];
     requestUrls?: string[];
     trailingNewline?: boolean;
+    usage?: UsageRuntimeOptions | false;
   } = {},
 ): Promise<Frame[]> {
   const fresh = opts.fresh ?? makeSnapshot();
@@ -93,6 +99,7 @@ async function exchange(
     stdin,
     stdout,
     stderr: { write: () => true },
+    usage: opts.usage ?? false,
   });
   return out
     .split("\n")
@@ -394,5 +401,62 @@ describe("MCP server", () => {
     expect(responses[0]!.error?.message).toContain("#missing\\x1b[31m\\u202e");
     expect(responses[0]!.error?.message).not.toContain("\x1b");
     expect(responses[0]!.error?.message).not.toContain("\u202e");
+  });
+
+  test("records sanitized MCP tool success and selector failure lifecycles", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "brna-mcp-usage-"));
+    const usage = { stateDir, env: { BRNA_USAGE_LOG: "1", BRNA_CALLER: "claude" }, cwd: stateDir, sessionId: "mcp-test" };
+    const selector = "#email";
+    const secret = "never-store-this-secret";
+    await exchange([{
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "type", arguments: { selector, text: secret } },
+    }], {
+      usage,
+      fresh: makeSnapshot({
+        tree: { id: "root", kind: "screen", children: [{ id: "email", kind: "input", name: "PrivateEmail" }] },
+      }),
+    });
+    await exchange([{
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "tap", arguments: { selector: "button:Submit" } },
+    }], {
+      usage,
+      fresh: makeSnapshot({
+        tree: {
+          id: "root",
+          kind: "screen",
+          children: [
+            { id: "one", kind: "button", role: "button", name: "Submit" },
+            { id: "two", kind: "button", role: "button", name: "Submit" },
+          ],
+        },
+      }),
+    });
+
+    const events = await readUsageEvents({ stateDir });
+    expect(events.filter((event) => event.operation === "act.type")).toHaveLength(2);
+    const failure = events.find((event) => event.event === "operation.finished" && event.operation === "act.tap");
+    expect(failure).toMatchObject({ outcome: "error", error_code: "selector.ambiguous", phase: "resolve" });
+    const raw = await readFile(join(stateDir, (await readdir(stateDir)).find((name) => name.endsWith(".jsonl"))!), "utf8");
+    expect(raw).not.toContain(selector);
+    expect(raw).not.toContain(secret);
+  });
+
+  test("usage write failure does not change MCP tool results", async () => {
+    const root = mkdtempSync(join(tmpdir(), "brna-mcp-usage-failure-"));
+    const stateDir = join(root, "not-a-directory");
+    await writeFile(stateDir, "file", "utf8");
+    const responses = await exchange([{
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "tap", arguments: { selector: "button:Submit" } },
+    }], { usage: { stateDir, env: { BRNA_USAGE_LOG: "1" } } });
+    expect((responses[0]!.result as { content: Array<{ text: string }> }).content[0]!.text).toContain("ok: tap");
   });
 });

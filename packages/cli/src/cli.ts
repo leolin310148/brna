@@ -13,6 +13,9 @@ import { runLogs } from "./logs.js";
 import { runNetwork } from "./network.js";
 import { commandByName, formatCommandHelp, formatGlobalHelp } from "./metadata.js";
 import { escapeControlCharacters } from "./format.js";
+import { runUsage } from "./usage.js";
+import { errorCodeFromExit, sanitizeCliInvocation, startUsageOperation } from "@brna/local-usage";
+import { getSessionId } from "./session.js";
 import {
   DAEMON_INTERNAL_ENV,
   DAEMON_SESSION_ENV,
@@ -37,6 +40,30 @@ class CliExit extends Error {
 type Writable = Pick<typeof process.stdout, "write">;
 
 export async function runCli(argv = process.argv.slice(2)): Promise<number> {
+  const invocation = process.env[DAEMON_INTERNAL_ENV] === "1" ? null : sanitizeCliInvocation(argv);
+  const usage = invocation
+    ? await startUsageOperation({
+        surface: "cli",
+        operation: invocation.operation,
+        brnaVersion: "0.1.3",
+        ...(invocation.dimensions ? { dimensions: invocation.dimensions } : {}),
+        sessionId: getSessionId(),
+      })
+    : null;
+  try {
+    const code = await runCliUnobserved(argv);
+    if (usage) {
+      if (code === 0) await usage.finishSuccess({ exitCode: code });
+      else await usage.finishError({ exitCode: code, errorCode: errorCodeFromExit(code), phase: phaseFromExit(code) });
+    }
+    return code;
+  } catch (err) {
+    await usage?.finishError({ exitCode: 1, errorCode: "internal.unexpected", phase: "internal" });
+    throw err;
+  }
+}
+
+async function runCliUnobserved(argv: string[]): Promise<number> {
   if (process.env[DAEMON_INTERNAL_ENV] === "1") {
     await runDaemon();
     return 0;
@@ -96,6 +123,10 @@ async function maybeRunLocalOnly(argv: string[]): Promise<number | null> {
 
   if (subcommand === "daemon") {
     return runDaemonManagement(rest);
+  }
+
+  if (subcommand === "usage") {
+    return runUsage(rest);
   }
 
   return null;
@@ -190,6 +221,12 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
           throw new CliExit(code);
         },
       };
+  const originalExit = process.exit;
+  if (!streams) {
+    process.exit = ((code?: string | number | null | undefined): never => {
+      throw new CliExit(typeof code === "number" ? code : 0);
+    }) as typeof process.exit;
+  }
   try {
     if (subcommand === "snapshot" || subcommand === "snap") {
       await runSnapshot(rest, runtime);
@@ -228,6 +265,8 @@ async function runCommandDirect(argv: string[], streams?: { stdout: Writable; st
   } catch (err) {
     if (err instanceof CliExit) return err.code;
     throw err;
+  } finally {
+    if (!streams) process.exit = originalExit;
   }
 }
 
@@ -248,6 +287,14 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   const remaining = seconds % 60;
   return `${minutes}m${remaining}s`;
+}
+
+function phaseFromExit(code: number): "parse" | "connect" | "resolve" | "dispatch" | "internal" {
+  if (code === 4) return "parse";
+  if (code === 1) return "connect";
+  if (code === 2 || code === 3) return "resolve";
+  if (code === 5) return "dispatch";
+  return "internal";
 }
 
 if (import.meta.main) {

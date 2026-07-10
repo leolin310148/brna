@@ -30,6 +30,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@brna/local-usage": "^0.1.3",
     "@brna/schema": "^0.1.3",
     "@brna/core": "^0.1.3",
     "@brna/mcp": "^0.1.3"

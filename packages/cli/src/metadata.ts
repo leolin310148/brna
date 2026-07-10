@@ -229,6 +229,24 @@ export const CLI_COMMANDS: CliCommandMetadata[] = [
       "brna daemon stop",
     ],
   },
+  {
+    name: "usage",
+    description: "Inspect and control the privacy-preserving local Brna usage journal.",
+    usage: "brna usage <status|path|summary|export|clear|enable|disable>",
+    options: [
+      { name: "--since", description: "Analyze a duration such as 24h, 7d, or 30m (summary/export)." },
+      { name: "--json", description: "Print summary as JSON." },
+      { name: "--to", description: "Write an aggregate-only JSON export to a path." },
+    ],
+    examples: [
+      "brna usage status",
+      "brna usage summary --since 7d",
+      "brna usage summary --json",
+      "brna usage export --since 30d --to usage-report.json",
+      "brna usage disable",
+      "brna usage clear",
+    ],
+  },
 ];
 
 export function commandByName(name: string): CliCommandMetadata | undefined {

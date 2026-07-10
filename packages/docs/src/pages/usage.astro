@@ -1,0 +1,72 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Local Usage and Privacy">
+  <h1>Local usage and privacy</h1>
+  <p class="muted">Understand how agents use Brna without recording application content or sending usage data away.</p>
+
+  <section class="card">
+    <h2>What it is</h2>
+    <p>
+      The local usage journal records sanitized lifecycle metadata for Brna CLI
+      commands, MCP resource reads, and MCP tool calls. It helps identify common
+      workflows, latency, errors, interrupted operations, and successful recovery
+      sequences. It is distinct from application <code>logs</code> and
+      <code>network</code> records and from opt-in replay <code>trace</code> files.
+    </p>
+    <p>Brna has no automatic usage upload, synchronization, or remote telemetry path.</p>
+  </section>
+
+  <section class="card">
+    <h2>Inspect and control</h2>
+    <pre><code>brna usage status
+brna usage path
+brna usage summary --since 7d
+brna usage summary --json
+brna usage export --since 30d --to usage-report.json
+brna usage enable
+brna usage disable
+brna usage clear</code></pre>
+    <p>
+      Collection is enabled by default during normal local execution and disabled
+      by default in CI. <code>DO_NOT_TRACK=1</code> always disables collection.
+      <code>BRNA_USAGE_LOG=0</code> disables it explicitly and
+      <code>BRNA_USAGE_LOG=1</code> enables it explicitly unless Do Not Track is set.
+      Management commands are never themselves journaled.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Exact privacy boundary</h2>
+    <p>The journal can store:</p>
+    <ul>
+      <li>canonical operation and CLI/MCP surface;</li>
+      <li>random operation id and locally salted project/session correlation ids;</li>
+      <li>Brna version, operating-system family, architecture, and normalized caller name;</li>
+      <li>safe option booleans or enums, duration, outcome, stable error code, phase, and coarse counts.</li>
+    </ul>
+    <p>The journal never stores:</p>
+    <ul>
+      <li>prompts, agent reasoning, or arbitrary non-Brna tool calls;</li>
+      <li>selectors, typed values or their length, paths, URLs, device ids, project names, or environment values;</li>
+      <li>snapshots, application text, runtime logs, network records, payloads, stdout/stderr, or error messages.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>Storage, retention, and export</h2>
+    <p>
+      Events are append-only daily JSONL files in the platform's per-user state
+      directory. Directories and files use private permissions where supported.
+      Brna retains 30 days and at most 50 MiB, removes expired files during bounded
+      cleanup, and ignores a malformed or truncated line without losing other events.
+    </p>
+    <p>
+      <code>usage summary</code> reports counts, success rate, p50/p95 duration,
+      interrupted operations, stable errors, and recovery transitions.
+      <code>usage export</code> writes only this aggregate model and collection-size
+      metadata. It excludes raw events, event-level timestamps, and all local ids;
+      Brna never transmits the exported file.
+    </p>
+  </section>
+</Base>
