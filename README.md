@@ -434,13 +434,17 @@ packages/mcp           MCP server shim for agent clients
 packages/docs          Public documentation site
 ```
 
-Install dependencies and run the core checks:
+Install dependencies and run the complete verification pipeline:
 
 ```sh
 bun install
-bun run typecheck
-bun test
+bun run verify
 ```
+
+`verify` generates schemas, typechecks, builds packages before running tests, then
+checks distribution freshness and packed package entrypoints. Building first is
+required because CLI subprocess tests load workspace packages through their
+published `dist` entrypoints, which are absent in a clean checkout.
 
 Run the CLI from the workspace:
 

@@ -19,7 +19,7 @@
     "smoke:package-entrypoints": "node scripts/smoke-package-entrypoints.mjs",
     "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter '*' test",
-    "verify": "bun run build:schema && bun run typecheck && bun run test && bun run build:packages && bun run check:dist && bun run smoke:package-entrypoints"
+    "verify": "bun run build:schema && bun run typecheck && bun run build:packages && bun run test && bun run check:dist && bun run smoke:package-entrypoints"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
