@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { AnyFiber, FiberRoot } from "../src/devtools.js";
 import type { Node } from "@brna/schema";
+import { dispatchAction } from "../src/dispatch.js";
 import {
   findHostFiberById,
   isDisabledHit,
@@ -10,6 +11,7 @@ import {
 
 interface FiberInit {
   type: string;
+  tag?: number;
   props?: Record<string, unknown>;
   stateNode?: unknown;
   children?: FiberInit[];
@@ -17,7 +19,7 @@ interface FiberInit {
 
 function makeFiber(init: FiberInit): AnyFiber {
   const fiber: AnyFiber = {
-    tag: 5,
+    tag: init.tag ?? 5,
     type: init.type,
     elementType: init.type,
     child: null,
@@ -254,5 +256,62 @@ describe("isDisabledHit", () => {
     );
     const hit = findHostFiberById([root], ROOT_ID, "on")!;
     expect(isDisabledHit(hit)).toBe(false);
+  });
+});
+
+describe("disabled snapshot and live parity", () => {
+  test.each([undefined, { selected: true }])("host disabled survives absent or unrelated accessibility state: %j", (accessibilityState) => {
+    const root = makeRoot(makeFiber({ type: "RCTView", props: {
+      testID: "off", disabled: true, accessibilityState, onResponderRelease: () => {},
+    } }));
+    const snapshot = walkFiberRoot(root, ROOT_ID).rootChildren[0]!;
+    expect(snapshot.state).toContain("disabled");
+    if (accessibilityState) expect(snapshot.state).toContain("selected");
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "off")!)).toBe(true);
+  });
+
+  test("composite disabled reaches its host but not a nested host control", () => {
+    const root = makeRoot(makeFiber({ type: "Pressable", tag: 11, props: { disabled: true }, children: [
+      { type: "RCTView", props: { testID: "off", onResponderRelease: () => {}, accessibilityState: { disabled: true } }, children: [
+        { type: "RCTView", props: { testID: "child", onResponderRelease: () => {} } },
+      ] },
+    ] }));
+    const snapshot = walkFiberRoot(root, ROOT_ID).rootChildren[0]!;
+    expect(snapshot.state).toContain("disabled");
+    expect(snapshot.children![0]!.state ?? []).not.toContain("disabled");
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "off")!)).toBe(true);
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "child")!)).toBe(false);
+  });
+
+  test("composite accessibility metadata alone does not disable responder actions", () => {
+    const root = makeRoot(makeFiber({ type: "Pressable", tag: 11, props: { accessibilityState: { disabled: true } }, children: [
+      { type: "RCTView", props: { testID: "backdrop", onResponderRelease: () => {} } },
+    ] }));
+    expect(walkFiberRoot(root, ROOT_ID).rootChildren[0]!.state ?? []).not.toContain("disabled");
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "backdrop")!)).toBe(false);
+  });
+
+  test("modal scope does not fabricate disabled snapshot state", () => {
+    const root = makeRoot(makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => {} } },
+      { type: "RCTView", props: { accessibilityViewIsModal: true } },
+    ] }));
+    const background = walkFiberRoot(root, ROOT_ID).rootChildren[0]!.children![0]!;
+    expect(background.state ?? []).not.toContain("disabled");
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "background")!)).toBe(false);
+  });
+  test.each([true, false])("committed disabled owner wins over stale return owner: %j", async (disabled) => {
+    let calls = 0;
+    const owner = makeFiber({ type: "Pressable", tag: 11, props: { disabled }, children: [
+      { type: "RCTView", props: { testID: "control", onResponderRelease: () => calls++ } },
+    ] });
+    owner.child!.return = makeFiber({ type: "Pressable", tag: 11, props: { disabled: !disabled } });
+    const root = makeRoot(owner);
+    const state = walkFiberRoot(root, ROOT_ID).rootChildren[0]!.state ?? [];
+    expect(state.includes("disabled")).toBe(disabled);
+    expect(isDisabledHit(findHostFiberById([root], ROOT_ID, "control")!)).toBe(disabled);
+    const out = await dispatchAction({ kind: "tap", selector: "#control", target_id: "control" }, { rootsProvider: () => [root] });
+    expect(out).toMatchObject(disabled ? { ok: false, code: "target_disabled" } : { ok: true });
+    expect(calls).toBe(disabled ? 0 : 1);
   });
 });

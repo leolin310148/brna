@@ -88,6 +88,8 @@ function styleHasDisplayNone(style: unknown): boolean {
 
 function isHiddenSubtreeFiber(fiber: AnyFiber): boolean {
   const props = readProps(fiber);
+  // React retains primary Suspense content under a hidden Offscreen fiber.
+  if (fiber.tag === 22 && (props.mode === "hidden" || fiber.memoizedState != null)) return true;
   if (props.accessibilityElementsHidden === true) return true;
   if (props["aria-hidden"] === true) return true;
   if (props.importantForAccessibility === "no-hide-descendants") return true;
@@ -135,6 +137,7 @@ interface HostHit {
   totalCount?: number;
   itemIndex?: number;
   visibleRange?: VisibleRange;
+  explicitDisabled?: boolean;
 }
 
 interface CollectContext {
@@ -142,6 +145,7 @@ interface CollectContext {
   itemIndex?: number;
   itemHostClaimed?: boolean;
   visibleRange?: VisibleRange;
+  disabledOwner?: boolean;
 }
 
 interface VisibleRange {
@@ -156,12 +160,20 @@ function collectHostFibers(start: AnyFiber | null, out: HostHit[], context: Coll
       fiber = fiber.sibling;
       continue;
     }
-    const fiberContext = deriveCollectContext(fiber, context);
+    // Bailed-out children can retain return pointers to stale composite props.
+    const explicitDisabled = readProps(fiber).disabled === true || (
+      fiber.tag !== 4 && fiber.tag !== 3 && context.disabledOwner === true
+    );
+    const fiberContext = deriveCollectContext(fiber, {
+      ...context,
+      disabledOwner: fiber.tag === 5 || fiber.tag === 4 || fiber.tag === 3 ? false : explicitDisabled,
+    });
     const kind = mapHostToNodeKindWithContext(fiber, fiberContext);
     if (kind) {
       const hit: HostHit = {
         fiber,
         kind,
+        explicitDisabled,
         ...(kind === "list" && fiberContext.totalCount !== undefined ? { totalCount: fiberContext.totalCount } : {}),
         ...(kind === "list" && fiberContext.visibleRange !== undefined ? { visibleRange: fiberContext.visibleRange } : {}),
         ...(kind === "list_item" && fiberContext.itemIndex !== undefined ? { itemIndex: fiberContext.itemIndex } : {}),
@@ -369,12 +381,12 @@ function findHandlerLabel(props: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function extractAccessibilityState(props: Record<string, unknown>): StateFlag[] | undefined {
+function extractAccessibilityState(fiber: AnyFiber, explicitDisabled = hasExplicitDisabledOwner(fiber)): StateFlag[] | undefined {
+  const props = readProps(fiber);
   const raw = props.accessibilityState;
-  if (!raw || typeof raw !== "object") return undefined;
-  const obj = raw as Record<string, unknown>;
+  const obj = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   const flags: StateFlag[] = [];
-  if (obj.disabled === true && isDisabledForActions(props)) flags.push("disabled");
+  if (explicitDisabled || (obj.disabled === true && !hasTapHandler(props))) flags.push("disabled");
   if (obj.selected === true) flags.push("selected");
   if (obj.checked === true) flags.push("checked");
   if (obj.expanded === true) flags.push("expanded");
@@ -382,9 +394,16 @@ function extractAccessibilityState(props: Record<string, unknown>): StateFlag[] 
   return flags.length > 0 ? flags : undefined;
 }
 
-function isDisabledForActions(props: Record<string, unknown>): boolean {
-  if (props.disabled === true) return true;
-  return !hasTapHandler(props);
+function hasExplicitDisabledOwner(fiber: AnyFiber): boolean {
+  if (readProps(fiber).disabled === true) return true;
+  let owner = fiber.return;
+  while (owner) {
+    // Composite ownership ends at the next native host, portal, or root.
+    if (owner.tag === 5 || owner.tag === 4 || owner.tag === 3) break;
+    if (readProps(owner).disabled === true) return true;
+    owner = owner.return;
+  }
+  return false;
 }
 
 function hasTapHandler(props: Record<string, unknown>): boolean {
@@ -454,7 +473,7 @@ export function extractNodeFields(hit: HostHit): ExtractedFields {
   if (typeof props.accessibilityRole === "string") {
     out.role = props.accessibilityRole;
   }
-  const state = extractAccessibilityState(props);
+  const state = extractAccessibilityState(fiber, hit.explicitDisabled);
   if (state) out.state = state;
   if (hit.kind === "input") {
     const inputFlags: StateFlag[] = [];
@@ -839,6 +858,7 @@ export interface IdentifiedHit {
   kind: NodeKind;
   fields: ExtractedFields;
   parentId: string;
+  blockedByModal?: boolean;
 }
 
 // Walk live fibers and emit identified hits in document order. Uses the
@@ -852,12 +872,56 @@ export function walkLive(roots: FiberRoot[], rootParentId: string): IdentifiedHi
     collectHostFibers(root.current.child, hits);
     walkLiveLevel(hits, rootParentId, out);
   }
+  // Require membership in every explicit active boundary: nested modals narrow
+  // to the inner scope; disjoint scopes are ambiguous, not evidence of z-order.
+  // This is a live action guard, not a disabled accessibility state.
+  const modals: AnyFiber[] = [];
+  for (const root of roots) collectActiveModals(root.current.child, modals);
+  if (modals.length > 0) {
+    const parents = new Map<AnyFiber, AnyFiber | null>();
+    for (const root of roots) collectTraversalParents(root.current.child, null, parents);
+    for (const hit of out) {
+      if (modals.some((modal) => !isFiberWithin(hit.fiber, modal, parents))) hit.blockedByModal = true;
+    }
+  }
   // Sibling-level id derivation only disambiguates within a parent; the same
   // explicit id can recur across parents. Disambiguate the flat hit list with
   // the same `#N` scheme used by snapshot capture so action target ids stay
   // unique and match the deduped snapshot ids.
   dedupeFlatHitIds(out);
   return out;
+}
+
+function collectActiveModals(start: AnyFiber | null, out: AnyFiber[], pointerEventsNone = false): void {
+  let fiber = start;
+  while (fiber) {
+    if (!isHiddenSubtreeFiber(fiber)) {
+      const props = readProps(fiber);
+      const inactive = pointerEventsNone || props.pointerEvents === "none";
+      if (!inactive && fiber.tag === 5 && props.accessibilityViewIsModal === true) out.push(fiber);
+      collectActiveModals(fiber.child, out, inactive);
+    }
+    fiber = fiber.sibling;
+  }
+}
+
+// React can reuse children without repairing return pointers to a cloned parent.
+function collectTraversalParents(start: AnyFiber | null, parent: AnyFiber | null, parents: Map<AnyFiber, AnyFiber | null>): void {
+  let fiber = start;
+  while (fiber) {
+    parents.set(fiber, parent);
+    if (!isHiddenSubtreeFiber(fiber)) collectTraversalParents(fiber.child, fiber, parents);
+    fiber = fiber.sibling;
+  }
+}
+
+function isFiberWithin(fiber: AnyFiber, boundary: AnyFiber, parents: Map<AnyFiber, AnyFiber | null>): boolean {
+  let current: AnyFiber | null = fiber;
+  while (current) {
+    if (current === boundary) return true;
+    current = parents.get(current) ?? null;
+  }
+  return false;
 }
 
 function walkLiveLevel(hits: HostHit[], parentId: string, out: IdentifiedHit[]): void {

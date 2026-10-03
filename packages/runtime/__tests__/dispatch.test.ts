@@ -4,6 +4,7 @@ import { dispatchAction } from "../src/dispatch.js";
 
 interface FiberInit {
   type: string;
+  tag?: number;
   props?: Record<string, unknown>;
   stateNode?: unknown;
   children?: FiberInit[];
@@ -11,7 +12,7 @@ interface FiberInit {
 
 function makeFiber(init: FiberInit): AnyFiber {
   const fiber: AnyFiber = {
-    tag: 5,
+    tag: init.tag ?? 5,
     type: init.type,
     elementType: init.type,
     child: null,
@@ -200,6 +201,255 @@ describe("dispatchAction tap", () => {
       expect(out.code).toBe("action_failed");
       expect(out.message).toContain("boom");
     }
+  });
+});
+
+describe("dispatchAction live safety", () => {
+  test("rejects host disabled without accessibility metadata", async () => {
+    let called = 0;
+    const fiber = makeFiber({ type: "RCTView", props: {
+      testID: "off", disabled: true, onPress: () => called++,
+    } });
+    const out = await dispatchAction({ kind: "tap", selector: "#off", target_id: "off" }, { rootsProvider: rootsFor(fiber) });
+    expect(out).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(called).toBe(0);
+  });
+
+  test("rejects disabled composite ownership but not controls beyond a host boundary", async () => {
+    let disabledCalls = 0;
+    let enabledCalls = 0;
+    const fiber = makeFiber({ type: "Pressable", tag: 11, props: { disabled: true }, children: [
+      { type: "RCTView", props: { testID: "off", accessibilityState: { disabled: true }, onResponderRelease: () => disabledCalls++ }, children: [
+        { type: "RCTView", props: { testID: "child", onResponderRelease: () => enabledCalls++ } },
+      ] },
+    ] });
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#off", target_id: "off" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(await dispatchAction({ kind: "tap", selector: "#child", target_id: "child" }, opts)).toEqual({ ok: true });
+    expect(disabledCalls).toBe(0);
+    expect(enabledCalls).toBe(1);
+  });
+
+  test("modal blocks background, permits foreground, and removal restores background", async () => {
+    let backgroundCalls = 0;
+    let foregroundCalls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => backgroundCalls++ } },
+      { type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTView", props: { testID: "foreground", onPress: () => foregroundCalls++ } },
+      ] },
+    ] });
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(backgroundCalls).toBe(0);
+    expect(await dispatchAction({ kind: "tap", selector: "#foreground", target_id: "foreground" }, opts)).toEqual({ ok: true });
+    expect(foregroundCalls).toBe(1);
+    fiber.child!.sibling = null;
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toEqual({ ok: true });
+    expect(backgroundCalls).toBe(1);
+  });
+
+  test.each([
+    { accessibilityElementsHidden: true },
+    { style: { display: "none" } },
+    { pointerEvents: "none" },
+  ])("inactive modal does not block background: %j", async (inactive) => {
+    let called = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => called++ } },
+      { type: "RCTView", props: { accessibilityViewIsModal: true, ...inactive } },
+    ] });
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, { rootsProvider: rootsFor(fiber) })).toEqual({ ok: true });
+    expect(called).toBe(1);
+  });
+
+  test("generic portal does not imply modal isolation", async () => {
+    let backgroundCalls = 0;
+    let portalCalls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => backgroundCalls++ } },
+      { type: "Portal", tag: 4, children: [
+        { type: "RCTView", props: { testID: "portal", onPress: () => portalCalls++ } },
+      ] },
+    ] });
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toEqual({ ok: true });
+    expect(await dispatchAction({ kind: "tap", selector: "#portal", target_id: "portal" }, opts)).toEqual({ ok: true });
+    expect(backgroundCalls).toBe(1);
+    expect(portalCalls).toBe(1);
+  });
+
+  test("nested modal isolates the inner scope without assuming sibling z-order", async () => {
+    let outerCalls = 0;
+    let innerCalls = 0;
+    const fiber = makeFiber({ type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+      { type: "RCTView", props: { testID: "outer", onPress: () => outerCalls++ } },
+      { type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTView", props: { testID: "inner", onPress: () => innerCalls++ } },
+      ] },
+    ] });
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#outer", target_id: "outer" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(await dispatchAction({ kind: "tap", selector: "#inner", target_id: "inner" }, opts)).toEqual({ ok: true });
+    expect(outerCalls).toBe(0);
+    expect(innerCalls).toBe(1);
+  });
+
+  test("modal in another root prevents background action", async () => {
+    let backgroundCalls = 0;
+    let foregroundCalls = 0;
+    const roots = [
+      makeRoot(makeFiber({ type: "RCTView", props: { testID: "background", onPress: () => backgroundCalls++ } })),
+      makeRoot(makeFiber({ type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTView", props: { testID: "foreground", onPress: () => foregroundCalls++ } },
+      ] })),
+    ];
+    const opts = { rootsProvider: () => roots };
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(await dispatchAction({ kind: "tap", selector: "#foreground", target_id: "foreground" }, opts)).toEqual({ ok: true });
+    expect(backgroundCalls).toBe(0);
+    expect(foregroundCalls).toBe(1);
+  });
+  test("disjoint explicit modal scopes refuse ambiguous targets", async () => {
+    let calls = 0;
+    const roots = ["one", "two"].map((id) => makeRoot(makeFiber({ type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+      { type: "RCTView", props: { testID: id, onPress: () => calls++ } },
+    ] })));
+    for (const target_id of ["one", "two"]) {
+      expect(await dispatchAction({ kind: "tap", selector: `#${target_id}`, target_id }, { rootsProvider: () => roots })).toMatchObject({ ok: false, code: "target_disabled" });
+    }
+    expect(calls).toBe(0);
+  });
+
+  test("modal below pointerEvents none ancestor does not block background", async () => {
+    let calls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => calls++ } },
+      { type: "RCTView", props: { pointerEvents: "none" }, children: [
+        { type: "RCTView", props: { accessibilityViewIsModal: true } },
+      ] },
+    ] });
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, { rootsProvider: rootsFor(fiber) })).toEqual({ ok: true });
+    expect(calls).toBe(1);
+  });
+
+  test.each(["disabled", "modal"])("focused key cannot invoke %s background", async (reason) => {
+    let calls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "AndroidTextInput", props: { testID: "focused", disabled: reason === "disabled", onSubmitEditing: () => calls++ }, stateNode: { isFocused: () => true } },
+      ...(reason === "modal" ? [{ type: "RCTView", props: { accessibilityViewIsModal: true } }] : []),
+    ] });
+    expect(await dispatchAction({ kind: "key", key: "enter" }, { rootsProvider: rootsFor(fiber) })).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(calls).toBe(0);
+  });
+
+  test("tab skips background focus destinations", async () => {
+    let backgroundFocus = 0;
+    let foregroundFocus = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "AndroidTextInput", props: { testID: "focused" }, stateNode: { focus: () => {}, isFocused: () => true } },
+      ] },
+      { type: "AndroidTextInput", props: { testID: "background" }, stateNode: { focus: () => backgroundFocus++ } },
+    ] });
+    const modal = fiber.child!;
+    const second = makeFiber({ type: "AndroidTextInput", props: { testID: "next" }, stateNode: { focus: () => foregroundFocus++ } });
+    second.return = modal;
+    modal.child!.sibling = second;
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "key", key: "tab" }, opts)).toEqual({ ok: true });
+    expect(foregroundFocus).toBe(1);
+    expect(backgroundFocus).toBe(0);
+    modal.child = second;
+    second.stateNode = { focus: () => foregroundFocus++, isFocused: () => true };
+    expect(await dispatchAction({ kind: "key", key: "tab" }, opts)).toMatchObject({ ok: false, code: "action_not_supported" });
+    expect(backgroundFocus).toBe(0);
+  });
+
+  test("scroll refusal does not suggest an out-of-modal ancestor", async () => {
+    let calls = 0;
+    const fiber = makeFiber({ type: "RCTScrollView", stateNode: { scrollTo: () => calls++ }, children: [
+      { type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTView", props: { testID: "inside" } },
+      ] },
+    ] });
+    const out = await dispatchAction({ kind: "scroll", selector: "#inside", target_id: "inside", direction: "down" }, { rootsProvider: rootsFor(fiber) });
+    expect(out).toMatchObject({ ok: false, code: "action_not_supported" });
+    if (!out.ok) expect(out.message).not.toContain("nearest scrollable ancestor");
+    expect(calls).toBe(0);
+  });
+
+  test("synthetic root scroll selects only modal recipients", async () => {
+    let backgroundCalls = 0;
+    let foregroundCalls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTScrollView", stateNode: { scrollTo: () => backgroundCalls++ } },
+      { type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTScrollView", stateNode: { scrollTo: () => foregroundCalls++ } },
+      ] },
+    ] });
+    expect(await dispatchAction({ kind: "scroll", selector: "#screen:root", target_id: "screen:root", direction: "down" }, { rootsProvider: rootsFor(fiber) })).toEqual({ ok: true });
+    expect(backgroundCalls).toBe(0);
+    expect(foregroundCalls).toBe(1);
+  });
+  test("modal membership follows the committed child tree across bailed-out return links", async () => {
+    let foregroundCalls = 0;
+    let backgroundCalls = 0;
+    const modal = makeFiber({ type: "RCTView", props: { accessibilityViewIsModal: true }, children: [
+      { type: "RCTView", props: { testID: "foreground", onPress: () => foregroundCalls++ } },
+    ] });
+    // React can reuse a child subtree whose return still points at the alternate.
+    const alternate = makeFiber({ type: "RCTView", props: { accessibilityViewIsModal: true } });
+    modal.child!.return = alternate;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => backgroundCalls++ } },
+    ] });
+    fiber.child!.sibling = modal;
+    modal.return = fiber;
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#foreground", target_id: "foreground" }, opts)).toEqual({ ok: true });
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(foregroundCalls).toBe(1);
+    expect(backgroundCalls).toBe(0);
+  });
+  test.each([false, true])("unrendered composite modal does not block: hidden child %j", async (hiddenChild) => {
+    let calls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => calls++ } },
+      { type: "Modal", tag: 0, props: { accessibilityViewIsModal: true }, children: hiddenChild ? [
+        { type: "RCTView", props: { accessibilityViewIsModal: true, style: { display: "none" } } },
+      ] : [] },
+    ] });
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, { rootsProvider: rootsFor(fiber) })).toEqual({ ok: true });
+    expect(calls).toBe(1);
+  });
+
+  test.each(["hidden", "state"])("renderer-hidden Offscreen modal does not block: %s", async (hiding) => {
+    let calls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => calls++ } },
+      { type: "Offscreen", tag: 22, props: { mode: hiding === "hidden" ? "hidden" : "visible" }, children: [
+        { type: "RCTView", props: { accessibilityViewIsModal: true } },
+      ] },
+    ] });
+    if (hiding === "state") fiber.child!.sibling!.memoizedState = { baseLanes: 0 };
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, { rootsProvider: rootsFor(fiber) })).toEqual({ ok: true });
+    expect(calls).toBe(1);
+  });
+  test("explicit native modal boundary need not be a snapshot-recognized host", async () => {
+    let foregroundCalls = 0;
+    let backgroundCalls = 0;
+    const fiber = makeFiber({ type: "RCTView", children: [
+      { type: "RCTView", props: { testID: "background", onPress: () => backgroundCalls++ } },
+      { type: "RCTModalHostView", props: { accessibilityViewIsModal: true }, children: [
+        { type: "RCTView", props: { testID: "foreground", onPress: () => foregroundCalls++ } },
+      ] },
+    ] });
+    const opts = { rootsProvider: rootsFor(fiber) };
+    expect(await dispatchAction({ kind: "tap", selector: "#background", target_id: "background" }, opts)).toMatchObject({ ok: false, code: "target_disabled" });
+    expect(await dispatchAction({ kind: "tap", selector: "#foreground", target_id: "foreground" }, opts)).toEqual({ ok: true });
+    expect(backgroundCalls).toBe(0);
+    expect(foregroundCalls).toBe(1);
   });
 });
 

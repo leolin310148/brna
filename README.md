@@ -212,6 +212,24 @@ match, the error lists indexed candidates; re-run with `--at <index>` to pick on
 brna act tap "#check" --at 0
 ```
 
+Runtime actions reject explicitly disabled controls, including disabled props
+consumed by a control's composite wrapper. Snapshot disabled state and live
+dispatch use the committed child tree, rather than potentially stale Fiber
+return links.
+
+A rendered native host with `accessibilityViewIsModal={true}` limits live
+actions to its subtree. Nested boundaries narrow to the innermost scope;
+disjoint active boundaries refuse actions rather than guessing their z-order.
+Hidden or non-interactive modal boundaries do not activate this guard. It also
+applies to focused-key actions and synthetic-root target selection. Refusals
+use `target_disabled`, with a message distinguishing disabled controls from
+targets outside the explicit modal scope.
+
+This is not native hit-testing: unmarked overlays, generic portals, and
+composite props that never reach a native host do not establish a modal
+boundary. The guard does not add action capabilities or authoritative overlay
+ordering to snapshots.
+
 ### `wait`
 
 Poll snapshots until a selector appears or disappears.

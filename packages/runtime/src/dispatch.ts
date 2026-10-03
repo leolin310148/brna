@@ -102,8 +102,16 @@ function lookupOrStale(
       `target_id '${action.target_id}'${selector} is not present in the current tree; re-run brna snapshot and retry with a current selector`,
     );
   }
-  if (isDisabledHit(hit)) return fail("target_disabled", `target_id '${action.target_id}' is disabled`);
-  return { ok: true, hit };
+  const blocked = actionSafetyFailure(hit);
+  return blocked ?? { ok: true, hit };
+}
+
+function actionSafetyFailure(hit: IdentifiedHit): DispatchFailure | null {
+  if (isDisabledHit(hit)) return fail("target_disabled", `target_id '${hit.id}' is disabled`);
+  if (hit.blockedByModal) {
+    return fail("target_disabled", `target_id '${hit.id}' is outside the active explicit modal scope; disjoint modal scopes cannot be safely ordered`);
+  }
+  return null;
 }
 
 function firstEnabledHit(
@@ -112,7 +120,7 @@ function firstEnabledHit(
 ): IdentifiedHit | null {
   const hits = walkLive(roots, ROOT_ID);
   for (const hit of hits) {
-    if (isDisabledHit(hit)) continue;
+    if (actionSafetyFailure(hit)) continue;
     if (supportsAction(hit)) return hit;
   }
   return null;
@@ -428,7 +436,7 @@ function nearestScrollableAncestor(roots: FiberRoot[], targetId: string): Identi
   while (current) {
     const parent = byId.get(current.parentId);
     if (!parent) return null;
-    if (findScrollableInstance(parent.fiber)) return parent;
+    if (findScrollableInstance(parent.fiber) && !actionSafetyFailure(parent)) return parent;
     current = parent;
   }
   return null;
@@ -437,13 +445,15 @@ function nearestScrollableAncestor(roots: FiberRoot[], targetId: string): Identi
 function dispatchKey(roots: FiberRoot[], action: KeyActionRequest): DispatchOutcome {
   const all = walkLive(roots, ROOT_ID);
   const focusable: IdentifiedHit[] = [];
-  for (const hit of all) if (isFocusableHit(hit)) focusable.push(hit);
+  for (const hit of all) if (isFocusableHit(hit) && !actionSafetyFailure(hit)) focusable.push(hit);
   const current = currentFocusedHit(all);
 
   if (action.key !== "tab") {
     if (!current) {
       return fail("action_not_supported", "no currently focused host detected");
     }
+    const blocked = actionSafetyFailure(current);
+    if (blocked) return blocked;
     return dispatchFocusedKey(current, action.key);
   }
 
